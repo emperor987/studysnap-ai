@@ -64,7 +64,7 @@ export default function SheetView() {
         <button
           type="button"
           onClick={handleDelete}
-          className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-rose-50 hover:text-destructive"
+          className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-rose-500/15 hover:text-destructive"
         >
           <Trash2 className="size-3.5" />
           Supprimer
@@ -143,8 +143,8 @@ export default function SheetView() {
           </h2>
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/6 p-5">
             <p className="text-sm font-semibold">{c.example.question}</p>
-            <div className="mt-3 rounded-xl bg-mint-50/70 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-mint-600">
+            <div className="mt-3 rounded-xl bg-mint-500/10 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-mint-300">
                 ✓ Solution
               </p>
               <div className="mt-1 text-sm leading-6">
@@ -165,7 +165,7 @@ export default function SheetView() {
               {c.pitfalls.map((p, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/60 p-3.5 text-sm leading-6"
+                  className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-sm leading-6"
                 >
                   <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
                   {p}
@@ -178,7 +178,7 @@ export default function SheetView() {
         {/* À retenir */}
         <section className="glass-panel rounded-3xl p-6">
           <h2 className="flex items-center gap-2 font-bold">
-            <CheckCircle2 className="size-5 text-mint-600" />
+            <CheckCircle2 className="size-5 text-mint-300" />
             À retenir
           </h2>
           <ul className="mt-4 space-y-2">

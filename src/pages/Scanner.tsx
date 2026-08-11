@@ -418,10 +418,10 @@ export default function Scanner() {
               onChange={(e) => setExtraText(e.target.value)}
               rows={4}
               placeholder="Ex. : Résoudre dans R l'équation 2x² − 5x + 3 = 0, puis étudier le signe de f(x) sur R…"
-              className="mt-3 w-full resize-y rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+              className="mt-3 w-full resize-y rounded-xl border border-border bg-white/5 px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
             />
             {extraText.trim().length > 700 && (
-              <p className="mt-2 text-xs font-semibold text-amber-700">
+              <p className="mt-2 text-xs font-semibold text-amber-300">
                 ⏳ Énoncé long détecté : l'analyse peut prendre 1 à 2 minutes.
               </p>
             )}
@@ -484,7 +484,7 @@ export default function Scanner() {
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-2 py-1",
                   i < analysisStep
-                    ? "bg-mint-50 text-mint-700"
+                    ? "bg-mint-500/10 text-mint-300"
                     : i === analysisStep
                       ? "bg-primary/5 text-primary"
                       : "",
@@ -501,7 +501,7 @@ export default function Scanner() {
           </div>
 
           {phase === "generate" && willBeLong && (
-            <div className="mt-6 max-w-sm rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-left text-xs leading-5 text-amber-900">
+            <div className="mt-6 max-w-sm rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-xs leading-5 text-amber-200">
               <p className="font-bold">
                 ⏳ L'analyse peut prendre 1 à 2 minutes
               </p>
@@ -515,7 +515,7 @@ export default function Scanner() {
       {step === "mode" && (
         <div className="mx-auto max-w-3xl">
           <div className="text-center">
-            <span className="glass-chip inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-mint-700">
+            <span className="glass-chip inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-mint-300">
               <CheckCircle2 className="size-3.5" />
               Analyse terminée — ton exercice a bien été lu
             </span>

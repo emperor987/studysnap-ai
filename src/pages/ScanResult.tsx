@@ -50,9 +50,9 @@ function Section({
       className={cn(
         "rounded-2xl border p-5 sm:p-6",
         tone === "success"
-          ? "border-mint-200/80 bg-mint-50/50"
+          ? "border-mint-500/30 bg-mint-500/10"
           : tone === "warn"
-            ? "border-amber-200/80 bg-amber-50/50"
+            ? "border-amber-500/30 bg-amber-500/10"
             : "border-white/10 bg-white/6",
       )}
     >
@@ -98,7 +98,7 @@ function ExerciseCard({
       {open && (
         <div className="mt-3 ml-9 space-y-2 rounded-xl bg-white/10 p-4">
           <div className="text-sm">
-            <span className="font-bold text-mint-600">✓ Réponse : </span>
+            <span className="font-bold text-mint-300">✓ Réponse : </span>
             <Markdown content={answer} />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -245,7 +245,7 @@ export default function ScanResult() {
           {levelLabel(scan.level)}
         </span>
         {!d.legible && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 text-xs font-semibold text-amber-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3.5 py-1.5 text-xs font-semibold text-amber-300">
             <AlertTriangle className="size-3.5" />
             Photo difficile à lire — vérifie la consigne
           </span>
@@ -396,7 +396,7 @@ export default function ScanResult() {
             className={cn(
               "flex size-9 items-center justify-center rounded-full transition-colors",
               feedbackSent === "yes"
-                ? "bg-mint-100 text-mint-600"
+                ? "bg-mint-500/15 text-mint-300"
                 : "hover:bg-white/15",
             )}
             title="Utile"
@@ -409,7 +409,7 @@ export default function ScanResult() {
             className={cn(
               "flex size-9 items-center justify-center rounded-full transition-colors",
               feedbackSent === "no"
-                ? "bg-rose-100 text-rose-500"
+                ? "bg-rose-500/15 text-rose-400"
                 : "hover:bg-white/15",
             )}
             title="Pas utile"

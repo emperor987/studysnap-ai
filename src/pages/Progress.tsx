@@ -41,7 +41,7 @@ export default function Progress() {
       label: "Taux de réussite",
       value: `${stats.globalRate}%`,
       hint: `${stats.totalCorrect}/${stats.totalQuestions} bonnes réponses`,
-      color: "bg-mint-100 text-mint-600",
+      color: "bg-mint-500/15 text-mint-300",
     },
     {
       icon: Target,
@@ -55,14 +55,14 @@ export default function Progress() {
       label: "Temps de révision",
       value: `${stats.studyMinutes} min`,
       hint: "via les quiz terminés",
-      color: "bg-amber-100 text-amber-600",
+      color: "bg-amber-500/15 text-amber-400",
     },
     {
       icon: Flame,
       label: "Exercices scannés",
       value: String(stats.scansCount),
       hint: `${stats.quizzesCount} quiz terminés`,
-      color: "bg-rose-100 text-rose-500",
+      color: "bg-rose-500/15 text-rose-400",
     },
   ];
 
@@ -134,9 +134,9 @@ export default function Progress() {
         <div className="glass-card rounded-3xl p-6">
           <h3 className="font-bold">Notions à revoir</h3>
           {stats.weakTopics.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-mint-200/80 bg-mint-50/60 p-5 text-sm text-mint-700">
+            <div className="mt-6 rounded-2xl border border-mint-500/30 bg-mint-500/10/60 p-5 text-sm text-mint-300">
               <p className="font-bold">Rien à signaler 🎉</p>
-              <p className="mt-1 text-mint-700/80">
+              <p className="mt-1 text-mint-300/80">
                 Aucune notion sous la barre des 60% de réussite.
               </p>
             </div>
@@ -145,10 +145,10 @@ export default function Progress() {
               {stats.weakTopics.map((w) => (
                 <div
                   key={w.topic}
-                  className="flex items-center justify-between rounded-2xl border border-amber-200/70 bg-amber-50/50 p-3.5"
+                  className="flex items-center justify-between rounded-2xl border border-amber-500/30/70 bg-amber-500/10 p-3.5"
                 >
                   <span className="text-sm font-medium">{w.topic}</span>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+                  <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-300">
                     {w.rate}% · {w.total} réponses
                   </span>
                 </div>

@@ -86,7 +86,7 @@ export default function Dashboard() {
       label: "Taux de réussite",
       value: stats ? `${stats.globalRate}%` : "—",
       hint: stats ? `${stats.totalQuestions} questions répondues` : "fais un quiz !",
-      color: "text-mint-600 bg-mint-500/10",
+      color: "text-mint-300 bg-mint-500/10",
     },
   ];
 
@@ -146,7 +146,7 @@ export default function Dashboard() {
               </div>
               <div className="ml-3 h-1.5 w-36 rounded-full bg-primary/20" />
               <div className="ml-3 h-1.5 w-28 rounded-full bg-primary/20" />
-              <p className="text-xs text-mint-600">✓ Analyse terminée (2,4 s)</p>
+              <p className="text-xs text-mint-300">✓ Analyse terminée (2,4 s)</p>
             </div>
           </div>
         </div>
@@ -263,8 +263,8 @@ export default function Dashboard() {
                   <div
                     className={`flex size-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
                       (lastQuiz.score ?? 0) >= (lastQuiz.total ?? 1) * 0.7
-                        ? "bg-mint-100 text-mint-700"
-                        : "bg-amber-100 text-amber-700"
+                        ? "bg-mint-500/15 text-mint-300"
+                        : "bg-amber-500/15 text-amber-300"
                     }`}
                   >
                     {lastQuiz.score}/{lastQuiz.total}

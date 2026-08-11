@@ -277,7 +277,7 @@ const MODES = [
     emoji: "📚",
     title: "Révision",
     text: "Mini-leçon sur la notion, formules clés, 3 exercices similaires et un mini quiz pour vérifier que c'est acquis.",
-    accent: "from-mint-500/15 to-mint-500/0 text-mint-600",
+    accent: "from-mint-500/15 to-mint-500/0 text-mint-300",
   },
 ];
 
@@ -470,7 +470,7 @@ function SheetPreview() {
               "Exemple type corrigé pas à pas",
             ].map((f) => (
               <li key={f} className="flex items-start gap-3 text-sm text-foreground">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-mint-100 text-mint-600">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-mint-500/15 text-mint-300">
                   <Check className="size-3" />
                 </span>
                 {f}
@@ -525,8 +525,8 @@ function SheetPreview() {
                   <span className="font-semibold text-foreground">x = 6</span>
                 </p>
               </div>
-              <div className="rounded-2xl border border-amber-200/80 bg-amber-50/70 p-3.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-600">
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-400">
                   ⚠️ Piège
                 </p>
                 <p className="mt-1 text-sm leading-5 text-muted-foreground">
@@ -556,7 +556,7 @@ function QuizPreview() {
         >
           <div className="glass-panel rounded-3xl p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-mint-100 px-3 py-1 text-xs font-semibold text-mint-700">
+              <span className="rounded-full bg-mint-500/15 px-3 py-1 text-xs font-semibold text-mint-300">
                 ✅ Question 3 / 5
               </span>
               <span className="text-xs text-muted-foreground">Intermédiaire</span>
@@ -570,13 +570,13 @@ function QuizPreview() {
                   key={opt}
                   className={`rounded-xl border px-4 py-3 text-sm ${
                     i === 0
-                      ? "border-mint-300 bg-mint-50 text-mint-800"
+                      ? "border-mint-500/40 bg-mint-500/10 text-mint-200"
                       : "border-border/80 bg-white/8 text-muted-foreground"
                   }`}
                 >
                   <span className="mr-2 font-semibold">{String.fromCharCode(65 + i)}.</span>
                   {opt}
-                  {i === 0 && <span className="float-right text-mint-600">✓</span>}
+                  {i === 0 && <span className="float-right text-mint-300">✓</span>}
                 </div>
               ))}
             </div>

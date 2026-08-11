@@ -217,7 +217,7 @@ export default function Sheets() {
                 <button
                   type="button"
                   onClick={() => handleDelete(sheet._id)}
-                  className="flex size-8 items-center justify-center rounded-full text-muted-foreground/60 opacity-0 transition-all hover:bg-rose-50 hover:text-destructive group-hover:opacity-100"
+                  className="flex size-8 items-center justify-center rounded-full text-muted-foreground/60 opacity-0 transition-all hover:bg-rose-500/15 hover:text-destructive group-hover:opacity-100"
                   title="Supprimer"
                 >
                   <Trash2 className="size-4" />

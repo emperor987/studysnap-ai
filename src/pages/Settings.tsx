@@ -253,7 +253,7 @@ export default function Settings() {
                 </p>
               </div>
               {plan?.plan !== "free" && (
-                <span className="rounded-full bg-mint-100 px-3 py-1 text-xs font-bold text-mint-700">
+                <span className="rounded-full bg-mint-500/15 px-3 py-1 text-xs font-bold text-mint-300">
                   Actif
                 </span>
               )}
@@ -275,7 +275,7 @@ export default function Settings() {
 
           <div className="glass-card rounded-3xl p-6">
             <h2 className="flex items-center gap-2 font-bold">
-              <ShieldCheck className="size-5 text-mint-600" />
+              <ShieldCheck className="size-5 text-mint-300" />
               Données & confidentialité
             </h2>
             <ul className="mt-4 space-y-2.5 text-sm leading-6 text-muted-foreground">

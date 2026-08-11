@@ -138,10 +138,10 @@ export default function QuizPlayer() {
               className={cn(
                 "mx-auto flex size-24 items-center justify-center rounded-full text-3xl font-black",
                 pct >= 70
-                  ? "bg-mint-100 text-mint-600"
+                  ? "bg-mint-500/15 text-mint-300"
                   : pct >= 40
-                    ? "bg-amber-100 text-amber-600"
-                    : "bg-rose-100 text-rose-500",
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "bg-rose-500/15 text-rose-400",
               )}
             >
               {pct}%
@@ -159,19 +159,19 @@ export default function QuizPlayer() {
             </p>
 
             {weakTopics.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 text-left">
-                <p className="flex items-center gap-1.5 text-sm font-bold text-amber-700">
+              <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left">
+                <p className="flex items-center gap-1.5 text-sm font-bold text-amber-300">
                   <Target className="size-4" />
                   Notions à revoir
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {weakTopics.map((t) => (
-                    <li key={t} className="text-sm text-amber-800">
+                    <li key={t} className="text-sm text-amber-300">
                       • {t}
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2 text-xs text-amber-700/80">
+                <p className="mt-2 text-xs text-amber-300/80">
                   Reprends la fiche de révision correspondante puis refais le
                   quiz.
                 </p>
@@ -268,8 +268,8 @@ export default function QuizPlayer() {
                     className={cn(
                       "flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-left text-sm font-medium transition-all",
                       !answered && "border-border bg-white/6 hover:border-primary/40 hover:bg-white/15",
-                      answered && isAnswer && "border-mint-300 bg-mint-50 text-mint-800",
-                      answered && !isAnswer && selected === opt && "border-rose-300 bg-rose-50 text-rose-700",
+                      answered && isAnswer && "border-mint-500/40 bg-mint-500/10 text-mint-200",
+                      answered && !isAnswer && selected === opt && "border-rose-500/40 bg-rose-500/10 text-rose-300",
                       answered && !isAnswer && selected !== opt && "border-border/70 bg-white/4 text-muted-foreground",
                     )}
                   >
@@ -281,7 +281,7 @@ export default function QuizPlayer() {
                       <Check className="size-4 text-mint-500" />
                     )}
                     {answered && !isAnswer && selected === opt && (
-                      <X className="size-4 text-rose-500" />
+                      <X className="size-4 text-rose-400" />
                     )}
                   </button>
                 );
@@ -320,14 +320,14 @@ export default function QuizPlayer() {
               className={cn(
                 "mt-5 rounded-2xl border p-4",
                 isCorrectSelected
-                  ? "border-mint-200 bg-mint-50/70"
-                  : "border-rose-200 bg-rose-50/60",
+                  ? "border-mint-500/30 bg-mint-500/10"
+                  : "border-rose-500/30 bg-rose-500/10",
               )}
             >
               <p
                 className={cn(
                   "flex items-center gap-2 text-sm font-bold",
-                  isCorrectSelected ? "text-mint-700" : "text-rose-600",
+                  isCorrectSelected ? "text-mint-300" : "text-rose-300",
                 )}
               >
                 {isCorrectSelected ? (
@@ -345,7 +345,7 @@ export default function QuizPlayer() {
               {!isCorrectSelected && (
                 <p className="mt-1 text-sm">
                   Réponse attendue :{" "}
-                  <span className="font-bold text-mint-700">{q.answer}</span>
+                  <span className="font-bold text-mint-300">{q.answer}</span>
                 </p>
               )}
               {q.explanation && (
