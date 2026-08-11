@@ -185,12 +185,13 @@ function Hero() {
             loading="lazy"
           />
         </div>
-        {/* Overlay dégradé : léger en haut (lisibilité de la nav), fondu vers la
-            couleur de fond de la page en bas (fusion douce avec la section
-            suivante). Son opacité est pilotée au scroll. */}
+        {/* Overlay dégradé noir : léger en haut (nav), assombri au niveau du
+            titre et foncé en bas (texte blanc du compteur/CTA lisible dans les
+            deux thèmes). Son opacité est pilotée au scroll, ce qui adoucit la
+            transition avec la section suivante. */}
         <div
           ref={overlayRef}
-          className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/55 to-(--color-background) transition-opacity duration-150 ease-out will-change-[opacity]"
+          className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/95 transition-opacity duration-150 ease-out will-change-[opacity]"
           style={{ opacity: 1 }}
         />
       </div>
