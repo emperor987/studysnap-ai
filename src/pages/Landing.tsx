@@ -945,8 +945,8 @@ export default function Landing() {
       id="top"
     >
       <Hero />
-      <Testimonials />
       <HowItWorks />
+      <Testimonials />
       <Modes />
       <SheetPreview />
       <QuizPreview />
