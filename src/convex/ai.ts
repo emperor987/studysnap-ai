@@ -69,11 +69,17 @@ function aiModel(): string {
  * lit directement les images, comportement historique).
  */
 function aiFastModel(): string {
-  return process.env.AI_MODEL_FAST?.trim() || aiModel();
+  const v = process.env.AI_MODEL_FAST?.trim();
+  // Garde-fou : AI_MODEL_FAST doit contenir un NOM de modèle. Si la valeur
+  // ressemble à une URL (confusion fréquente avec AI_BASE_URL), on retombe
+  // sur le modèle principal plutôt que d'envoyer une requête invalide.
+  if (!v || v.includes("://")) return aiModel();
+  return v;
 }
 
 function aiFastModelConfigured(): boolean {
-  return Boolean(process.env.AI_MODEL_FAST?.trim());
+  const v = process.env.AI_MODEL_FAST?.trim();
+  return Boolean(v && !v.includes("://"));
 }
 
 function aiMaxTokens(): number {
@@ -366,6 +372,55 @@ async function chatJson(
   return extractJson(raw);
 }
 
+/**
+ * Appel JSON avec relance si le contenu est incomplet : sur un texte OCR
+ * minimal, le modèle renvoie parfois un JSON partiel (ex: detection seule).
+ * Une seconde génération avec raisonnement activé produit généralement la
+ * structure complète — limitée à une relance pour ne pas doubler la latence
+ * à chaque fois.
+ */
+async function chatJsonComplete(
+  messages: { role: "system" | "user" | "assistant"; content: unknown }[],
+  isComplete: (parsed: Record<string, unknown>) => boolean,
+  signal?: AbortSignal,
+  maxTokens?: number,
+): Promise<Record<string, unknown>> {
+  const first = await chatJson(messages, signal, maxTokens);
+  if (isComplete(first)) return first;
+  const raw = await chatRaw(messages, {
+    signal,
+    maxTokens,
+    attempts: [
+      { jsonMode: true, thinking: "on" },
+      { jsonMode: true },
+      { jsonMode: false },
+    ],
+  });
+  return extractJson(raw);
+}
+
+/** Vrai si l'analyse contient les 4 sections remplies (detection, quick, explain, revise). */
+function analysisComplete(parsed: Record<string, unknown>): boolean {
+  return ["detection", "quick", "explain", "revise"].every((k) => {
+    const v = parsed[k];
+    return v !== undefined && v !== null && (typeof v !== "object" || Object.keys(v as object).length > 0);
+  });
+}
+
+/** Vrai si la fiche a un titre, un contenu et les sections essentielles (exemple + pièges + à retenir). */
+function sheetComplete(parsed: Record<string, unknown>): boolean {
+  if (typeof parsed.title !== "string" || parsed.title.length === 0) return false;
+  const c = parsed.content as Record<string, unknown> | undefined;
+  if (!c || typeof c !== "object") return false;
+  const example = (c.example ?? {}) as Record<string, unknown>;
+  const hasExample =
+    typeof example.question === "string" && example.question.length > 0 &&
+    typeof example.solution === "string" && example.solution.length > 0;
+  const hasLists =
+    asStringArray(c.pitfalls).length > 0 && asStringArray(c.takeaways).length > 0;
+  return hasExample && hasLists;
+}
+
 /** Démarre un timeout court pour donner l'illusion de rapidité (2-4 s perçues). */
 function minLatency(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 1400 + Math.random() * 900));
@@ -555,11 +610,13 @@ export const analyzeText = action({
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 90000);
+    // Deux générations possibles (relance complétude) + file du free tier :
+    // marge large pour ne pas couper la relance en plein milieu.
+    const timer = setTimeout(() => controller.abort(), 150000);
     try {
       // Plafond de sortie élevé : l'analyse renvoie les 3 modes à la fois,
       // un JSON tronqué rendrait la réponse inutilisable.
-      const parsed = await chatJson(
+      const parsed = await chatJsonComplete(
         [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -576,6 +633,7 @@ export const analyzeText = action({
             ],
           },
         ],
+        analysisComplete,
         controller.signal,
         8000,
       );
@@ -679,10 +737,13 @@ export const generateSheet = action({
       }
     }
 
-    const parsed = await chatJson([
-      { role: "system", content: SHEET_SYSTEM_PROMPT },
-      { role: "user", content: parts },
-    ]);
+    const parsed = await chatJsonComplete(
+      [
+        { role: "system", content: SHEET_SYSTEM_PROMPT },
+        { role: "user", content: parts },
+      ],
+      sheetComplete,
+    );
     return normalizeSheet(parsed, args.subject ?? "Mathématiques");
   },
 });
