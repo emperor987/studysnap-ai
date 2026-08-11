@@ -33,20 +33,21 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+/* Pastilles matières adaptées au thème sombre (fond translucide, teinte claire). */
 export const SUBJECT_COLORS: Record<string, string> = {
-  "Mathématiques": "bg-indigo-100 text-indigo-700",
-  "Physique-Chimie": "bg-sky-100 text-sky-700",
-  "Français": "bg-rose-100 text-rose-700",
-  "Histoire-Géo": "bg-amber-100 text-amber-700",
-  "SVT": "bg-emerald-100 text-emerald-700",
-  "Anglais": "bg-violet-100 text-violet-700",
-  "Espagnol": "bg-orange-100 text-orange-700",
-  "Philosophie": "bg-teal-100 text-teal-700",
-  "NSI": "bg-cyan-100 text-cyan-700",
+  "Mathématiques": "bg-indigo-500/15 text-indigo-300",
+  "Physique-Chimie": "bg-sky-500/15 text-sky-300",
+  "Français": "bg-rose-500/15 text-rose-300",
+  "Histoire-Géo": "bg-amber-500/15 text-amber-300",
+  "SVT": "bg-mint-500/15 text-mint-300",
+  "Anglais": "bg-violet-500/15 text-violet-300",
+  "Espagnol": "bg-orange-500/15 text-orange-300",
+  "Philosophie": "bg-teal-500/15 text-teal-300",
+  "NSI": "bg-cyan-500/15 text-cyan-300",
 };
 
 export function subjectColor(subject: string): string {
-  return SUBJECT_COLORS[subject] ?? "bg-zinc-100 text-zinc-700";
+  return SUBJECT_COLORS[subject] ?? "bg-white/10 text-zinc-300";
 }
 
 export function subjectEmoji(subject: string): string {

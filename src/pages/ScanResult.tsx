@@ -53,7 +53,7 @@ function Section({
           ? "border-mint-200/80 bg-mint-50/50"
           : tone === "warn"
             ? "border-amber-200/80 bg-amber-50/50"
-            : "border-white/70 bg-white/60",
+            : "border-white/10 bg-white/6",
       )}
     >
       <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-primary">
@@ -78,7 +78,7 @@ function ExerciseCard({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/60 p-5">
+    <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
       <div className="flex items-start gap-3">
         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
           {index + 1}
@@ -96,7 +96,7 @@ function ExerciseCard({
         {open ? "Masquer la correction" : "Voir la correction"}
       </button>
       {open && (
-        <div className="mt-3 ml-9 space-y-2 rounded-xl bg-white/80 p-4">
+        <div className="mt-3 ml-9 space-y-2 rounded-xl bg-white/10 p-4">
           <div className="text-sm">
             <span className="font-bold text-mint-600">✓ Réponse : </span>
             <Markdown content={answer} />
@@ -397,7 +397,7 @@ export default function ScanResult() {
               "flex size-9 items-center justify-center rounded-full transition-colors",
               feedbackSent === "yes"
                 ? "bg-mint-100 text-mint-600"
-                : "hover:bg-white/70",
+                : "hover:bg-white/15",
             )}
             title="Utile"
           >
@@ -410,7 +410,7 @@ export default function ScanResult() {
               "flex size-9 items-center justify-center rounded-full transition-colors",
               feedbackSent === "no"
                 ? "bg-rose-100 text-rose-500"
-                : "hover:bg-white/70",
+                : "hover:bg-white/15",
             )}
             title="Pas utile"
           >

@@ -48,7 +48,7 @@ export default function History() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un exercice, une notion…"
-            className="h-11 w-full rounded-xl border border-border bg-white/70 pl-10 pr-4 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+            className="h-11 w-full rounded-xl border border-border bg-white/8 pl-10 pr-4 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -133,7 +133,7 @@ export default function History() {
                     {formatDateTimeFr(scan.createdAt)}
                   </p>
                 </div>
-                <span className="hidden shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-muted-foreground sm:block">
+                <span className="hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-xs font-medium text-muted-foreground sm:block">
                   {modeLabel(scan.mode ?? "explain")}
                 </span>
                 {scan.saved && (

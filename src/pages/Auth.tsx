@@ -317,7 +317,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         </div>
 
         {/* Onglets Se connecter / S'inscrire */}
-        <div className="mt-6 grid grid-cols-2 gap-1 rounded-2xl bg-zinc-100/80 p-1">
+        <div className="mt-6 grid grid-cols-2 gap-1 rounded-2xl bg-white/8 p-1">
           {(
             [
               { id: "signIn", label: "Se connecter" },
@@ -444,7 +444,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white/70 px-2 text-muted-foreground backdrop-blur">
+                  <span className="bg-white/8 px-2 text-muted-foreground backdrop-blur">
                     Ou
                   </span>
                 </div>
@@ -453,7 +453,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 w-full rounded-xl bg-white/60"
+                  className="h-12 w-full rounded-xl bg-white/6"
                   onClick={() => {
                     setMethod("emailCode");
                     setError(null);
@@ -465,7 +465,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 w-full rounded-xl bg-white/60"
+                  className="h-12 w-full rounded-xl bg-white/6"
                   onClick={handleGuestLogin}
                   disabled={isLoading}
                 >

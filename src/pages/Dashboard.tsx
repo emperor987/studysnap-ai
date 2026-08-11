@@ -128,14 +128,14 @@ export default function Dashboard() {
               </Link>
               <Link
                 to="/sheets"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-white/70 px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-white"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3.5 text-sm font-semibold transition-colors hover:bg-white/15"
               >
                 <BookOpen className="size-4" />
                 Nouvelle fiche de révision
               </Link>
             </div>
           </div>
-          <div className="hidden shrink-0 rounded-3xl border border-white/60 bg-white/40 p-5 sm:block">
+          <div className="hidden shrink-0 rounded-3xl border border-white/10 bg-white/4 p-5 sm:block">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Démo de scan
             </p>
@@ -195,7 +195,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={handleDemoSheet}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
               >
                 <FileText className="size-4" />
                 Ajouter une fiche d'exemple
@@ -228,7 +228,7 @@ export default function Dashboard() {
                   <Link
                     key={scan._id}
                     to={`/scanner/result/${scan._id}`}
-                    className="flex items-center gap-3 rounded-2xl border border-white/60 bg-white/40 p-3 transition-colors hover:bg-white/70"
+                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition-colors hover:bg-white/15"
                   >
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-lg">
                       {subjectEmoji(scan.subject)}
@@ -281,7 +281,7 @@ export default function Dashboard() {
                 </div>
                 <Link
                   to="/revision"
-                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-4 py-2 text-xs font-semibold transition-colors hover:bg-white"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-4 py-2 text-xs font-semibold transition-colors hover:bg-white/15"
                 >
                   <Play className="size-3.5" />
                   Nouveau quiz
@@ -294,7 +294,7 @@ export default function Dashboard() {
                 </p>
                 <Link
                   to="/revision"
-                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-4 py-2 text-xs font-semibold transition-colors hover:bg-white"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-4 py-2 text-xs font-semibold transition-colors hover:bg-white/15"
                 >
                   <Target className="size-3.5" />
                   Créer un quiz

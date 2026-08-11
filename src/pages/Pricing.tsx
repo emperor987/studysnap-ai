@@ -128,7 +128,7 @@ export default function Pricing() {
                     className={`mt-7 flex items-center justify-center gap-2 rounded-full px-6 py-3 text-center text-sm font-semibold transition-all disabled:opacity-60 ${
                       plan.highlight
                         ? "bg-brand-gradient text-white shadow-lg shadow-indigo-500/25 hover:brightness-110"
-                        : "border border-border bg-white/70 text-foreground hover:bg-white"
+                        : "border border-border bg-white/8 text-foreground hover:bg-white/15"
                     }`}
                   >
                     {loadingPlan === plan.id ? (
@@ -157,7 +157,7 @@ export default function Pricing() {
           </p>
           <Link
             to="/auth?returnTo=%2Fscanner"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
           >
             Scanner gratuitement avant de décider
             <ArrowLeft className="size-4 rotate-180" />

@@ -80,7 +80,7 @@ export default function SheetView() {
           </h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {c.concepts.map((concept, i) => (
-              <div key={i} className="rounded-2xl border border-white/70 bg-white/60 p-4">
+              <div key={i} className="rounded-2xl border border-white/10 bg-white/6 p-4">
                 <p className="text-sm font-bold text-primary">{concept.term}</p>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   {concept.definition}
@@ -141,7 +141,7 @@ export default function SheetView() {
             <Lightbulb className="size-5 text-primary" />
             Exemple type
           </h2>
-          <div className="mt-4 rounded-2xl border border-white/70 bg-white/60 p-5">
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/6 p-5">
             <p className="text-sm font-semibold">{c.example.question}</p>
             <div className="mt-3 rounded-xl bg-mint-50/70 p-4">
               <p className="text-[11px] font-bold uppercase tracking-wide text-mint-600">

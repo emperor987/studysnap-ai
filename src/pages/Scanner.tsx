@@ -86,7 +86,7 @@ function LimitReached() {
           </Link>
           <Link
             to="/exercises"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
           >
             Revoir mes exercices
           </Link>
@@ -287,7 +287,7 @@ export default function Scanner() {
             }}
             className={cn(
               "glass-panel rounded-3xl border-2 border-dashed p-8 text-center transition-colors sm:p-12",
-              files.length === 0 ? "border-primary/30" : "border-white/60",
+              files.length === 0 ? "border-primary/30" : "border-white/10",
             )}
           >
             {files.length === 0 ? (
@@ -403,7 +403,7 @@ export default function Scanner() {
           )}
 
           {/* Texte de l'énoncé en option : accélère et fiabilise l'analyse. */}
-          <details className="group mt-6 rounded-2xl border border-border/60 bg-white/50 p-4 open:bg-white/70">
+          <details className="group mt-6 rounded-2xl border border-border/60 bg-white/5 p-4 open:bg-white/8">
             <summary className="flex cursor-pointer select-none items-center gap-2 text-sm font-semibold text-primary">
               <FileText className="size-4" />
               Ajouter le texte de l'énoncé (optionnel)
@@ -469,7 +469,7 @@ export default function Scanner() {
               ? OCR_STEPS[analysisStep]
               : GENERATE_STEPS[analysisStep]}
           </p>
-          <div className="mt-6 h-1.5 w-64 overflow-hidden rounded-full bg-zinc-200/70">
+          <div className="mt-6 h-1.5 w-64 overflow-hidden rounded-full bg-white/10">
             <motion.div
               className="h-full rounded-full bg-brand-gradient"
               initial={{ width: "8%" }}

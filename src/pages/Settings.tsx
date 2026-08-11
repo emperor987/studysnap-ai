@@ -161,7 +161,7 @@ export default function Settings() {
                     "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
                     favoriteSubjects.includes(s)
                       ? "border-primary/50 bg-primary/10 text-primary"
-                      : "border-border bg-white/60 text-muted-foreground",
+                      : "border-border bg-white/6 text-muted-foreground",
                   )}
                 >
                   {favoriteSubjects.includes(s) && (
@@ -241,7 +241,7 @@ export default function Settings() {
               <BadgeCheck className="size-5 text-primary" />
               Abonnement
             </h2>
-            <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/70 bg-white/60 p-4">
+            <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 p-4">
               <div>
                 <p className="font-bold">{planLabel}</p>
                 <p className="text-xs text-muted-foreground">
@@ -260,7 +260,7 @@ export default function Settings() {
             </div>
             <Link
               to="/pricing"
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white/70 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white/8 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/15"
             >
               {plan?.plan === "free" ? (
                 <>

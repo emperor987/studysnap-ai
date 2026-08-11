@@ -104,7 +104,7 @@ export function AppShell({
   return (
     <div className="bg-glow min-h-screen bg-background text-foreground">
       {/* ---------- Sidebar desktop ---------- */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/50 bg-white/50 p-5 backdrop-blur-2xl lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-border bg-[#1c1c22]/90 p-5 backdrop-blur-2xl lg:flex">
         <NavLink to="/dashboard" className="flex items-center gap-2.5 px-1">
           <img src={logo} alt="StudySnap" width={34} height={34} className="rounded-xl" />
           <span className="text-lg font-extrabold tracking-tight">
@@ -122,7 +122,7 @@ export function AppShell({
           </NavLink>
           <NavLink
             to="/sheets"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-white/70 px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-white"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-white/10"
           >
             <Plus className="size-4" />
             Nouvelle fiche de révision
@@ -139,7 +139,7 @@ export function AppShell({
                   "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-white/70 hover:text-foreground",
+                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
                 )
               }
             >
@@ -152,7 +152,7 @@ export function AppShell({
         <div className="mt-4 flex flex-col gap-3">
           <UsageBar />
           <PlanChip />
-          <div className="mt-1 flex items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/50 p-3">
+          <div className="mt-1 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
                 {initials(firstName)}
@@ -179,7 +179,7 @@ export function AppShell({
       </aside>
 
       {/* ---------- Header mobile ---------- */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/50 bg-white/60 px-5 py-3 backdrop-blur-xl lg:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-[#121216]/85 px-5 py-3 backdrop-blur-xl lg:hidden">
         <NavLink to="/dashboard" className="flex items-center gap-2">
           <img src={logo} alt="StudySnap" width={28} height={28} className="rounded-lg" />
           <span className="font-extrabold tracking-tight">
@@ -191,7 +191,7 @@ export function AppShell({
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex size-8 items-center justify-center rounded-full bg-white/70 text-muted-foreground"
+            className="flex size-8 items-center justify-center rounded-full bg-white/10 text-muted-foreground"
             title="Se déconnecter"
           >
             <LogOut className="size-4" />
@@ -219,7 +219,7 @@ export function AppShell({
       </main>
 
       {/* ---------- Bottom nav mobile ---------- */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/60 bg-white/75 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-[#1c1c22]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl lg:hidden">
         <div className="mx-auto grid max-w-md grid-cols-5">
           {BOTTOM_NAV.map((item) => (
             <NavLink

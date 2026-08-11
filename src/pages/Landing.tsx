@@ -151,7 +151,7 @@ function Hero() {
           </a>
           <Link
             to="/auth?returnTo=%2Fdashboard"
-            className="whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/20 sm:px-5 sm:py-2.5"
+            className="whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/15 sm:px-5 sm:py-2.5"
           >
             S&apos;inscrire
           </Link>
@@ -414,7 +414,7 @@ function HowItWorks() {
 
 function Modes() {
   return (
-    <section className="bg-white/50 py-20 sm:py-28">
+    <section className="bg-white/5 py-20 sm:py-28">
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
         <SectionTitle
           kicker="3 modes"
@@ -502,7 +502,7 @@ function SheetPreview() {
             </div>
             <h3 className="mt-4 text-lg font-bold">Équations du premier degré</h3>
             <div className="mt-4 space-y-3">
-              <div className="rounded-2xl border border-border/70 bg-white/70 p-3.5">
+              <div className="rounded-2xl border border-border/70 bg-white/8 p-3.5">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
                   Définition
                 </p>
@@ -510,13 +510,13 @@ function SheetPreview() {
                   Une équation du 1er degré s&apos;écrit ax + b = c avec a ≠ 0.
                 </p>
               </div>
-              <div className="rounded-2xl border border-border/70 bg-white/70 p-3.5">
+              <div className="rounded-2xl border border-border/70 bg-white/8 p-3.5">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
                   Formule clé
                 </p>
                 <p className="mt-1 font-mono text-sm">x = (c − b) / a</p>
               </div>
-              <div className="rounded-2xl border border-border/70 bg-white/70 p-3.5">
+              <div className="rounded-2xl border border-border/70 bg-white/8 p-3.5">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
                   Exemple
                 </p>
@@ -544,7 +544,7 @@ function SheetPreview() {
 
 function QuizPreview() {
   return (
-    <section className="bg-white/50 py-20 sm:py-28">
+    <section className="bg-white/5 py-20 sm:py-28">
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-2">
         {/* Aperçu d'une question de quiz */}
         <motion.div
@@ -571,7 +571,7 @@ function QuizPreview() {
                   className={`rounded-xl border px-4 py-3 text-sm ${
                     i === 0
                       ? "border-mint-300 bg-mint-50 text-mint-800"
-                      : "border-border/80 bg-white/70 text-muted-foreground"
+                      : "border-border/80 bg-white/8 text-muted-foreground"
                   }`}
                 >
                   <span className="mr-2 font-semibold">{String.fromCharCode(65 + i)}.</span>
@@ -671,7 +671,7 @@ function HistoryPreview() {
                 {item.subject} · {item.when}
               </p>
             </div>
-            <span className="hidden shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-muted-foreground sm:block">
+            <span className="hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-xs font-medium text-muted-foreground sm:block">
               {item.mode}
             </span>
             <History className="size-4 shrink-0 text-muted-foreground/60" />
@@ -684,7 +684,7 @@ function HistoryPreview() {
 
 function Testimonials() {
   return (
-    <section className="bg-white/50 py-20 sm:py-28">
+    <section className="bg-white/5 py-20 sm:py-28">
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
         <SectionTitle
           kicker="Ils l'utilisent"
@@ -819,7 +819,7 @@ function PricingSection() {
               className={`mt-7 rounded-full px-6 py-3 text-center text-sm font-semibold transition-all ${
                 plan.highlight
                   ? "bg-brand-gradient text-white shadow-lg shadow-indigo-500/25 hover:brightness-110"
-                  : "border border-border bg-white/70 text-foreground hover:bg-white"
+                  : "border border-border bg-white/8 text-foreground hover:bg-white/15"
               }`}
             >
               {plan.cta}
@@ -836,7 +836,7 @@ function PricingSection() {
 
 function FAQ() {
   return (
-    <section id="faq" className="bg-white/50 py-20 sm:py-28">
+    <section id="faq" className="bg-white/5 py-20 sm:py-28">
       <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
         <SectionTitle
           kicker="❓ FAQ"
@@ -847,7 +847,7 @@ function FAQ() {
             <AccordionItem
               key={item.q}
               value={`item-${i}`}
-              className="glass-card rounded-2xl border border-white/70 px-5"
+              className="glass-card rounded-2xl border border-white/10 px-5"
             >
               <AccordionTrigger className="py-5 text-base font-semibold hover:no-underline">
                 {item.q}
@@ -889,7 +889,7 @@ function FinalCTA() {
           </Link>
           <Link
             to="/pricing"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-6 py-4 text-sm font-semibold text-foreground transition-colors hover:bg-white"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-4 text-sm font-semibold text-foreground transition-colors hover:bg-white/15"
           >
             <ListChecks className="size-4" />
             Voir les prix
@@ -902,7 +902,7 @@ function FinalCTA() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border/70 bg-white/40">
+    <footer className="border-t border-border/70 bg-white/4">
       <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
         <div className="flex flex-col items-center gap-6">
           <div className="flex items-center gap-2.5">

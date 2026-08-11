@@ -247,7 +247,7 @@ export default function Sheets() {
                 "flex flex-col items-center gap-2 rounded-2xl border p-4 text-sm font-semibold transition-colors",
                 sourceType === "photo"
                   ? "border-primary/50 bg-primary/5 text-primary"
-                  : "border-border bg-white/60 text-muted-foreground",
+                  : "border-border bg-white/6 text-muted-foreground",
               )}
             >
               <ImagePlus className="size-5" />
@@ -260,7 +260,7 @@ export default function Sheets() {
                 "flex flex-col items-center gap-2 rounded-2xl border p-4 text-sm font-semibold transition-colors",
                 sourceType === "text"
                   ? "border-primary/50 bg-primary/5 text-primary"
-                  : "border-border bg-white/60 text-muted-foreground",
+                  : "border-border bg-white/6 text-muted-foreground",
               )}
             >
               <Type className="size-5" />

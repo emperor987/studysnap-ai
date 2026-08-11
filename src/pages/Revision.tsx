@@ -151,7 +151,7 @@ export default function Revision() {
               step={1}
               value={count}
               onChange={(e) => setCount(Number(e.target.value))}
-              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-200 accent-[#4f46e5]"
+              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-[#4f4fe5]"
             />
             <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
               <span>5</span>
@@ -174,7 +174,7 @@ export default function Revision() {
                   "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
                   difficulty === d.id
                     ? "border-primary/50 bg-primary/10 text-primary"
-                    : "border-border bg-white/60 text-muted-foreground",
+                    : "border-border bg-white/6 text-muted-foreground",
                 )}
               >
                 <span>{d.emoji}</span>
@@ -198,7 +198,7 @@ export default function Revision() {
                   "flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-semibold transition-colors",
                   types.includes(t.id)
                     ? "border-primary/50 bg-primary/10 text-primary"
-                    : "border-border bg-white/60 text-muted-foreground",
+                    : "border-border bg-white/6 text-muted-foreground",
                 )}
               >
                 <t.icon className="size-4" />
@@ -263,7 +263,7 @@ export default function Revision() {
                         ? (q.score ?? 0) >= (q.total ?? 1) * 0.7
                           ? "bg-mint-100 text-mint-700"
                           : "bg-amber-100 text-amber-700"
-                        : "bg-zinc-100 text-muted-foreground",
+                        : "bg-white/10 text-muted-foreground",
                     )}
                   >
                     {q.status === "done"
@@ -286,7 +286,7 @@ export default function Revision() {
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                       {subjectEmoji(q.subject)} {q.subject}
                     </span>
-                    <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
                       En cours
                     </span>
                   </div>

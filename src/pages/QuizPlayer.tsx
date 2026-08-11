@@ -189,7 +189,7 @@ export default function QuizPlayer() {
               </button>
               <Link
                 to="/revision"
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
               >
                 <Sparkles className="size-4" />
                 Nouveau quiz
@@ -232,7 +232,7 @@ export default function QuizPlayer() {
       <div className="mx-auto max-w-2xl">
         {/* Progression */}
         <div className="flex items-center gap-3">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-200/70">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
             <div
               className="h-full rounded-full bg-brand-gradient transition-all"
               style={{ width: `${((index + (answered ? 1 : 0)) / quiz.questions.length) * 100}%` }}
@@ -267,10 +267,10 @@ export default function QuizPlayer() {
                     onClick={() => checkAnswer(opt)}
                     className={cn(
                       "flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-left text-sm font-medium transition-all",
-                      !answered && "border-border bg-white/60 hover:border-primary/40 hover:bg-white",
+                      !answered && "border-border bg-white/6 hover:border-primary/40 hover:bg-white/15",
                       answered && isAnswer && "border-mint-300 bg-mint-50 text-mint-800",
                       answered && !isAnswer && selected === opt && "border-rose-300 bg-rose-50 text-rose-700",
-                      answered && !isAnswer && selected !== opt && "border-border/70 bg-white/40 text-muted-foreground",
+                      answered && !isAnswer && selected !== opt && "border-border/70 bg-white/4 text-muted-foreground",
                     )}
                   >
                     <span>
@@ -299,7 +299,7 @@ export default function QuizPlayer() {
                   name="answer"
                   placeholder="Écris ta réponse ici…"
                   disabled={answered}
-                  className="h-12 w-full rounded-xl border border-border bg-white/70 px-4 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                  className="h-12 w-full rounded-xl border border-border bg-white/8 px-4 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                   autoFocus
                 />
                 {!answered && (
