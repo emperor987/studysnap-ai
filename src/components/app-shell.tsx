@@ -106,7 +106,7 @@ export function AppShell({
       {/* ---------- Sidebar desktop ---------- */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-border bg-[#1c1c22]/90 p-5 backdrop-blur-2xl lg:flex">
         <NavLink to="/dashboard" className="flex items-center gap-2.5 px-1">
-          <span className="text-lg font-extrabold tracking-tight">
+          <span className="text-xl font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </NavLink>
@@ -181,7 +181,7 @@ export function AppShell({
       {/* ---------- Header mobile ---------- */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-[#121216]/85 px-5 py-3 backdrop-blur-xl lg:hidden">
         <NavLink to="/dashboard" className="flex items-center gap-2">
-          <span className="font-extrabold tracking-tight">
+          <span className="text-lg font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </NavLink>

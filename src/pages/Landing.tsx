@@ -117,7 +117,7 @@ function Hero() {
       {/* Nav en overlay */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-2.5">
-          <span className="truncate text-base font-extrabold tracking-tight text-white sm:text-lg">
+          <span className="truncate text-lg font-extrabold tracking-tight text-white sm:text-xl">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </Link>
@@ -898,7 +898,7 @@ function Footer() {
       <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
         <div className="flex flex-col items-center gap-6">
           <div className="flex items-center gap-2.5">
-            <span className="text-base font-extrabold tracking-tight">
+            <span className="text-lg font-extrabold tracking-tight">
               Study<span className="text-brand-gradient">Snap</span>
             </span>
           </div>

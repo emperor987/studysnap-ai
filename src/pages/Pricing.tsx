@@ -74,7 +74,7 @@ export default function Pricing() {
       {/* Header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
         <Link to="/" className="flex items-center gap-2.5">
-          <span className="text-lg font-extrabold tracking-tight">
+          <span className="text-xl font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </Link>

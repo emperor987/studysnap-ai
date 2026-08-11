@@ -508,7 +508,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
           Retour à l&apos;accueil
         </button>
         <Link to="/" className="flex items-center gap-2">
-          <span className="font-extrabold tracking-tight">
+          <span className="text-lg font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </Link>
