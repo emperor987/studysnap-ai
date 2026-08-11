@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   Camera,
@@ -15,7 +15,7 @@ import {
   Star,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   Accordion,
@@ -52,27 +52,67 @@ const HERO_PHOTOS = [
   },
 ];
 
+/* Compteur social « live » : le nombre est dérivé de l'horloge (condition
+ * temporelle), donc il progresse tout seul pour tous les visiteurs.
+ * Règle : +50 exercices résolus toutes les 2 heures, à partir d'un instant
+ * de référence fixe (cohérent entre les visites et les appareils). */
+const SOCIAL_BASE_COUNT = 12843; // valeur affichée à l'instant de référence
+const SOCIAL_STEP = 50; // +50 exercices
+const SOCIAL_STEP_MS = 2 * 60 * 60 * 1000; // toutes les 2 heures
+const SOCIAL_EPOCH = Date.UTC(2026, 7, 11, 0, 0, 0); // 11 août 2026, 00:00 UTC
+
+function solvedTodayCount(): number {
+  const elapsed = Math.max(0, Date.now() - SOCIAL_EPOCH);
+  return Math.floor(elapsed / SOCIAL_STEP_MS) * SOCIAL_STEP;
+}
+
 function useSocialCounter() {
-  const [count, setCount] = useState(12843);
+  const [count, setCount] = useState(() => SOCIAL_BASE_COUNT + solvedTodayCount());
+  const [bump, setBump] = useState(false);
+  const bumpTimer = useRef<number>(0);
+
+  // Animation d'apparition : compte jusqu'à la valeur actuelle.
   useEffect(() => {
-    const target = 12843 + 47;
+    const target = SOCIAL_BASE_COUNT + solvedTodayCount();
     const start = performance.now();
     const duration = 1800;
     let raf = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      setCount(Math.round(12843 + 47 * eased));
+      setCount(Math.round(SOCIAL_BASE_COUNT + (target - SOCIAL_BASE_COUNT) * eased));
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, []);
-  return count;
+
+  // Condition : toutes les 2 heures, +50 exercices résolus.
+  useEffect(() => {
+    let timeout = 0;
+    const schedule = () => {
+      const elapsed = Date.now() - SOCIAL_EPOCH;
+      const untilNext = SOCIAL_STEP_MS - (elapsed % SOCIAL_STEP_MS);
+      timeout = window.setTimeout(() => {
+        setCount(SOCIAL_BASE_COUNT + solvedTodayCount());
+        setBump(true);
+        window.clearTimeout(bumpTimer.current);
+        bumpTimer.current = window.setTimeout(() => setBump(false), 3000);
+        schedule();
+      }, untilNext + 1000);
+    };
+    schedule();
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearTimeout(bumpTimer.current);
+    };
+  }, []);
+
+  return { count, bump };
 }
 
 function Hero() {
-  const count = useSocialCounter();
+  const { count, bump } = useSocialCounter();
   return (
     <section className="relative isolate min-h-[92svh] overflow-hidden">
       {/* Mosaïque de photos */}
@@ -196,6 +236,19 @@ function Hero() {
           <Flame className="size-4 text-orange-400" />
           <span className="tabular-nums">{count.toLocaleString("fr-FR")}</span>{" "}
           exercices résolus aujourd&apos;hui
+          <AnimatePresence>
+            {bump && (
+              <motion.span
+                initial={{ opacity: 0, y: 6, scale: 0.7 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.9 }}
+                transition={{ duration: 0.35 }}
+                className="rounded-full bg-orange-500/25 px-2 py-0.5 text-xs font-bold text-orange-300"
+              >
+                +50
+              </motion.span>
+            )}
+          </AnimatePresence>
         </motion.p>
 
         {/* CTA principal */}
