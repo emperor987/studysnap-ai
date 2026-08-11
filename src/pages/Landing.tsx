@@ -945,12 +945,12 @@ export default function Landing() {
       id="top"
     >
       <Hero />
+      <Testimonials />
       <HowItWorks />
       <Modes />
       <SheetPreview />
       <QuizPreview />
       <HistoryPreview />
-      <Testimonials />
       <PricingSection />
       <FAQ />
       <FinalCTA />
