@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { getAiErrorMessage } from "@/lib/ai-errors";
 import { formatDateFr, levelLabel, subjectEmoji } from "@/lib/format";
 import type { ConvexError } from "convex/values";
 
@@ -93,6 +94,7 @@ export default function Sheets() {
       }
       const generated = await generateSheet({
         storageIds,
+        contentTypes: files.map((f) => f.file.type),
         sourceText: sourceType === "text" ? text : undefined,
         subject: subject || undefined,
         level,
@@ -112,12 +114,17 @@ export default function Sheets() {
       setFiles([]);
       navigate(`/sheets/${id}`);
     } catch (e) {
-      const code = (e as ConvexError<{ code?: string }>)?.data?.code;
-      if (code === "LIMIT_REACHED") {
-        toast.error("Limite de 3 fiches gratuites atteinte — passe à Student pour en créer plus.");
+      const aiMsg = getAiErrorMessage(e);
+      if (aiMsg) {
+        toast.error(aiMsg);
       } else {
-        console.error(e);
-        toast.error("La génération a échoué. Réessaie.");
+        const code = (e as ConvexError<{ code?: string }>)?.data?.code;
+        if (code === "LIMIT_REACHED") {
+          toast.error("Limite de 3 fiches gratuites atteinte — passe à Student pour en créer plus.");
+        } else {
+          console.error(e);
+          toast.error("La génération a échoué. Réessaie.");
+        }
       }
     } finally {
       setGenerating(false);

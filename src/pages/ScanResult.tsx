@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getAiErrorMessage } from "@/lib/ai-errors";
 import { levelLabel, subjectEmoji } from "@/lib/format";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -189,6 +190,7 @@ export default function ScanResult() {
     try {
       const generated = await generateSheet({
         storageIds: scan.storageIds,
+        contentTypes: scan.contentTypes,
         subject: scan.subject,
         level: scan.level,
       });
@@ -204,7 +206,7 @@ export default function ScanResult() {
       navigate(`/sheets/${id}`);
     } catch (e) {
       console.error(e);
-      toast.error("Impossible de créer la fiche pour l'instant.");
+      toast.error(getAiErrorMessage(e) ?? "Impossible de créer la fiche pour l'instant.");
     } finally {
       setCreatingSheet(false);
     }

@@ -79,6 +79,7 @@ const schema = defineSchema(
     scans: defineTable({
       userId: v.id("users"),
       storageIds: v.array(v.string()), // images Convex (supprimées après rétention)
+      contentTypes: v.optional(v.array(v.string())), // MIME de chaque image (réencodage base64)
       subject: v.string(),
       topic: v.optional(v.string()),
       level: v.string(), // niveau détecté : "college", "seconde"...

@@ -21,6 +21,7 @@ import { useCallback, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getAiErrorMessage } from "@/lib/ai-errors";
 import type { ConvexError } from "convex/values";
 
 type Step = "upload" | "analyzing" | "mode";
@@ -157,19 +158,24 @@ export default function Scanner() {
         const { storageId } = (await res.json()) as { storageId: string };
         storageIds.push(storageId);
       }
-      const result = await analyzeImages({ storageIds });
+      const result = await analyzeImages({ storageIds, contentTypes: files.map((f) => f.file.type) });
       setAnalysis(result);
       setStorageIds(storageIds);
       setStep("mode");
     } catch (e) {
       console.error(e);
-      const code = (e as ConvexError<{ code?: string }>)?.data?.code;
-      if (code === "LIMIT_REACHED") {
-        toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
-      } else if (code === "RATE_LIMITED") {
-        toast.error("Un petit instant entre deux analyses…");
+      const aiMsg = getAiErrorMessage(e);
+      if (aiMsg) {
+        toast.error(aiMsg);
       } else {
-        toast.error("L'analyse a échoué. Réessaie avec une photo plus nette.");
+        const code = (e as ConvexError<{ code?: string }>)?.data?.code;
+        if (code === "LIMIT_REACHED") {
+          toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
+        } else if (code === "RATE_LIMITED") {
+          toast.error("Un petit instant entre deux analyses…");
+        } else {
+          toast.error("L'analyse a échoué. Réessaie avec une photo plus nette.");
+        }
       }
       setStep("upload");
     } finally {
@@ -183,6 +189,7 @@ export default function Scanner() {
     try {
       const scanId = await recordScan({
         storageIds,
+        contentTypes: files.map((f) => f.file.type),
         analysis: analysis as never,
         mode,
       });

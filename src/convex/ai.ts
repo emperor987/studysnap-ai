@@ -1,17 +1,25 @@
+"use node";
+
 /**
  * StudySnap — couche IA, agnostique du fournisseur.
  *
  * Appels effectués uniquement côté serveur (actions Convex) : aucune clé
  * n'est jamais exposée au client. Compatible avec toute API compatible
- * OpenAI (OpenAI, Google Gemini via son endpoint compatible, etc.).
+ * OpenAI — dont NVIDIA NIM (integrate.api.nvidia.com), qui accepte le même
+ * format de requête mais attend les images en data URI base64 (il ne peut
+ * pas aller chercher une URL arbitraire).
  *
  * Variables d'environnement (à renseigner dans l'UI Keys de la plateforme) :
- *   AI_API_KEY  (ou OPENAI_API_KEY)  — clé du fournisseur
- *   AI_MODEL    (défaut: gpt-4.1-mini)
- *   AI_BASE_URL (défaut: https://api.openai.com/v1)
+ *   AI_API_KEY   — clé du fournisseur (ex: clé NVIDIA NIM de build.nvidia.com)
+ *   AI_BASE_URL  — base de l'API (défaut https://api.openai.com/v1 ;
+ *                  NVIDIA NIM : https://integrate.api.nvidia.com/v1)
+ *   AI_MODEL     — modèle (défaut gpt-4.1-mini ;
+ *                  NVIDIA NIM : nvidia/nemotron-3-nano-omni-30b-a3b-reasoning)
+ *   AI_MAX_TOKENS— limite de génération (défaut 4096)
  *
  * Sans clé configurée, l'app fonctionne en mode démo avec des contenus
- * réalistes (voir demoData.ts).
+ * réalistes (voir demoData.ts). En cas de limite de débit (HTTP 429), une
+ * erreur dédiée est levée et affichée côté client.
  */
 
 import { v } from "convex/values";
@@ -27,6 +35,9 @@ import {
 } from "./demoData";
 
 export const AI_MODEL_DEFAULT = "gpt-4.1-mini";
+/** Message d'erreur propagé au client en cas de limite de débit du fournisseur. */
+export const AI_RATE_LIMITED_MESSAGE = "AI_RATE_LIMITED";
+export const AI_NOT_CONFIGURED_MESSAGE = "AI_NOT_CONFIGURED";
 
 function aiKey(): string | undefined {
   return process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
@@ -40,6 +51,11 @@ function aiModel(): string {
   return process.env.AI_MODEL ?? AI_MODEL_DEFAULT;
 }
 
+function aiMaxTokens(): number {
+  const raw = parseInt(process.env.AI_MAX_TOKENS ?? "4096", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 4096;
+}
+
 /** L'utilisateur courant (authentifié) ou erreur. */
 async function requireUser(ctx: ActionCtx) {
   const userId = await getAuthUserId(ctx);
@@ -47,39 +63,92 @@ async function requireUser(ctx: ActionCtx) {
   return userId;
 }
 
+class AiRateLimitedError extends Error {
+  constructor() {
+    super(AI_RATE_LIMITED_MESSAGE);
+    this.name = "AiRateLimitedError";
+  }
+}
+
+/**
+ * Récupère l'image depuis le stockage Convex et la convertit en data URI
+ * base64 — le format attendu par l'endpoint compatible OpenAI de NVIDIA NIM.
+ */
+async function imageAsDataUri(url: string, mime: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Image inaccessible (HTTP ${res.status})`);
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength > 20 * 1024 * 1024) {
+    throw new Error("IMAGE_TOO_LARGE");
+  }
+  return `data:${mime};base64,${buf.toString("base64")}`;
+}
+
+/** Extrait un objet JSON d'une réponse texte (fences markdown, prose…). */
+function extractJson(text: string): Record<string, unknown> {
+  const cleaned = text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned) as Record<string, unknown>;
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
+    }
+  }
+  throw new Error("Réponse IA invalide (JSON attendu)");
+}
+
 async function chatJson(
   messages: { role: "system" | "user" | "assistant"; content: unknown }[],
   signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
   const key = aiKey();
-  if (!key) throw new Error("AI_NOT_CONFIGURED");
-  const res = await fetch(`${aiBaseUrl()}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
+  if (!key) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
+
+  const post = async (withJsonMode: boolean) => {
+    const body: Record<string, unknown> = {
       model: aiModel(),
       temperature: 0.4,
-      max_tokens: 4096,
-      response_format: { type: "json_object" },
+      max_tokens: aiMaxTokens(),
       messages,
-    }),
-    signal,
-  });
+    };
+    if (withJsonMode) {
+      // Certains endpoints compatibles OpenAI (dont certains modèles NVIDIA
+      // NIM) refusent response_format : on réessaie sans lui en cas de 400.
+      body.response_format = { type: "json_object" };
+    }
+    return fetch(`${aiBaseUrl()}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+  };
+
+  let res = await post(true);
+  if (res.status === 429) throw new AiRateLimitedError();
+  if (res.status === 400) {
+    res = await post(false);
+    if (res.status === 429) throw new AiRateLimitedError();
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`Erreur IA (${res.status}): ${body.slice(0, 300)}`);
   }
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
   const content = data.choices?.[0]?.message?.content ?? "";
-  const cleaned = content
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/```\s*$/, "")
-    .trim();
-  const parsed = JSON.parse(cleaned) as Record<string, unknown>;
-  return parsed;
+  return extractJson(content);
 }
 
 /** Démarre un timeout court pour donner l'illusion de rapidité (2-4 s perçues). */
@@ -121,20 +190,18 @@ Règles absolues :
   }
 }`;
 
-function demoResult(seed: number): DemoAnalysis {
-  return demoAnalysis(seed);
-}
-
 /** Analyse d'une ou plusieurs photos d'exercice : extraction + les 3 modes. */
 export const analyzeImages = action({
   args: {
     storageIds: v.array(v.string()),
+    contentTypes: v.optional(v.array(v.string())),
     prompt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
     const seed = hashSeed(userId, args.storageIds.join(","), new Date().getDate());
 
+    // Mode démo : reste actif tant qu'aucune clé n'est configurée.
     if (!aiKey()) {
       await minLatency();
       return demoResult(seed);
@@ -143,6 +210,17 @@ export const analyzeImages = action({
     const urls = (
       await Promise.all(args.storageIds.map((id) => ctx.storage.getUrl(id)))
     ).filter((u): u is string => Boolean(u));
+
+    // NVIDIA NIM (compatible OpenAI) attend les images en data URI base64 :
+    // on récupère les octets du stockage et on les encode côté serveur.
+    const imageParts = await Promise.all(
+      urls.map(async (url, i) => ({
+        type: "image_url" as const,
+        image_url: {
+          url: await imageAsDataUri(url, args.contentTypes?.[i] ?? "image/jpeg"),
+        },
+      })),
+    );
 
     const contentParts: (
       | { type: "text"; text: string }
@@ -154,14 +232,11 @@ export const analyzeImages = action({
           "Voici une photo d'exercice scolaire (peut-être plusieurs). Analyse-la : " +
           (args.prompt ? `Consigne complémentaire : ${args.prompt}` : ""),
       },
-      ...urls.map((url) => ({
-        type: "image_url" as const,
-        image_url: { url },
-      })),
+      ...imageParts,
     ];
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 55000);
+    const timer = setTimeout(() => controller.abort(), 90000);
     try {
       const parsed = await chatJson(
         [
@@ -222,6 +297,7 @@ Réponds UNIQUEMENT avec un objet JSON valide :
 export const generateSheet = action({
   args: {
     storageIds: v.optional(v.array(v.string())),
+    contentTypes: v.optional(v.array(v.string())),
     sourceText: v.optional(v.string()),
     subject: v.optional(v.string()),
     level: v.optional(v.string()),
@@ -241,6 +317,15 @@ export const generateSheet = action({
         ).filter((u): u is string => Boolean(u))
       : [];
 
+    const imageParts = await Promise.all(
+      urls.map(async (url, i) => ({
+        type: "image_url" as const,
+        image_url: {
+          url: await imageAsDataUri(url, args.contentTypes?.[i] ?? "image/jpeg"),
+        },
+      })),
+    );
+
     const parts: unknown[] = [
       {
         type: "text",
@@ -250,7 +335,7 @@ export const generateSheet = action({
           args.level ? `, niveau ${args.level}` : ""
         }. ${args.sourceText ? `Voici le cours :\n\n${args.sourceText}` : ""}`,
       },
-      ...urls.map((url) => ({ type: "image_url", image_url: { url } })),
+      ...imageParts,
     ];
 
     const parsed = await chatJson([
@@ -321,3 +406,6 @@ Types : ${args.types.join(", ")}.`,
   },
 });
 
+function demoResult(seed: number): DemoAnalysis {
+  return demoAnalysis(seed);
+}

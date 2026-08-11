@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getAiErrorMessage } from "@/lib/ai-errors";
 import { formatDateFr, levelLabel, subjectEmoji } from "@/lib/format";
 import type { ConvexError } from "convex/values";
 
@@ -85,12 +86,17 @@ export default function Revision() {
       });
       navigate(`/revision/quiz/${id}`);
     } catch (e) {
-      const code = (e as ConvexError<{ code?: string }>)?.data?.code;
-      if (code === "LIMIT_REACHED") {
-        toast.error("Limite de 3 quiz gratuits atteinte — passe à Student pour en créer plus.");
+      const aiMsg = getAiErrorMessage(e);
+      if (aiMsg) {
+        toast.error(aiMsg);
       } else {
-        console.error(e);
-        toast.error("La génération du quiz a échoué. Réessaie.");
+        const code = (e as ConvexError<{ code?: string }>)?.data?.code;
+        if (code === "LIMIT_REACHED") {
+          toast.error("Limite de 3 quiz gratuits atteinte — passe à Student pour en créer plus.");
+        } else {
+          console.error(e);
+          toast.error("La génération du quiz a échoué. Réessaie.");
+        }
       }
     } finally {
       setCreating(false);

@@ -47,6 +47,7 @@ export const analysisValidator = v.object({
 export const recordScan = mutation({
   args: {
     storageIds: v.array(v.string()),
+    contentTypes: v.optional(v.array(v.string())),
     analysis: analysisValidator,
     mode: v.union(v.literal("quick"), v.literal("explain"), v.literal("revise")),
     fullText: v.optional(v.string()),
@@ -78,6 +79,9 @@ export const recordScan = mutation({
     const scanId = await ctx.db.insert("scans", {
       userId: userId as never,
       storageIds: args.storageIds,
+      ...(args.contentTypes && args.contentTypes.length > 0
+        ? { contentTypes: args.contentTypes }
+        : {}),
       subject: args.analysis.detection.subject,
       topic: args.analysis.detection.topic,
       level: args.analysis.detection.level,
