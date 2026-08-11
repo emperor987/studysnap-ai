@@ -484,7 +484,7 @@ export default function Scanner() {
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-2 py-1",
                   i < analysisStep
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-mint-50 text-mint-700"
                     : i === analysisStep
                       ? "bg-primary/5 text-primary"
                       : "",
@@ -515,7 +515,7 @@ export default function Scanner() {
       {step === "mode" && (
         <div className="mx-auto max-w-3xl">
           <div className="text-center">
-            <span className="glass-chip inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-emerald-700">
+            <span className="glass-chip inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-mint-700">
               <CheckCircle2 className="size-3.5" />
               Analyse terminée — ton exercice a bien été lu
             </span>

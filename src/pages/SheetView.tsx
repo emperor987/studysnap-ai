@@ -143,8 +143,8 @@ export default function SheetView() {
           </h2>
           <div className="mt-4 rounded-2xl border border-white/70 bg-white/60 p-5">
             <p className="text-sm font-semibold">{c.example.question}</p>
-            <div className="mt-3 rounded-xl bg-emerald-50/70 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
+            <div className="mt-3 rounded-xl bg-mint-50/70 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-mint-600">
                 ✓ Solution
               </p>
               <div className="mt-1 text-sm leading-6">
@@ -178,13 +178,13 @@ export default function SheetView() {
         {/* À retenir */}
         <section className="glass-panel rounded-3xl p-6">
           <h2 className="flex items-center gap-2 font-bold">
-            <CheckCircle2 className="size-5 text-emerald-600" />
+            <CheckCircle2 className="size-5 text-mint-600" />
             À retenir
           </h2>
           <ul className="mt-4 space-y-2">
             {c.takeaways.map((t, i) => (
               <li key={i} className="flex items-start gap-2.5 text-sm leading-6">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-mint-500" />
                 {t}
               </li>
             ))}

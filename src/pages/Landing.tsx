@@ -277,7 +277,7 @@ const MODES = [
     emoji: "📚",
     title: "Révision",
     text: "Mini-leçon sur la notion, formules clés, 3 exercices similaires et un mini quiz pour vérifier que c'est acquis.",
-    accent: "from-emerald-500/15 to-emerald-500/0 text-emerald-600",
+    accent: "from-mint-500/15 to-mint-500/0 text-mint-600",
   },
 ];
 
@@ -335,7 +335,7 @@ const TESTIMONIALS = [
     grade: "Terminale",
     stars: 4,
     text: "J'étais bloqué sur la factorisation depuis des semaines. L'explication étape par étape a tout débloqué en 5 minutes.",
-    color: "bg-emerald-500",
+    color: "bg-mint-500",
   },
   {
     name: "Camille",
@@ -470,7 +470,7 @@ function SheetPreview() {
               "Exemple type corrigé pas à pas",
             ].map((f) => (
               <li key={f} className="flex items-start gap-3 text-sm text-foreground">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-mint-100 text-mint-600">
                   <Check className="size-3" />
                 </span>
                 {f}
@@ -556,7 +556,7 @@ function QuizPreview() {
         >
           <div className="glass-panel rounded-3xl p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+              <span className="rounded-full bg-mint-100 px-3 py-1 text-xs font-semibold text-mint-700">
                 ✅ Question 3 / 5
               </span>
               <span className="text-xs text-muted-foreground">Intermédiaire</span>
@@ -570,13 +570,13 @@ function QuizPreview() {
                   key={opt}
                   className={`rounded-xl border px-4 py-3 text-sm ${
                     i === 0
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                      ? "border-mint-300 bg-mint-50 text-mint-800"
                       : "border-border/80 bg-white/70 text-muted-foreground"
                   }`}
                 >
                   <span className="mr-2 font-semibold">{String.fromCharCode(65 + i)}.</span>
                   {opt}
-                  {i === 0 && <span className="float-right text-emerald-600">✓</span>}
+                  {i === 0 && <span className="float-right text-mint-600">✓</span>}
                 </div>
               ))}
             </div>
@@ -809,7 +809,7 @@ function PricingSection() {
             <ul className="mt-6 flex-1 space-y-2.5">
               {plan.features.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm">
-                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                  <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
                   {f}
                 </li>
               ))}

@@ -261,7 +261,7 @@ export default function Revision() {
                       "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold",
                       q.status === "done"
                         ? (q.score ?? 0) >= (q.total ?? 1) * 0.7
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-mint-100 text-mint-700"
                           : "bg-amber-100 text-amber-700"
                         : "bg-zinc-100 text-muted-foreground",
                     )}

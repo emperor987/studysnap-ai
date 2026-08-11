@@ -41,7 +41,7 @@ export default function Progress() {
       label: "Taux de réussite",
       value: `${stats.globalRate}%`,
       hint: `${stats.totalCorrect}/${stats.totalQuestions} bonnes réponses`,
-      color: "bg-emerald-100 text-emerald-600",
+      color: "bg-mint-100 text-mint-600",
     },
     {
       icon: Target,
@@ -134,9 +134,9 @@ export default function Progress() {
         <div className="glass-card rounded-3xl p-6">
           <h3 className="font-bold">Notions à revoir</h3>
           {stats.weakTopics.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-5 text-sm text-emerald-700">
+            <div className="mt-6 rounded-2xl border border-mint-200/80 bg-mint-50/60 p-5 text-sm text-mint-700">
               <p className="font-bold">Rien à signaler 🎉</p>
-              <p className="mt-1 text-emerald-700/80">
+              <p className="mt-1 text-mint-700/80">
                 Aucune notion sous la barre des 60% de réussite.
               </p>
             </div>

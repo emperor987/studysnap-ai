@@ -138,7 +138,7 @@ export default function QuizPlayer() {
               className={cn(
                 "mx-auto flex size-24 items-center justify-center rounded-full text-3xl font-black",
                 pct >= 70
-                  ? "bg-emerald-100 text-emerald-600"
+                  ? "bg-mint-100 text-mint-600"
                   : pct >= 40
                     ? "bg-amber-100 text-amber-600"
                     : "bg-rose-100 text-rose-500",
@@ -268,7 +268,7 @@ export default function QuizPlayer() {
                     className={cn(
                       "flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-left text-sm font-medium transition-all",
                       !answered && "border-border bg-white/60 hover:border-primary/40 hover:bg-white",
-                      answered && isAnswer && "border-emerald-300 bg-emerald-50 text-emerald-800",
+                      answered && isAnswer && "border-mint-300 bg-mint-50 text-mint-800",
                       answered && !isAnswer && selected === opt && "border-rose-300 bg-rose-50 text-rose-700",
                       answered && !isAnswer && selected !== opt && "border-border/70 bg-white/40 text-muted-foreground",
                     )}
@@ -278,7 +278,7 @@ export default function QuizPlayer() {
                       {opt}
                     </span>
                     {answered && isAnswer && (
-                      <Check className="size-4 text-emerald-500" />
+                      <Check className="size-4 text-mint-500" />
                     )}
                     {answered && !isAnswer && selected === opt && (
                       <X className="size-4 text-rose-500" />
@@ -320,14 +320,14 @@ export default function QuizPlayer() {
               className={cn(
                 "mt-5 rounded-2xl border p-4",
                 isCorrectSelected
-                  ? "border-emerald-200 bg-emerald-50/70"
+                  ? "border-mint-200 bg-mint-50/70"
                   : "border-rose-200 bg-rose-50/60",
               )}
             >
               <p
                 className={cn(
                   "flex items-center gap-2 text-sm font-bold",
-                  isCorrectSelected ? "text-emerald-700" : "text-rose-600",
+                  isCorrectSelected ? "text-mint-700" : "text-rose-600",
                 )}
               >
                 {isCorrectSelected ? (
@@ -345,7 +345,7 @@ export default function QuizPlayer() {
               {!isCorrectSelected && (
                 <p className="mt-1 text-sm">
                   Réponse attendue :{" "}
-                  <span className="font-bold text-emerald-700">{q.answer}</span>
+                  <span className="font-bold text-mint-700">{q.answer}</span>
                 </p>
               )}
               {q.explanation && (

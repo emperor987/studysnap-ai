@@ -50,7 +50,7 @@ function Section({
       className={cn(
         "rounded-2xl border p-5 sm:p-6",
         tone === "success"
-          ? "border-emerald-200/80 bg-emerald-50/50"
+          ? "border-mint-200/80 bg-mint-50/50"
           : tone === "warn"
             ? "border-amber-200/80 bg-amber-50/50"
             : "border-white/70 bg-white/60",
@@ -98,7 +98,7 @@ function ExerciseCard({
       {open && (
         <div className="mt-3 ml-9 space-y-2 rounded-xl bg-white/80 p-4">
           <div className="text-sm">
-            <span className="font-bold text-emerald-600">✓ Réponse : </span>
+            <span className="font-bold text-mint-600">✓ Réponse : </span>
             <Markdown content={answer} />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -396,7 +396,7 @@ export default function ScanResult() {
             className={cn(
               "flex size-9 items-center justify-center rounded-full transition-colors",
               feedbackSent === "yes"
-                ? "bg-emerald-100 text-emerald-600"
+                ? "bg-mint-100 text-mint-600"
                 : "hover:bg-white/70",
             )}
             title="Utile"

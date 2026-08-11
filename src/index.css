@@ -38,16 +38,29 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --color-coral-50: #fff1ec;
-  --color-coral-100: #ffe0d4;
-  --color-coral-200: #ffc4ae;
-  --color-coral-300: #ff9e7d;
-  --color-coral-400: #ff7f58;
-  --color-coral-500: #ff6b4a;
-  --color-coral-600: #e85a3a;
-  --color-coral-700: #c2442a;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Palette StudySnap — Secondary (corail) */
+  --color-coral-50: #fff0f1;
+  --color-coral-100: #ffe0e3;
+  --color-coral-200: #ffc2c8;
+  --color-coral-300: #ffa0a9;
+  --color-coral-400: #ff8d97;
+  --color-coral-500: #ff7a84;
+  --color-coral-600: #e85f6b;
+  --color-coral-700: #c24452;
+  /* Palette StudySnap — Tertiaire (vert) */
+  --color-mint-50: #eafff4;
+  --color-mint-100: #d2ffea;
+  --color-mint-200: #a5fdd5;
+  --color-mint-300: #6ff7ba;
+  --color-mint-400: #38f09f;
+  --color-mint-500: #1ee981;
+  --color-mint-600: #10c968;
+  --color-mint-700: #0e9e54;
+  /* Typographie — Hanken Grotesk (UI) + JetBrains Mono (code/labels) */
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 /* StudySnap — palette claire (thème verre / glassmorphism) */
@@ -59,66 +72,68 @@
   --card-foreground: #18181b;
   --popover: rgba(255, 255, 255, 0.95);
   --popover-foreground: #18181b;
-  --primary: #4f46e5;
+  --primary: #4f4fe5;
   --primary-foreground: #ffffff;
   --secondary: #f3f4f6;
   --secondary-foreground: #18181b;
   --muted: #f3f4f6;
   --muted-foreground: #71717a;
-  --accent: #ff6b4a;
+  --accent: #ff7a84;
   --accent-foreground: #ffffff;
+  --tertiary: #1ee981;
   --destructive: #ef4444;
-  --success: #10b981;
+  --success: #1ee981;
   --border: #e4e4e7;
   --input: #e4e4e7;
-  --ring: #4f46e5;
-  --chart-1: #4f46e5;
-  --chart-2: #ff6b4a;
-  --chart-3: #10b981;
+  --ring: #4f4fe5;
+  --chart-1: #4f4fe5;
+  --chart-2: #ff7a84;
+  --chart-3: #1ee981;
   --chart-4: #f59e0b;
   --chart-5: #38bdf8;
   --sidebar: rgba(255, 255, 255, 0.72);
   --sidebar-foreground: #18181b;
-  --sidebar-primary: #4f46e5;
+  --sidebar-primary: #4f4fe5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(79, 70, 229, 0.1);
-  --sidebar-accent-foreground: #4f46e5;
+  --sidebar-accent: rgba(79, 79, 229, 0.1);
+  --sidebar-accent-foreground: #4f4fe5;
   --sidebar-border: rgba(228, 228, 231, 0.8);
-  --sidebar-ring: #4f46e5;
+  --sidebar-ring: #4f4fe5;
 }
 
 .dark {
-  --background: #0f0f12;
+  --background: #121216;
   --foreground: #f4f4f5;
-  --card: #1c1c21;
+  --card: #1c1c22;
   --card-foreground: #f4f4f5;
-  --popover: #1c1c21;
+  --popover: #1c1c22;
   --popover-foreground: #f4f4f5;
-  --primary: #4f46e5;
+  --primary: #4f4fe5;
   --primary-foreground: #ffffff;
-  --secondary: #27272a;
+  --secondary: #26262c;
   --secondary-foreground: #f4f4f5;
-  --muted: #27272a;
+  --muted: #26262c;
   --muted-foreground: #a1a1aa;
-  --accent: #ff6b4a;
+  --accent: #ff7a84;
   --accent-foreground: #ffffff;
+  --tertiary: #1ee981;
   --destructive: #ef4444;
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
-  --ring: #4f46e5;
-  --chart-1: #4f46e5;
-  --chart-2: #ff6b4a;
-  --chart-3: #10b981;
+  --ring: #4f4fe5;
+  --chart-1: #4f4fe5;
+  --chart-2: #ff7a84;
+  --chart-3: #1ee981;
   --chart-4: #f59e0b;
   --chart-5: #38bdf8;
-  --sidebar: #1c1c21;
+  --sidebar: #1c1c22;
   --sidebar-foreground: #f4f4f5;
-  --sidebar-primary: #4f46e5;
+  --sidebar-primary: #4f4fe5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #27272a;
+  --sidebar-accent: #26262c;
   --sidebar-accent-foreground: #f4f4f5;
   --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #4f46e5;
+  --sidebar-ring: #4f4fe5;
 }
 
 @layer base {
@@ -144,10 +159,10 @@
 
 /* Dégradé de marque réservé au CTA principal + mot-clé du hero */
 .bg-brand-gradient {
-  background-image: linear-gradient(135deg, #4f46e5 0%, #ff6b4a 100%);
+  background-image: linear-gradient(135deg, #4f4fe5 0%, #ff7a84 100%);
 }
 .text-brand-gradient {
-  background-image: linear-gradient(135deg, #4f46e5 0%, #ff6b4a 100%);
+  background-image: linear-gradient(135deg, #4f4fe5 0%, #ff7a84 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -187,9 +202,9 @@
 /* Halo décoratif de fond (clair, froid, discret) */
 .bg-glow {
   background:
-    radial-gradient(60rem 32rem at 12% -6%, rgba(79, 70, 229, 0.14), transparent 60%),
-    radial-gradient(48rem 28rem at 92% 4%, rgba(255, 107, 74, 0.1), transparent 55%),
-    radial-gradient(40rem 30rem at 50% 110%, rgba(56, 189, 248, 0.1), transparent 60%);
+    radial-gradient(60rem 32rem at 12% -6%, rgba(79, 79, 229, 0.14), transparent 60%),
+    radial-gradient(48rem 28rem at 92% 4%, rgba(255, 122, 132, 0.1), transparent 55%),
+    radial-gradient(40rem 30rem at 50% 110%, rgba(30, 233, 129, 0.08), transparent 60%);
 }
 
 /* Mini défilement horizontal "snap" pour carrousels */

@@ -162,7 +162,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       <AuthShell>
         <div className="glass-panel rounded-3xl p-7 sm:p-9">
           <div className="text-center">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-mint-100 text-mint-600">
               <Mail className="size-7" />
             </div>
             <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
