@@ -114,15 +114,17 @@ function extractJson(text: string): Record<string, unknown> {
 async function chatJson(
   messages: { role: "system" | "user" | "assistant"; content: unknown }[],
   signal?: AbortSignal,
+  maxTokens?: number,
 ): Promise<Record<string, unknown>> {
   const key = aiKey();
   if (!key) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
+  const tokens = maxTokens ?? aiMaxTokens();
 
   const post = async (jsonMode: boolean, disableThinking: boolean) => {
     const body: Record<string, unknown> = {
       model: aiModel(),
       temperature: 0.4,
-      max_tokens: aiMaxTokens(),
+      max_tokens: tokens,
       messages,
     };
     if (jsonMode) {
@@ -149,26 +151,43 @@ async function chatJson(
 
   // Repli progressif : certains endpoints refusent chat_template_kwargs
   // et/ou response_format — on retombe sur des requêtes plus simples.
-  const attempts: { jsonMode: boolean; disableThinking: boolean }[] = [
-    { jsonMode: true, disableThinking: true },
-    { jsonMode: true, disableThinking: false },
-    { jsonMode: false, disableThinking: false },
-  ];
-  let res: Response | null = null;
-  for (const a of attempts) {
-    res = await post(a.jsonMode, a.disableThinking);
-    if (res.status === 429) throw new AiRateLimitedError();
-    if (res.ok) break;
-  }
-  if (!res || !res.ok) {
-    const body = await res?.text().catch(() => "");
-    throw new Error(`Erreur IA (${res?.status ?? "?"}): ${body?.slice(0, 300) ?? ""}`);
-  }
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
+  const chatOnce = async (): Promise<Record<string, unknown>> => {
+    const attempts: { jsonMode: boolean; disableThinking: boolean }[] = [
+      { jsonMode: true, disableThinking: true },
+      { jsonMode: true, disableThinking: false },
+      { jsonMode: false, disableThinking: false },
+    ];
+    let res: Response | null = null;
+    for (const a of attempts) {
+      res = await post(a.jsonMode, a.disableThinking);
+      if (res.status === 429) throw new AiRateLimitedError();
+      if (res.ok) break;
+    }
+    if (!res || !res.ok) {
+      const body = await res?.text().catch(() => "");
+      throw new Error(`Erreur IA (${res?.status ?? "?"}): ${body?.slice(0, 300) ?? ""}`);
+    }
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const content = data.choices?.[0]?.message?.content ?? "";
+    return extractJson(content);
   };
-  const content = data.choices?.[0]?.message?.content ?? "";
-  return extractJson(content);
+
+  // Les endpoints gratuits (NVIDIA free tier) peuvent échouer de façon
+  // transitoire (file d'attente, timeout réseau) : on retente une fois,
+  // sauf en cas de 429 (limite de débit — inutile d'empirer).
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await chatOnce();
+    } catch (e) {
+      if (e instanceof AiRateLimitedError) throw e;
+      lastError = e;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 700));
+    }
+  }
+  throw lastError;
 }
 
 /** Démarre un timeout court pour donner l'illusion de rapidité (2-4 s perçues). */
@@ -256,14 +275,17 @@ export const analyzeImages = action({
     ];
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000);
+    const timer = setTimeout(() => controller.abort(), 90000);
     try {
+      // Plafond de sortie élevé : l'analyse renvoie les 3 modes à la fois,
+      // un JSON tronqué à 4096 tokens rendrait la réponse inutilisable.
       const parsed = await chatJson(
         [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: contentParts },
         ],
         controller.signal,
+        8000,
       );
       const detection = (parsed.detection ?? {}) as Record<string, unknown>;
       return {
@@ -400,15 +422,19 @@ export const generateQuiz = action({
     const parsed = await chatJson([
       { role: "system", content: QUIZ_SYSTEM_PROMPT },
       {
+        // Contenu au format OpenAI : un TABLEAU de parties (l'endpoint NIM
+        // refuse un objet nu — 400 "ChatCompletionRequestUserMessageContent").
         role: "user",
-        content: {
-          type: "text",
-          text: `Matière : ${args.subject}${args.topic ? ` — notion : ${args.topic}` : ""}.
+        content: [
+          {
+            type: "text",
+            text: `Matière : ${args.subject}${args.topic ? ` — notion : ${args.topic}` : ""}.
 Niveau : ${args.level ?? "seconde"}.
 Nombre de questions : ${count}.
 Difficulté : ${args.difficulty}.
 Types : ${args.types.join(", ")}.`,
-        },
+          },
+        ],
       },
     ]);
     const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
