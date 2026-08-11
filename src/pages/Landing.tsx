@@ -116,14 +116,20 @@ function Hero() {
       </div>
 
       {/* Nav en overlay */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-        <Link to="/" className="flex items-center gap-2.5">
-          <img src={logo} alt="StudySnap" width={34} height={34} className="rounded-xl" />
-          <span className="text-lg font-extrabold tracking-tight text-white">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
+        <Link to="/" className="flex min-w-0 items-center gap-2.5">
+          <img
+            src={logo}
+            alt="StudySnap"
+            width={30}
+            height={30}
+            className="size-[30px] shrink-0 rounded-xl sm:size-[34px]"
+          />
+          <span className="truncate text-base font-extrabold tracking-tight text-white sm:text-lg">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </Link>
-        <nav className="flex items-center gap-2 sm:gap-4">
+        <nav className="flex shrink-0 items-center gap-2 sm:gap-4">
           <Link
             to="/pricing"
             className="hidden text-sm font-medium text-white/80 transition-colors hover:text-white sm:block"
@@ -145,9 +151,10 @@ function Hero() {
           </a>
           <Link
             to="/auth?returnTo=%2Fdashboard"
-            className="rounded-full bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition-all hover:shadow-xl hover:shadow-indigo-900/40 hover:brightness-110"
+            className="whitespace-nowrap rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition-all hover:shadow-xl hover:shadow-indigo-900/40 hover:brightness-110 sm:px-5 sm:py-2.5"
           >
-            Commencer gratuitement
+            <span className="sm:hidden">Commencer</span>
+            <span className="hidden sm:inline">Commencer gratuitement</span>
           </Link>
         </nav>
       </header>
@@ -209,11 +216,11 @@ function Hero() {
         >
           <Link
             to="/auth?returnTo=%2Fscanner"
-            className="group inline-flex items-center gap-2.5 rounded-full bg-brand-gradient px-8 py-4 text-base font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50"
+            className="group inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-full bg-brand-gradient px-6 py-3.5 text-sm font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
           >
-            <Camera className="size-5" />
+            <Camera className="size-4 shrink-0 sm:size-5" />
             Scanner mon premier exercice
-            <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-1 sm:size-5" />
           </Link>
           <Link
             to="/auth?returnTo=%2Fsheets"
@@ -944,7 +951,7 @@ export default function Landing() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="bg-glow min-h-screen bg-background text-foreground"
+      className="bg-glow min-h-screen overflow-x-clip bg-background text-foreground"
       id="top"
     >
       <Hero />
