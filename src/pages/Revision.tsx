@@ -111,11 +111,11 @@ export default function Revision() {
       {/* Créateur de quiz */}
       <section className="glass-panel rounded-3xl p-6 sm:p-8">
         <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Target className="size-6" />
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Target className="size-5 sm:size-6" />
           </div>
-          <div>
-            <h2 className="text-lg font-bold">Nouveau quiz</h2>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold sm:text-lg">Nouveau quiz</h2>
             <p className="text-xs text-muted-foreground">
               Difficulté et type de questions paramétrables
             </p>
@@ -234,7 +234,7 @@ export default function Revision() {
 
       {/* Historique des quiz */}
       <section className="mt-8">
-        <h2 className="font-bold">Quiz passés</h2>
+        <h2 className="text-lg font-bold sm:text-xl">Quiz passés</h2>
         {quizzes && quizzes.length === 0 ? (
           <div className="glass-card mt-4 rounded-3xl p-8 text-center">
             <BookOpen className="mx-auto size-8 text-muted-foreground/50" />
@@ -252,13 +252,13 @@ export default function Revision() {
                   to={`/revision/quiz/${q._id}`}
                   className="glass-card rounded-2xl p-5 transition-all hover:-translate-y-0.5"
                 >
-                <div className="flex items-center justify-between">
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                     {subjectEmoji(q.subject)} {q.subject}
                   </span>
                   <span
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-[11px] font-bold",
+                      "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold",
                       q.status === "done"
                         ? (q.score ?? 0) >= (q.total ?? 1) * 0.7
                           ? "bg-emerald-100 text-emerald-700"
@@ -271,7 +271,7 @@ export default function Revision() {
                       : "En cours"}
                   </span>
                 </div>
-                <p className="mt-3 text-sm font-bold leading-5">{q.title}</p>
+                <p className="mt-3 text-sm font-bold leading-5 sm:text-[15px]">{q.title}</p>
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     {levelLabel(q.level)} · {q.settings.count} questions ·{" "}
                     {formatDateFr(q.createdAt)}
@@ -290,7 +290,7 @@ export default function Revision() {
                       En cours
                     </span>
                   </div>
-                  <p className="mt-3 text-sm font-bold leading-5">{q.title}</p>
+                  <p className="mt-3 text-sm font-bold leading-5 sm:text-[15px]">{q.title}</p>
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     {levelLabel(q.level)} · {q.settings.count} questions ·{" "}
                     {formatDateFr(q.createdAt)}

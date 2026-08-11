@@ -209,11 +209,11 @@ export default function Dashboard() {
       {!loading && !empty && (
         <section className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="glass-card rounded-3xl p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold">Exercices récents</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-bold sm:text-lg">Exercices récents</h3>
               <Link
                 to="/exercises"
-                className="text-xs font-semibold text-primary hover:underline"
+                className="shrink-0 text-xs font-semibold text-primary hover:underline"
               >
                 Tout voir
               </Link>
@@ -248,11 +248,11 @@ export default function Dashboard() {
           </div>
 
           <div className="glass-card rounded-3xl p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold">Dernier quiz</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-bold sm:text-lg">Dernier quiz</h3>
               <Link
                 to="/revision"
-                className="text-xs font-semibold text-primary hover:underline"
+                className="shrink-0 text-xs font-semibold text-primary hover:underline"
               >
                 Réviser
               </Link>
@@ -261,7 +261,7 @@ export default function Dashboard() {
               <div className="mt-4">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`flex size-11 items-center justify-center rounded-xl text-sm font-bold ${
+                    className={`flex size-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
                       (lastQuiz.score ?? 0) >= (lastQuiz.total ?? 1) * 0.7
                         ? "bg-emerald-100 text-emerald-700"
                         : "bg-amber-100 text-amber-700"
@@ -269,9 +269,11 @@ export default function Dashboard() {
                   >
                     {lastQuiz.score}/{lastQuiz.total}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold">{lastQuiz.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold sm:text-base">
+                      {lastQuiz.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {lastQuiz.subject} · {levelLabel(lastQuiz.level)} ·{" "}
                       {formatDateTimeFr(lastQuiz.createdAt)}
                     </p>

@@ -151,10 +151,9 @@ function Hero() {
           </a>
           <Link
             to="/auth?returnTo=%2Fdashboard"
-            className="whitespace-nowrap rounded-full bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition-all hover:shadow-xl hover:shadow-indigo-900/40 hover:brightness-110 sm:px-5 sm:py-2.5"
+            className="whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/20 sm:px-5 sm:py-2.5"
           >
-            <span className="sm:hidden">Commencer</span>
-            <span className="hidden sm:inline">Commencer gratuitement</span>
+            S&apos;inscrire
           </Link>
         </nav>
       </header>

@@ -29,6 +29,7 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, type ActionCtx } from "./_generated/server";
+import { stripHtmlArtifacts } from "../lib/clean";
 import {
   demoAnalysis,
   demoQuiz,
@@ -137,11 +138,11 @@ function extractJson(text: string): Record<string, unknown> {
   throw new Error("Réponse IA invalide (JSON attendu)");
 }
 
-/** Coerce une valeur en chaîne (avec repli). */
+/** Coerce une valeur en chaîne (avec repli) + nettoyage des artefacts HTML. */
 function asString(v: unknown, fallback = ""): string {
-  if (typeof v === "string") return v;
-  if (v === null || v === undefined) return fallback;
-  return String(v);
+  const raw =
+    typeof v === "string" ? v : v === null || v === undefined ? fallback : String(v);
+  return stripHtmlArtifacts(raw);
 }
 
 /** Coerce une valeur en tableau de chaînes (accepte une chaîne multi-lignes). */
