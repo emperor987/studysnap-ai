@@ -7,7 +7,7 @@
  * source. Aucune clé tierce requise.
  */
 import { describe, expect, test } from "bun:test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { stripHtmlArtifacts } from "@/lib/clean";
@@ -143,12 +143,30 @@ describe("En-têtes de sécurité HTTP", () => {
     expect(headers).toMatch(/object-src\s+'none'/i);
   });
 
-  test("les balises favicon sont déclarées dans le <head>", () => {
+  test("aucun favicon ni logo n'est déclaré dans le <head>", () => {
     const html = readFileSync(join(ROOT, "index.html"), "utf8");
-    expect(html).toContain('rel="icon" href="/favicon.ico"');
-    expect(html).toContain('rel="icon" type="image/png" sizes="32x32"');
-    expect(html).toContain('rel="icon" type="image/png" sizes="16x16"');
-    expect(html).toContain('rel="apple-touch-icon"');
+    expect(html).not.toMatch(/rel=["']icon["']/i);
+    expect(html).not.toContain("apple-touch-icon");
+    expect(html).not.toContain("favicon");
+    expect(html).not.toContain("logo.svg");
+    expect(html).not.toContain("manifest.webmanifest");
+  });
+
+  test("aucun fichier favicon/logo ne traîne dans public/ ni src/assets/", () => {
+    const leftovers = [
+      "favicon.ico",
+      "favicon-16.png",
+      "favicon-32.png",
+      "favicon-180-apple-touch.png",
+      "favicon-192.png",
+      "favicon-512.png",
+      "logo.svg",
+    ].filter(
+      (f) =>
+        existsSync(join(PUB, f)) ||
+        existsSync(join(join(ROOT, "src", "assets"), f)),
+    );
+    expect(leftovers).toEqual([]);
   });
 });
 

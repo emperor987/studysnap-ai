@@ -10,8 +10,7 @@
     "format": "prettier --write .",
     "preview": "vite preview",
     "test": "bun test",
-    "test:security": "bun test tests/security",
-    "favicons": "bun scripts/generate-favicons.ts"
+    "test:security": "bun test tests/security"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",
