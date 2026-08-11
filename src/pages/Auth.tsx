@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 
 import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { resolveRedirectAfterAuth } from "@/lib/redirect";
 import logo from "@/assets/logo.svg";
 import {
   ArrowLeft,
@@ -21,16 +22,6 @@ import { cn } from "@/lib/utils";
 
 interface AuthProps {
   redirectAfterAuth?: string;
-}
-
-function resolveRedirectAfterAuth(
-  returnTo: string | null,
-  fallback = "/dashboard",
-) {
-  if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
-    return returnTo;
-  }
-  return fallback;
 }
 
 type Tab = "signIn" | "signUp";
@@ -98,7 +89,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       });
       navigate(redirect);
     } catch (err) {
-      console.error("Password auth error:", err);
+      console.error("Échec de connexion par mot de passe :", err);
       setError(getAuthErrorMessage(err));
       setIsLoading(false);
     }

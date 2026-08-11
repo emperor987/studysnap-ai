@@ -1,0 +1,11 @@
+# En-têtes de sécurité — appliqués par la plateforme d'hébergement
+# (format compatible Cloudflare Pages / Netlify)
+# L'application ne stocke pas de cookies propriétaires : les sessions sont
+# gérées par Convex Auth (cookies httpOnly) et le webhook Stripe valide la
+# signature avant tout traitement.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'

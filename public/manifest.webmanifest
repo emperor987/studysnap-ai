@@ -1,15 +1,21 @@
 {
-  "name": "freebuff.com application",
-  "short_name": "freebuff.com",
-  "description": "freebuff.com application",
+  "name": "StudySnap — Ton devoir. Ton IA. Ta méthode.",
+  "short_name": "StudySnap",
+  "description": "Scanne un exercice, comprends la méthode et transforme tes cours en fiches de révision et quiz personnalisés.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#121216",
+  "theme_color": "#4f4fe5",
   "icons": [
     {
-      "src": "/logo.png",
-      "sizes": "any",
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-180-apple-touch.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any maskable"
     }
