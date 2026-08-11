@@ -118,17 +118,23 @@ async function chatJson(
   const key = aiKey();
   if (!key) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
 
-  const post = async (withJsonMode: boolean) => {
+  const post = async (jsonMode: boolean, disableThinking: boolean) => {
     const body: Record<string, unknown> = {
       model: aiModel(),
       temperature: 0.4,
       max_tokens: aiMaxTokens(),
       messages,
     };
-    if (withJsonMode) {
+    if (jsonMode) {
       // Certains endpoints compatibles OpenAI (dont certains modèles NVIDIA
       // NIM) refusent response_format : on réessaie sans lui en cas de 400.
       body.response_format = { type: "json_object" };
+    }
+    if (disableThinking) {
+      // NVIDIA NIM — modèles reasoning (ex: nemotron-3-nano-omni…reasoning) :
+      // "enable_thinking": false coupe la chaîne de raisonnement → réponse
+      // directe, latence fortement réduite. Paramètre documenté par NVIDIA.
+      body.chat_template_kwargs = { enable_thinking: false };
     }
     return fetch(`${aiBaseUrl()}/chat/completions`, {
       method: "POST",
@@ -141,15 +147,22 @@ async function chatJson(
     });
   };
 
-  let res = await post(true);
-  if (res.status === 429) throw new AiRateLimitedError();
-  if (res.status === 400) {
-    res = await post(false);
+  // Repli progressif : certains endpoints refusent chat_template_kwargs
+  // et/ou response_format — on retombe sur des requêtes plus simples.
+  const attempts: { jsonMode: boolean; disableThinking: boolean }[] = [
+    { jsonMode: true, disableThinking: true },
+    { jsonMode: true, disableThinking: false },
+    { jsonMode: false, disableThinking: false },
+  ];
+  let res: Response | null = null;
+  for (const a of attempts) {
+    res = await post(a.jsonMode, a.disableThinking);
     if (res.status === 429) throw new AiRateLimitedError();
+    if (res.ok) break;
   }
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Erreur IA (${res.status}): ${body.slice(0, 300)}`);
+  if (!res || !res.ok) {
+    const body = await res?.text().catch(() => "");
+    throw new Error(`Erreur IA (${res?.status ?? "?"}): ${body?.slice(0, 300) ?? ""}`);
   }
   const data = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
@@ -243,7 +256,7 @@ export const analyzeImages = action({
     ];
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 90000);
+    const timer = setTimeout(() => controller.abort(), 60000);
     try {
       const parsed = await chatJson(
         [

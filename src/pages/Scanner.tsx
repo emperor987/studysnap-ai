@@ -22,6 +22,7 @@ import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getAiErrorMessage } from "@/lib/ai-errors";
+import { downscaleImage } from "@/lib/image";
 import type { ConvexError } from "convex/values";
 
 type Step = "upload" | "analyzing" | "mode";
@@ -106,6 +107,7 @@ export default function Scanner() {
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysis, setAnalysis] = useState<unknown>(null);
   const [storageIds, setStorageIds] = useState<string[]>([]);
+  const [storageTypes, setStorageTypes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const usage = useQuery(api.usage.getMyUsage);
@@ -146,21 +148,27 @@ export default function Scanner() {
       950,
     );
     try {
+      // Compression côté client : des photos plus petites = analyse IA
+      // beaucoup plus rapide (tokens image réduits).
       const storageIds: string[] = [];
+      const preparedTypes: string[] = [];
       for (const f of files) {
+        const prepared = await downscaleImage(f.file);
+        preparedTypes.push(prepared.type);
         const postUrl = await generateUploadUrl();
         const res = await fetch(postUrl, {
           method: "POST",
-          headers: { "Content-Type": f.file.type },
-          body: f.file,
+          headers: { "Content-Type": prepared.type },
+          body: prepared,
         });
         if (!res.ok) throw new Error("Upload impossible");
         const { storageId } = (await res.json()) as { storageId: string };
         storageIds.push(storageId);
       }
-      const result = await analyzeImages({ storageIds, contentTypes: files.map((f) => f.file.type) });
+      const result = await analyzeImages({ storageIds, contentTypes: preparedTypes });
       setAnalysis(result);
       setStorageIds(storageIds);
+      setStorageTypes(preparedTypes);
       setStep("mode");
     } catch (e) {
       console.error(e);
@@ -189,7 +197,7 @@ export default function Scanner() {
     try {
       const scanId = await recordScan({
         storageIds,
-        contentTypes: files.map((f) => f.file.type),
+        contentTypes: storageTypes,
         analysis: analysis as never,
         mode,
       });

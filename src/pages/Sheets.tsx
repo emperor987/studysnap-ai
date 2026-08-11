@@ -36,6 +36,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getAiErrorMessage } from "@/lib/ai-errors";
+import { downscaleImage } from "@/lib/image";
 import { formatDateFr, levelLabel, subjectEmoji } from "@/lib/format";
 import type { ConvexError } from "convex/values";
 
@@ -79,13 +80,17 @@ export default function Sheets() {
     setGenerating(true);
     try {
       let storageIds: string[] = [];
+      const preparedTypes: string[] = [];
       if (sourceType === "photo") {
+        // Compression côté client : photos réduites = génération plus rapide.
         for (const f of files) {
+          const prepared = await downscaleImage(f.file);
+          preparedTypes.push(prepared.type);
           const postUrl = await generateUploadUrl();
           const res = await fetch(postUrl, {
             method: "POST",
-            headers: { "Content-Type": f.file.type },
-            body: f.file,
+            headers: { "Content-Type": prepared.type },
+            body: prepared,
           });
           if (!res.ok) throw new Error("upload");
           const { storageId } = (await res.json()) as { storageId: string };
@@ -94,7 +99,7 @@ export default function Sheets() {
       }
       const generated = await generateSheet({
         storageIds,
-        contentTypes: files.map((f) => f.file.type),
+        contentTypes: preparedTypes,
         sourceText: sourceType === "text" ? text : undefined,
         subject: subject || undefined,
         level,
