@@ -6,6 +6,20 @@
  * précis, jamais au chargement de la page. Si la permission est refusée (ou
  * qu'aucune caméra n'existe), on remonte la raison au parent, qui affiche un
  * message clair et bascule sur l'import galerie.
+ *
+ * Cadre portrait / paysage :
+ * - le cadre de guidage suit automatiquement l'orientation de l'appareil
+ *   (événement `orientationchange` / `resize`) ;
+ * - l'utilisateur peut forcer Portrait ou Paysage via les deux pastilles, et
+ *   revenir au suivi automatique avec le bouton « Auto » ;
+ * - quand le cadre forcé contredit l'orientation réelle du téléphone, un
+ *   message discret invite à tourner l'appareil pour un cadrage plein écran.
+ *
+ * Rotation de la capture :
+ * - sur Safari iOS, le <video> affiche le flux correctement orienté mais
+ *   `drawImage` dessine l'image brute (souvent paysage natif) : on compare
+ *   l'aspect affiché à l'aspect natif du flux et, en cas d'écart, on pivote
+ *   le canvas de 90° pour que la photo corresponde au cadre vu par l'élève.
  */
 import { useEffect, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
@@ -21,6 +35,18 @@ interface CameraCaptureProps {
 /** Taille max de la capture (les photos 12 MP inutiles ralentissent l'IA). */
 const MAX_CAPTURE_DIM = 1920;
 
+type FrameOrientation = "portrait" | "landscape";
+
+/** Orientation réelle de l'appareil, sans dépendre de `screen.orientation`. */
+function getDeviceOrientation(): FrameOrientation {
+  if (typeof window === "undefined") return "portrait";
+  if (typeof window.matchMedia === "function") {
+    if (window.matchMedia("(orientation: portrait)").matches) return "portrait";
+    if (window.matchMedia("(orientation: landscape)").matches) return "landscape";
+  }
+  return window.innerWidth > window.innerHeight ? "landscape" : "portrait";
+}
+
 export default function CameraCapture({
   onCapture,
   onClose,
@@ -30,6 +56,12 @@ export default function CameraCapture({
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<"starting" | "ready" | "error">(
     "starting",
+  );
+  const [deviceOrientation, setDeviceOrientation] =
+    useState<FrameOrientation>(() => getDeviceOrientation());
+  /** Cadre forcé par l'utilisateur ; `null` = suivre l'appareil. */
+  const [manualOverride, setManualOverride] = useState<FrameOrientation | null>(
+    null,
   );
 
   // Les callbacks sont stockés dans une ref pour ne pas relancer l'effet de
@@ -87,12 +119,45 @@ export default function CameraCapture({
     };
   }, []);
 
+  // Suivi de l'orientation de l'appareil (rotation du téléphone).
+  useEffect(() => {
+    const update = () => setDeviceOrientation(getDeviceOrientation());
+    update();
+    window.addEventListener("orientationchange", update);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("orientationchange", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  const frame: FrameOrientation = manualOverride ?? deviceOrientation;
+  const isPortrait = frame === "portrait";
+  const showRotationHint =
+    manualOverride !== null && manualOverride !== deviceOrientation;
+
+  /** Force un cadre ; retaper le cadre actif revient au suivi automatique. */
+  const setFrame = (f: FrameOrientation) => {
+    setManualOverride((prev) => (prev === f ? null : f));
+  };
+
   const handleCapture = () => {
     const video = videoRef.current;
     if (!video || video.videoWidth === 0 || status !== "ready") return;
 
-    let w = video.videoWidth;
-    let h = video.videoHeight;
+    const nw = video.videoWidth;
+    const nh = video.videoHeight;
+
+    // Safari iOS affiche le flux pivoté mais `drawImage` dessine le flux
+    // brut : si l'aspect affiché (le cadre) ne correspond pas à l'aspect
+    // natif, on compense la rotation dans le canvas.
+    const displayedLandscape = video.clientWidth > video.clientHeight;
+    const nativeLandscape = nw > nh;
+    const needsRotation = displayedLandscape !== nativeLandscape;
+
+    let w = needsRotation ? nh : nw;
+    let h = needsRotation ? nw : nh;
+
     const longest = Math.max(w, h);
     if (longest > MAX_CAPTURE_DIM) {
       const scale = MAX_CAPTURE_DIM / longest;
@@ -105,7 +170,14 @@ export default function CameraCapture({
     canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0, w, h);
+
+    if (needsRotation) {
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate((90 * Math.PI) / 180);
+      ctx.drawImage(video, -h / 2, -w / 2, h, w);
+    } else {
+      ctx.drawImage(video, 0, 0, w, h);
+    }
 
     canvas.toBlob(
       (blob) => {
@@ -120,10 +192,19 @@ export default function CameraCapture({
     );
   };
 
+  const pill = (active: boolean) =>
+    `rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+      active ? "bg-white text-black" : "text-white/80 hover:text-white"
+    }`;
+
   return (
     <div className="mx-auto w-full max-w-md">
       <div className="relative overflow-hidden rounded-3xl bg-black">
-        <div className="relative aspect-[3/4] w-full">
+        <div
+          className={`relative w-full overflow-hidden bg-black transition-all duration-300 ease-out ${
+            isPortrait ? "aspect-[3/4]" : "aspect-[4/3]"
+          }`}
+        >
           <video
             ref={videoRef}
             playsInline
@@ -145,6 +226,27 @@ export default function CameraCapture({
             Aligne la feuille dans le cadre
           </p>
 
+          {/* Conseil de rotation : le cadre forcé contredit l'orientation du
+              téléphone → tourner l'appareil pour un cadrage plein écran. */}
+          {showRotationHint && (
+            <div className="absolute inset-x-4 top-12 z-10 flex items-center justify-center gap-2">
+              <p className="rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-medium leading-4 text-white/90 backdrop-blur-sm">
+                💡{" "}
+                {frame === "landscape"
+                  ? "Tourne ton téléphone à l'horizontale pour un cadrage plein écran"
+                  : "Remets ton téléphone à la verticale pour un cadrage plein écran"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setManualOverride(null)}
+                className="rounded-full bg-white/15 px-2.5 py-1.5 text-[10px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+                aria-label="Suivre automatiquement l'orientation de l'appareil"
+              >
+                Auto
+              </button>
+            </div>
+          )}
+
           {status === "starting" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
               <Loader2 className="size-7 animate-spin text-white" />
@@ -153,6 +255,33 @@ export default function CameraCapture({
               </p>
             </div>
           )}
+        </div>
+
+        {/* Cadre portrait / paysage : suit l'orientation du téléphone, ou le
+            choix manuel de l'élève (re-taper le cadre actif → Auto). */}
+        <div className="flex items-center justify-center border-t border-white/10 px-5 py-2.5">
+          <div
+            className="flex rounded-full border border-white/20 bg-white/10 p-0.5"
+            role="group"
+            aria-label="Orientation du cadre de capture"
+          >
+            <button
+              type="button"
+              onClick={() => setFrame("portrait")}
+              aria-pressed={isPortrait}
+              className={pill(isPortrait)}
+            >
+              Portrait
+            </button>
+            <button
+              type="button"
+              onClick={() => setFrame("landscape")}
+              aria-pressed={!isPortrait}
+              className={pill(!isPortrait)}
+            >
+              Paysage
+            </button>
+          </div>
         </div>
 
         {/* Contrôles */}
@@ -177,8 +306,6 @@ export default function CameraCapture({
               <span className="size-12 rounded-full bg-white" />
             </button>
           </div>
-
-          <div aria-hidden="true" />
         </div>
       </div>
     </div>
