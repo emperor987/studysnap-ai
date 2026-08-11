@@ -44,7 +44,14 @@ function aiKey(): string | undefined {
 }
 
 function aiBaseUrl(): string {
-  return process.env.AI_BASE_URL ?? "https://api.openai.com/v1";
+  const raw = process.env.AI_BASE_URL ?? "https://api.openai.com/v1";
+  // Certaines saisies incluent déjà le chemin complet "/chat/completions"
+  // (ex: https://integrate.api.nvidia.com/v1/chat/completions). On le
+  // retire pour ne jamais concaténer le suffixe deux fois, puis on enlève
+  // les slashes de fin.
+  return raw
+    .replace(/\/chat\/completions\/?$/i, "")
+    .replace(/\/+$/, "");
 }
 
 function aiModel(): string {
