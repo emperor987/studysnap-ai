@@ -13,8 +13,12 @@
  *   AI_API_KEY   — clé du fournisseur (ex: clé NVIDIA NIM de build.nvidia.com)
  *   AI_BASE_URL  — base de l'API (défaut https://api.openai.com/v1 ;
  *                  NVIDIA NIM : https://integrate.api.nvidia.com/v1)
- *   AI_MODEL     — modèle (défaut gpt-4.1-mini ;
+ *   AI_MODEL     — modèle principal / raisonnement (défaut gpt-4.1-mini ;
  *                  NVIDIA NIM : nvidia/nemotron-3-nano-omni-30b-a3b-reasoning)
+ *   AI_MODEL_FAST— modèle rapide dédié à l'OCR des photos, étape 1 du
+ *                  pipeline (ex: nvidia/nemotron-nano-12b-v2-vl). Sans lui,
+ *                  le comportement historique est conservé (appel vision
+ *                  unique avec AI_MODEL).
  *   AI_MAX_TOKENS— limite de génération (défaut 4096)
  *
  * Sans clé configurée, l'app fonctionne en mode démo avec des contenus
@@ -56,6 +60,20 @@ function aiBaseUrl(): string {
 
 function aiModel(): string {
   return process.env.AI_MODEL ?? AI_MODEL_DEFAULT;
+}
+
+/**
+ * Modèle "rapide" dédié à l'OCR / lecture des photos (étape 1 du pipeline
+ * d'analyse). Variable AI_MODEL_FAST — ex: nvidia/nemotron-nano-12b-v2-vl
+ * sur NVIDIA NIM. Sans valeur, on retombe sur AI_MODEL (le modèle principal
+ * lit directement les images, comportement historique).
+ */
+function aiFastModel(): string {
+  return process.env.AI_MODEL_FAST?.trim() || aiModel();
+}
+
+function aiFastModelConfigured(): boolean {
+  return Boolean(process.env.AI_MODEL_FAST?.trim());
 }
 
 function aiMaxTokens(): number {
@@ -232,32 +250,51 @@ function normalizeSheet(
   };
 }
 
-async function chatJson(
+interface ChatOptions {
+  model?: string;
+  maxTokens?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * Appel brut au fournisseur : renvoie le texte de la réponse.
+ * Repli progressif (JSON activé/désactivé, raisonnement activé/désactivé)
+ * et nouvelle tentative automatique sur échec transitoire (jamais sur 429).
+ */
+async function chatRaw(
   messages: { role: "system" | "user" | "assistant"; content: unknown }[],
-  signal?: AbortSignal,
-  maxTokens?: number,
-): Promise<Record<string, unknown>> {
+  opts: ChatOptions & {
+    attempts?: { jsonMode: boolean; thinking?: "off" | "on" }[];
+  } = {},
+): Promise<string> {
   const key = aiKey();
   if (!key) throw new Error(AI_NOT_CONFIGURED_MESSAGE);
-  const tokens = maxTokens ?? aiMaxTokens();
+  const model = opts.model ?? aiModel();
+  const tokens = opts.maxTokens ?? aiMaxTokens();
+  const attempts = opts.attempts ?? [{ jsonMode: false }];
 
-  const post = async (jsonMode: boolean, disableThinking: boolean) => {
+  const post = async (a: { jsonMode: boolean; thinking?: "off" | "on" }) => {
     const body: Record<string, unknown> = {
-      model: aiModel(),
+      model,
       temperature: 0.4,
       max_tokens: tokens,
       messages,
     };
-    if (jsonMode) {
+    if (a.jsonMode) {
       // Certains endpoints compatibles OpenAI (dont certains modèles NVIDIA
       // NIM) refusent response_format : on réessaie sans lui en cas de 400.
       body.response_format = { type: "json_object" };
     }
-    if (disableThinking) {
+    if (a.thinking === "off") {
       // NVIDIA NIM — modèles reasoning (ex: nemotron-3-nano-omni…reasoning) :
       // "enable_thinking": false coupe la chaîne de raisonnement → réponse
       // directe, latence fortement réduite. Paramètre documenté par NVIDIA.
       body.chat_template_kwargs = { enable_thinking: false };
+    } else if (a.thinking === "on") {
+      // Certains modèles NIM (ex: nemotron-nano-12b-v2-vl) ne produisent
+      // AUCUN contenu sans raisonnement : enable_thinking: true est alors
+      // nécessaire pour obtenir une réponse (le texte va dans "content").
+      body.chat_template_kwargs = { enable_thinking: true };
     }
     return fetch(`${aiBaseUrl()}/chat/completions`, {
       method: "POST",
@@ -266,24 +303,19 @@ async function chatJson(
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify(body),
-      signal,
+      signal: opts.signal,
     });
   };
 
   // Repli progressif : certains endpoints refusent chat_template_kwargs
   // et/ou response_format — on retombe sur des requêtes plus simples. Une
   // réponse 200 avec content vide (bug "thinking-only" de certains endpoints
-  // NIM) déclenche aussi la tentative suivante (raisonnement activé).
-  const chatOnce = async (): Promise<Record<string, unknown>> => {
-    const attempts: { jsonMode: boolean; disableThinking: boolean }[] = [
-      { jsonMode: true, disableThinking: true },
-      { jsonMode: true, disableThinking: false },
-      { jsonMode: false, disableThinking: false },
-    ];
+  // NIM) déclenche aussi la tentative suivante.
+  const chatOnce = async (): Promise<string> => {
     let lastStatus = 0;
     let lastBody = "";
     for (const a of attempts) {
-      const res = await post(a.jsonMode, a.disableThinking);
+      const res = await post(a);
       if (res.status === 429) throw new AiRateLimitedError();
       if (!res.ok) {
         lastStatus = res.status;
@@ -294,7 +326,7 @@ async function chatJson(
         choices?: { message?: { content?: string } }[];
       };
       const content = data.choices?.[0]?.message?.content ?? "";
-      if (content.trim().length > 0) return extractJson(content);
+      if (content.trim().length > 0) return content;
       lastBody = "Réponse IA vide (content vide)";
     }
     throw new Error(`Erreur IA (${lastStatus}): ${lastBody}`);
@@ -314,6 +346,24 @@ async function chatJson(
     }
   }
   throw lastError;
+}
+
+/** Appel JSON (objet parsé), avec repli progressif JSON → texte brut. */
+async function chatJson(
+  messages: { role: "system" | "user" | "assistant"; content: unknown }[],
+  signal?: AbortSignal,
+  maxTokens?: number,
+): Promise<Record<string, unknown>> {
+  const raw = await chatRaw(messages, {
+    signal,
+    maxTokens,
+    attempts: [
+      { jsonMode: true, thinking: "off" },
+      { jsonMode: true },
+      { jsonMode: false },
+    ],
+  });
+  return extractJson(raw);
 }
 
 /** Démarre un timeout court pour donner l'illusion de rapidité (2-4 s perçues). */
@@ -355,21 +405,106 @@ Règles absolues :
   }
 }`;
 
-/** Analyse d'une ou plusieurs photos d'exercice : extraction + les 3 modes. */
-export const analyzeImages = action({
+const OCR_SYSTEM_PROMPT = `Tu es un moteur d'OCR pour des exercices et cours scolaires francophones (texte imprimé ou manuscrit).
+Extrais de la photo TOUT le contenu utile, sans reformuler et sans résoudre l'exercice :
+- l'énoncé et la consigne, mot pour mot ;
+- les données chiffrées, les valeurs, les unités ;
+- les formules mathématiques en LaTeX (entre $...$ ou $$...$$) ;
+- les schémas/figures : décris-les brièvement entre crochets, ex : [figure : triangle ABC rectangle en A].
+Si un passage est illisible, écris [illisible] à sa place.
+Réponds UNIQUEMENT avec le texte extrait, sans commentaire.`;
+
+/**
+ * Étape 1 du pipeline : lecture de la photo (OCR) avec le modèle rapide
+ * (AI_MODEL_FAST). Si le modèle rapide est indisponible (erreur transitoire),
+ * on retente la lecture avec le modèle principal — sauf vrai 429.
+ */
+async function ocrImageText(
+  imageParts: { type: "image_url"; image_url: { url: string } }[],
+  signal?: AbortSignal,
+): Promise<string> {
+  const messages = [
+    { role: "system" as const, content: OCR_SYSTEM_PROMPT },
+    {
+      role: "user" as const,
+      content: [
+        {
+          type: "text" as const,
+          text: "Voici une photo d'exercice scolaire. Extrais-en le texte intégral :",
+        },
+        ...imageParts,
+      ],
+    },
+  ];
+  try {
+    // Modèle rapide d'abord (sans JSON : simple extraction).
+    // nemotron-nano-12b-v2-vl ne répond qu'avec enable_thinking: true →
+    // tentative en dernier recours dans la chaîne.
+    const text = await chatRaw(messages, {
+      model: aiFastModel(),
+      signal,
+      maxTokens: 2048,
+      attempts: [
+        { jsonMode: false },
+        { jsonMode: false, thinking: "off" },
+        { jsonMode: false, thinking: "on" },
+      ],
+    });
+    return text.trim();
+  } catch (e) {
+    if (e instanceof AiRateLimitedError) throw e;
+    // Modèle rapide indisponible : repli sur le modèle principal (vision).
+    const text = await chatRaw(messages, {
+      model: aiModel(),
+      signal,
+      maxTokens: 2048,
+      attempts: [
+        { jsonMode: false, thinking: "off" },
+        { jsonMode: false },
+        { jsonMode: false, thinking: "on" },
+      ],
+    });
+    return text.trim();
+  }
+}
+
+/** Résultat de l'OCR : texte extrait OU photo illisible. */
+export type OcrResult =
+  | { unreadable: true; note: string }
+  | { fullText: string };
+
+/** Message affiché quand la photo ne permet aucune extraction exploitable. */
+export const UNREADABLE_MESSAGE =
+  "Ta photo n'est pas assez lisible. Reprends-la : mieux cadrée, à plat, avec un meilleur éclairage.";
+
+/** Texte OCR de démonstration (mode démo, aucune clé configurée). */
+const DEMO_OCR_TEXT = `Exercice — Fonctions affines (niveau seconde)
+
+On considère la fonction f définie sur R par f(x) = 2x - 3.
+
+1. Calculer f(0), f(1) et f(-1).
+2. Déterminer le coefficient directeur et l'ordonnée à l'origine de la droite représentant f.
+3. Résoudre l'équation f(x) = 5.
+4. Tracer la courbe représentative de f dans un repère orthonormé.`;
+
+/**
+ * Étape 1 du pipeline d'analyse : lecture de la photo (OCR) avec le modèle
+ * rapide (AI_MODEL_FAST, ex: nvidia/nemotron-nano-12b-v2-vl). Si la photo
+ * est illisible (texte vide ou trop court), renvoie { unreadable } — l'étape
+ * 2 ne doit alors pas être appelée.
+ */
+export const ocrPhotos = action({
   args: {
     storageIds: v.array(v.string()),
     contentTypes: v.optional(v.array(v.string())),
-    prompt: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const userId = await requireUser(ctx);
-    const seed = hashSeed(userId, args.storageIds.join(","), new Date().getDate());
+  handler: async (ctx, args): Promise<OcrResult> => {
+    await requireUser(ctx);
 
     // Mode démo : reste actif tant qu'aucune clé n'est configurée.
     if (!aiKey()) {
       await minLatency();
-      return demoResult(seed);
+      return { fullText: DEMO_OCR_TEXT };
     }
 
     const urls = (
@@ -387,28 +522,59 @@ export const analyzeImages = action({
       })),
     );
 
-    const contentParts: (
-      | { type: "text"; text: string }
-      | { type: "image_url"; image_url: { url: string } }
-    )[] = [
-      {
-        type: "text",
-        text:
-          "Voici une photo d'exercice scolaire (peut-être plusieurs). Analyse-la : " +
-          (args.prompt ? `Consigne complémentaire : ${args.prompt}` : ""),
-      },
-      ...imageParts,
-    ];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 90000);
+    try {
+      const fullText = await ocrImageText(imageParts, controller.signal);
+      if (fullText.length < 20) {
+        return { unreadable: true, note: UNREADABLE_MESSAGE };
+      }
+      return { fullText };
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+});
+
+/**
+ * Étape 2 : génération des 3 modes (Réponse rapide / Explication / Révision)
+ * à partir du texte extrait à l'étape 1 — plus aucune image à traiter,
+ * donc nettement plus rapide.
+ */
+export const analyzeText = action({
+  args: {
+    text: v.string(),
+    prompt: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<DemoAnalysis> => {
+    const userId = await requireUser(ctx);
+
+    // Mode démo : reste actif tant qu'aucune clé n'est configurée.
+    if (!aiKey()) {
+      return demoResult(hashSeed(userId, args.text, new Date().getDate()));
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 90000);
     try {
       // Plafond de sortie élevé : l'analyse renvoie les 3 modes à la fois,
-      // un JSON tronqué à 4096 tokens rendrait la réponse inutilisable.
+      // un JSON tronqué rendrait la réponse inutilisable.
       const parsed = await chatJson(
         [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: contentParts },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  "Voici le texte extrait d'une photo d'exercice scolaire (OCR). " +
+                  "Il peut contenir des [illisible] — ne devine jamais une donnée absente.\n\n" +
+                  (args.prompt ? `Consigne complémentaire : ${args.prompt}\n\n` : "") +
+                  `--- Texte de l'exercice ---\n${args.text}`,
+              },
+            ],
+          },
         ],
         controller.signal,
         8000,
@@ -474,7 +640,7 @@ export const generateSheet = action({
       })),
     );
 
-    const parts: unknown[] = [
+    let parts: unknown[] = [
       {
         type: "text",
         text: `Construis une fiche de révision${
@@ -485,6 +651,33 @@ export const generateSheet = action({
       },
       ...imageParts,
     ];
+
+    // Photos + AI_MODEL_FAST : OCR rapide d'abord, puis fiche générée à
+    // partir du texte seul (bien plus rapide). En cas d'échec OCR, on garde
+    // les photos (repli robuste, comportement historique).
+    if (imageParts.length > 0 && aiFastModelConfigured()) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      try {
+        const ocrText = await ocrImageText(imageParts, controller.signal);
+        if (ocrText.length >= 20) {
+          parts = [
+            {
+              type: "text",
+              text: `Construis une fiche de révision${
+                args.subject ? ` pour la matière « ${args.subject} »` : ""
+              }${
+                args.level ? `, niveau ${args.level}` : ""
+              }. ${args.sourceText ? `Voici le cours :\n\n${args.sourceText}` : ""}\n\n--- Contenu de la/les photo(s) (OCR) ---\n${ocrText}`,
+            },
+          ];
+        }
+      } catch {
+        // OCR indisponible : les photos restent envoyées au modèle vision.
+      } finally {
+        clearTimeout(timer);
+      }
+    }
 
     const parsed = await chatJson([
       { role: "system", content: SHEET_SYSTEM_PROMPT },

@@ -17,7 +17,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -31,9 +31,8 @@ const MAX_FILES = 6;
 const MAX_SIZE_MB = 10;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-const ANALYSIS_STEPS = [
-  "Lecture de la photo…",
-  "Extraction de l'énoncé…",
+const OCR_STEPS = ["Lecture de la photo…", "Extraction de l'énoncé…"];
+const GENERATE_STEPS = [
   "Détection de la matière et du niveau…",
   "Préparation de tes explications…",
 ];
@@ -105,16 +104,32 @@ export default function Scanner() {
   const [step, setStep] = useState<Step>("upload");
   const [files, setFiles] = useState<{ file: File; preview: string }[]>([]);
   const [analysisStep, setAnalysisStep] = useState(0);
+  const [phase, setPhase] = useState<"ocr" | "generate">("ocr");
   const [analysis, setAnalysis] = useState<unknown>(null);
+  const [fullText, setFullText] = useState("");
   const [storageIds, setStorageIds] = useState<string[]>([]);
   const [storageTypes, setStorageTypes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const usage = useQuery(api.usage.getMyUsage);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const analyzeImages = useAction(api.ai.analyzeImages);
+  const ocrPhotos = useAction(api.ai.ocrPhotos);
+  const analyzeText = useAction(api.ai.analyzeText);
   const recordScan = useMutation(api.scans.recordScan);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Pendant l'analyse, les étapes défilent selon la phase en cours
+  // (lecture de la photo → génération de la réponse).
+  useEffect(() => {
+    if (step !== "analyzing") return;
+    const list = phase === "ocr" ? OCR_STEPS : GENERATE_STEPS;
+    setAnalysisStep(0);
+    const interval = setInterval(
+      () => setAnalysisStep((s) => Math.min(s + 1, list.length - 1)),
+      950,
+    );
+    return () => clearInterval(interval);
+  }, [phase, step]);
 
   const addFiles = useCallback((list: FileList | File[]) => {
     const next = Array.from(list).filter((f) => {
@@ -142,11 +157,8 @@ export default function Scanner() {
   const handleAnalyze = async () => {
     if (files.length === 0) return;
     setError(null);
+    setPhase("ocr");
     setStep("analyzing");
-    const interval = setInterval(
-      () => setAnalysisStep((s) => Math.min(s + 1, ANALYSIS_STEPS.length - 1)),
-      950,
-    );
     try {
       // Compression côté client : des photos plus petites = analyse IA
       // beaucoup plus rapide (tokens image réduits).
@@ -165,8 +177,22 @@ export default function Scanner() {
         const { storageId } = (await res.json()) as { storageId: string };
         storageIds.push(storageId);
       }
-      const result = await analyzeImages({ storageIds, contentTypes: preparedTypes });
+
+      // ---- Étape 1 : lecture de la photo (OCR, modèle rapide) ----
+      const ocr = await ocrPhotos({ storageIds, contentTypes: preparedTypes });
+      if ("unreadable" in ocr) {
+        // Photo illisible : on n'appelle PAS l'étape 2, on demande une
+        // nouvelle photo plus lisible.
+        setError(ocr.note);
+        setStep("upload");
+        return;
+      }
+
+      // ---- Étape 2 : génération de la réponse à partir du texte ----
+      setPhase("generate");
+      const result = await analyzeText({ text: ocr.fullText });
       setAnalysis(result);
+      setFullText(ocr.fullText);
       setStorageIds(storageIds);
       setStorageTypes(preparedTypes);
       setStep("mode");
@@ -186,9 +212,6 @@ export default function Scanner() {
         }
       }
       setStep("upload");
-    } finally {
-      clearInterval(interval);
-      setAnalysisStep(0);
     }
   };
 
@@ -200,6 +223,7 @@ export default function Scanner() {
         contentTypes: storageTypes,
         analysis: analysis as never,
         mode,
+        fullText: fullText || undefined,
       });
       navigate(`/scanner/result/${scanId}?mode=${mode}`);
     } catch (e) {
@@ -395,15 +419,19 @@ export default function Scanner() {
             <div className="absolute -inset-3 animate-spin rounded-full border-2 border-transparent border-t-primary/60" style={{ animationDuration: "1.4s" }} />
           </div>
           <motion.h2
-            key={analysisStep}
+            key={`${phase}-${analysisStep}`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             className="mt-8 text-xl font-bold"
           >
-            Analyse de ton exercice…
+            {phase === "ocr"
+              ? "Lecture de ton exercice…"
+              : "Génération de la réponse…"}
           </motion.h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {ANALYSIS_STEPS[analysisStep]}
+            {phase === "ocr"
+              ? OCR_STEPS[analysisStep]
+              : GENERATE_STEPS[analysisStep]}
           </p>
           <div className="mt-6 h-1.5 w-64 overflow-hidden rounded-full bg-zinc-200/70">
             <motion.div
@@ -414,7 +442,7 @@ export default function Scanner() {
             />
           </div>
           <div className="mt-8 grid grid-cols-2 gap-2 text-left text-xs text-muted-foreground">
-            {ANALYSIS_STEPS.map((s, i) => (
+            {(phase === "ocr" ? OCR_STEPS : GENERATE_STEPS).map((s, i) => (
               <div
                 key={s}
                 className={cn(
