@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import logo from "@/assets/logo.svg";
 import { ArrowLeft } from "lucide-react";
 
 /**
@@ -24,7 +23,6 @@ export function LegalLayout({
     <div className="bg-glow min-h-screen bg-background text-foreground">
       <header className="mx-auto flex w-full max-w-4xl items-center justify-between px-5 py-5 sm:px-8">
         <Link to="/" className="flex items-center gap-2.5">
-          <img src={logo} alt="StudySnap" width={30} height={30} className="rounded-lg" />
           <span className="font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>

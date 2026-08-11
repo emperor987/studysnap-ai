@@ -24,7 +24,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo.svg";
 
 /* ------------------------------------------------------------------ */
 /* Hero — mosaïque de photos + overlay + compteur social               */
@@ -118,13 +117,6 @@ function Hero() {
       {/* Nav en overlay */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-2.5">
-          <img
-            src={logo}
-            alt="StudySnap"
-            width={30}
-            height={30}
-            className="size-[30px] shrink-0 rounded-xl sm:size-[34px]"
-          />
           <span className="truncate text-base font-extrabold tracking-tight text-white sm:text-lg">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
@@ -906,7 +898,6 @@ function Footer() {
       <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
         <div className="flex flex-col items-center gap-6">
           <div className="flex items-center gap-2.5">
-            <img src={logo} alt="StudySnap" width={28} height={28} className="rounded-lg" />
             <span className="text-base font-extrabold tracking-tight">
               Study<span className="text-brand-gradient">Snap</span>
             </span>

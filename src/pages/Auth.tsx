@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { resolveRedirectAfterAuth } from "@/lib/redirect";
-import logo from "@/assets/logo.svg";
 import {
   ArrowLeft,
   Camera,
@@ -509,13 +508,6 @@ function AuthShell({ children }: { children: React.ReactNode }) {
           Retour à l&apos;accueil
         </button>
         <Link to="/" className="flex items-center gap-2">
-          <img
-            src={logo}
-            alt="StudySnap"
-            width={30}
-            height={30}
-            className="rounded-lg"
-          />
           <span className="font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>

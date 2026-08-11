@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
-import logo from "@/assets/logo.svg";
 import { initials } from "@/lib/format";
 import type { ReactNode } from "react";
 
@@ -106,7 +105,6 @@ export function AppShell({
       {/* ---------- Sidebar desktop ---------- */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-border bg-[#1c1c22]/90 p-5 backdrop-blur-2xl lg:flex">
         <NavLink to="/dashboard" className="flex items-center gap-2.5 px-1">
-          <img src={logo} alt="StudySnap" width={34} height={34} className="rounded-xl" />
           <span className="text-lg font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
@@ -181,7 +179,6 @@ export function AppShell({
       {/* ---------- Header mobile ---------- */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-[#121216]/85 px-5 py-3 backdrop-blur-xl lg:hidden">
         <NavLink to="/dashboard" className="flex items-center gap-2">
-          <img src={logo} alt="StudySnap" width={28} height={28} className="rounded-lg" />
           <span className="font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>

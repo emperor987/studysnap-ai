@@ -5,7 +5,6 @@ import { ArrowLeft, Check, Loader2, Sparkles, Zap } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
-import logo from "@/assets/logo.svg";
 import { PLANS } from "@/lib/plans";
 
 export default function Pricing() {
@@ -49,7 +48,6 @@ export default function Pricing() {
       {/* Header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
         <Link to="/" className="flex items-center gap-2.5">
-          <img src={logo} alt="StudySnap" width={32} height={32} className="rounded-xl" />
           <span className="text-lg font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
