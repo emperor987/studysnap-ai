@@ -206,6 +206,8 @@ export default function Scanner() {
       const code = (e as ConvexError<{ code?: string }>)?.data?.code;
       if (code === "LIMIT_REACHED") {
         toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
+      } else if (code === "RATE_LIMITED") {
+        toast.error("Un petit instant entre deux scans…");
       } else {
         toast.error("Impossible d'enregistrer le scan.");
         console.error(e);

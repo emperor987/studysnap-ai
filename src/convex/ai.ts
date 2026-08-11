@@ -111,6 +111,127 @@ function extractJson(text: string): Record<string, unknown> {
   throw new Error("Réponse IA invalide (JSON attendu)");
 }
 
+/** Coerce une valeur en chaîne (avec repli). */
+function asString(v: unknown, fallback = ""): string {
+  if (typeof v === "string") return v;
+  if (v === null || v === undefined) return fallback;
+  return String(v);
+}
+
+/** Coerce une valeur en tableau de chaînes (accepte une chaîne multi-lignes). */
+function asStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) {
+    return v.map((x) => asString(x)).filter((s) => s.length > 0);
+  }
+  if (typeof v === "string") {
+    return v
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/** Coerce les exercices générés (objet -> { question, answer, hint }). */
+function normalizeExercises(
+  v: unknown,
+): { question: string; answer: string; hint: string }[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => {
+      const o = (x ?? {}) as Record<string, unknown>;
+      return {
+        question: asString(o.question),
+        answer: asString(o.answer),
+        hint: asString(o.hint),
+      };
+    })
+    .filter((x) => x.question.length > 0 || x.answer.length > 0);
+}
+
+/**
+ * Normalise la réponse du modèle : il ne respecte pas toujours le schéma
+ * demandé (sections manquantes, tableaux en chaînes, champs omis…). On
+ * force les types et on comble les manques pour que la validation du scan
+ * (recordScan) ne rejette jamais la réponse.
+ */
+function normalizeAnalysis(parsed: Record<string, unknown>): DemoAnalysis {
+  const d = (parsed.detection ?? {}) as Record<string, unknown>;
+  const q = (parsed.quick ?? {}) as Record<string, unknown>;
+  const e = (parsed.explain ?? {}) as Record<string, unknown>;
+  const r = (parsed.revise ?? {}) as Record<string, unknown>;
+  return {
+    detection: {
+      subject: asString(d.subject, "Mathématiques"),
+      topic: asString(d.topic),
+      level: asString(d.level, "seconde"),
+      prompt: asString(d.prompt),
+      data: asString(d.data),
+      formulas: asStringArray(d.formulas),
+      legible: d.legible !== false,
+    },
+    quick: {
+      answer: asString(q.answer),
+      calculation: asString(q.calculation),
+      keyPoint: asString(q.keyPoint),
+    },
+    explain: {
+      question: asString(e.question),
+      importantInfo: asStringArray(e.importantInfo),
+      method: asString(e.method),
+      steps: asStringArray(e.steps),
+      result: asString(e.result),
+      commonMistake: asString(e.commonMistake),
+    },
+    revise: {
+      lesson: asString(r.lesson),
+      keyFormulas: asStringArray(r.keyFormulas),
+      exercises: normalizeExercises(r.exercises),
+    },
+  };
+}
+
+/** Normalise le contenu d'une fiche de révision (mêmes protections). */
+function normalizeSheet(
+  parsed: Record<string, unknown>,
+  fallbackSubject: string,
+): DemoSheet {
+  const c = (parsed.content ?? {}) as Record<string, unknown>;
+  const concepts = Array.isArray(c.concepts)
+    ? c.concepts
+        .map((x) => {
+          const o = (x ?? {}) as Record<string, unknown>;
+          return { term: asString(o.term), definition: asString(o.definition) };
+        })
+        .filter((x) => x.term.length > 0 || x.definition.length > 0)
+    : [];
+  const formulas = Array.isArray(c.formulas)
+    ? c.formulas
+        .map((x) => {
+          const o = (x ?? {}) as Record<string, unknown>;
+          return { name: asString(o.name), formula: asString(o.formula) };
+        })
+        .filter((x) => x.name.length > 0 || x.formula.length > 0)
+    : [];
+  const example = (c.example ?? {}) as Record<string, unknown>;
+  return {
+    title: asString(parsed.title, "Fiche de révision"),
+    subject: asString(parsed.subject, fallbackSubject),
+    level: asString(parsed.level, "seconde"),
+    content: {
+      concepts,
+      formulas,
+      methods: asStringArray(c.methods),
+      example: {
+        question: asString(example.question),
+        solution: asString(example.solution),
+      },
+      pitfalls: asStringArray(c.pitfalls),
+      takeaways: asStringArray(c.takeaways),
+    },
+  };
+}
+
 async function chatJson(
   messages: { role: "system" | "user" | "assistant"; content: unknown }[],
   signal?: AbortSignal,
@@ -150,28 +271,33 @@ async function chatJson(
   };
 
   // Repli progressif : certains endpoints refusent chat_template_kwargs
-  // et/ou response_format — on retombe sur des requêtes plus simples.
+  // et/ou response_format — on retombe sur des requêtes plus simples. Une
+  // réponse 200 avec content vide (bug "thinking-only" de certains endpoints
+  // NIM) déclenche aussi la tentative suivante (raisonnement activé).
   const chatOnce = async (): Promise<Record<string, unknown>> => {
     const attempts: { jsonMode: boolean; disableThinking: boolean }[] = [
       { jsonMode: true, disableThinking: true },
       { jsonMode: true, disableThinking: false },
       { jsonMode: false, disableThinking: false },
     ];
-    let res: Response | null = null;
+    let lastStatus = 0;
+    let lastBody = "";
     for (const a of attempts) {
-      res = await post(a.jsonMode, a.disableThinking);
+      const res = await post(a.jsonMode, a.disableThinking);
       if (res.status === 429) throw new AiRateLimitedError();
-      if (res.ok) break;
+      if (!res.ok) {
+        lastStatus = res.status;
+        lastBody = (await res.text().catch(() => "")).slice(0, 300);
+        continue;
+      }
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const content = data.choices?.[0]?.message?.content ?? "";
+      if (content.trim().length > 0) return extractJson(content);
+      lastBody = "Réponse IA vide (content vide)";
     }
-    if (!res || !res.ok) {
-      const body = await res?.text().catch(() => "");
-      throw new Error(`Erreur IA (${res?.status ?? "?"}): ${body?.slice(0, 300) ?? ""}`);
-    }
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    const content = data.choices?.[0]?.message?.content ?? "";
-    return extractJson(content);
+    throw new Error(`Erreur IA (${lastStatus}): ${lastBody}`);
   };
 
   // Les endpoints gratuits (NVIDIA free tier) peuvent échouer de façon
@@ -287,30 +413,10 @@ export const analyzeImages = action({
         controller.signal,
         8000,
       );
-      const detection = (parsed.detection ?? {}) as Record<string, unknown>;
-      return {
-        detection: {
-          subject: String(detection.subject ?? "Mathématiques"),
-          topic: String(detection.topic ?? ""),
-          level: String(detection.level ?? "seconde"),
-          prompt: String(detection.prompt ?? ""),
-          data: String(detection.data ?? ""),
-          formulas: Array.isArray(detection.formulas)
-            ? (detection.formulas as string[])
-            : [],
-          legible: detection.legible !== false,
-        },
-        quick: (parsed.quick ?? { answer: "", calculation: "", keyPoint: "" }) as DemoAnalysis["quick"],
-        explain: (parsed.explain ?? {
-          question: "",
-          importantInfo: [],
-          method: "",
-          steps: [],
-          result: "",
-          commonMistake: "",
-        }) as DemoAnalysis["explain"],
-        revise: (parsed.revise ?? { lesson: "", keyFormulas: [], exercises: [] }) as DemoAnalysis["revise"],
-      };
+      // Le modèle peut omettre des sections ou mal typer des champs : la
+      // normalisation garantit que l'enregistrement du scan ne rejette
+      // jamais la réponse (validation stricte côté recordScan).
+      return normalizeAnalysis(parsed);
     } finally {
       clearTimeout(timer);
     }
@@ -384,12 +490,7 @@ export const generateSheet = action({
       { role: "system", content: SHEET_SYSTEM_PROMPT },
       { role: "user", content: parts },
     ]);
-    return {
-      title: String(parsed.title ?? "Fiche de révision"),
-      subject: String(parsed.subject ?? args.subject ?? "Mathématiques"),
-      level: String(parsed.level ?? "seconde"),
-      content: parsed.content as DemoSheet["content"],
-    };
+    return normalizeSheet(parsed, args.subject ?? "Mathématiques");
   },
 });
 
@@ -440,14 +541,27 @@ Types : ${args.types.join(", ")}.`,
     const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
     return {
       title: String(parsed.title ?? `Quiz ${args.subject}`),
-      questions: questions.slice(0, count).map((q) => ({
-        type: String(q?.type ?? "qcm"),
-        question: String(q?.question ?? ""),
-        options: Array.isArray(q?.options) ? (q.options as string[]) : undefined,
-        answer: String(q?.answer ?? ""),
-        explanation: String(q?.explanation ?? ""),
-        topic: q?.topic ? String(q.topic) : undefined,
-      })),
+      questions: questions
+        .slice(0, count)
+        .map((q) => {
+          const o = (q ?? {}) as Record<string, unknown>;
+          return {
+            type: asString(o.type, "qcm"),
+            question: asString(o.question),
+            options: Array.isArray(o.options)
+              ? (o.options as unknown[]).map((x) => asString(x)).filter(Boolean)
+              : typeof o.options === "string"
+                ? o.options
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : undefined,
+            answer: asString(o.answer),
+            explanation: asString(o.explanation),
+            topic: o.topic ? asString(o.topic) : undefined,
+          };
+        })
+        .filter((q) => q.question.length > 0),
     };
   },
 });
