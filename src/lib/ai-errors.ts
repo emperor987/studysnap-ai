@@ -5,11 +5,15 @@
  */
 
 export const AI_RATE_LIMITED_MESSAGE = "AI_RATE_LIMITED";
+export const AI_TIMEOUT_MESSAGE = "AI_TIMEOUT";
 
 /** Retourne un message utilisateur si l'erreur est connue, sinon null. */
 export function getAiErrorMessage(e: unknown): string | null {
   if (e instanceof Error && e.message === AI_RATE_LIMITED_MESSAGE) {
     return "Trop de demandes, réessaie dans quelques instants.";
+  }
+  if (e instanceof Error && e.message === AI_TIMEOUT_MESSAGE) {
+    return "L'analyse a pris trop de temps (file d'attente chargée). Réessaie dans quelques instants.";
   }
   return null;
 }

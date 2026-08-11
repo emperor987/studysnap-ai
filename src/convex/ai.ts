@@ -41,6 +41,8 @@ import {
 export const AI_MODEL_DEFAULT = "gpt-4.1-mini";
 /** Message d'erreur propagé au client en cas de limite de débit du fournisseur. */
 export const AI_RATE_LIMITED_MESSAGE = "AI_RATE_LIMITED";
+/** Message d'erreur propagé au client quand l'analyse dépasse le temps imparti. */
+export const AI_TIMEOUT_MESSAGE = "AI_TIMEOUT";
 export const AI_NOT_CONFIGURED_MESSAGE = "AI_NOT_CONFIGURED";
 
 function aiKey(): string | undefined {
@@ -347,6 +349,12 @@ async function chatRaw(
       return await chatOnce();
     } catch (e) {
       if (e instanceof AiRateLimitedError) throw e;
+      if (e instanceof Error && e.name === "AbortError") {
+        // Timeout global atteint (file d'attente trop longue, ex: free tier
+        // NVIDIA) : on arrête immédiatement et on lève une erreur claire —
+        // pas de nouvelle tentative, le signal est déjà coupé.
+        throw new Error(AI_TIMEOUT_MESSAGE);
+      }
       lastError = e;
       if (attempt === 0) await new Promise((r) => setTimeout(r, 700));
     }
@@ -578,7 +586,8 @@ export const ocrPhotos = action({
     );
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 90000);
+    // La file du free tier peut ralentir l'OCR : marge confortable.
+    const timer = setTimeout(() => controller.abort(), 120000);
     try {
       const fullText = await ocrImageText(imageParts, controller.signal);
       if (fullText.length < 20) {
@@ -611,8 +620,9 @@ export const analyzeText = action({
 
     const controller = new AbortController();
     // Deux générations possibles (relance complétude) + file du free tier :
-    // marge large pour ne pas couper la relance en plein milieu.
-    const timer = setTimeout(() => controller.abort(), 150000);
+    // marge large pour ne pas couper la relance en plein milieu (jusqu'à
+    // ~1-2 min par génération sur les jours chargés).
+    const timer = setTimeout(() => controller.abort(), 180000);
     try {
       // Plafond de sortie élevé : l'analyse renvoie les 3 modes à la fois,
       // un JSON tronqué rendrait la réponse inutilisable.

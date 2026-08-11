@@ -6,14 +6,13 @@ import {
   ArrowRight,
   Camera,
   CheckCircle2,
-  FileImage,
+  FileText,
   ImagePlus,
   Loader2,
   RefreshCw,
   ScanLine,
   Sparkles,
   Trash2,
-  UploadCloud,
   X,
   Zap,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getAiErrorMessage } from "@/lib/ai-errors";
+import { isLongExercise, LONG_ANALYSIS_WARNING } from "@/lib/analysis";
 import { downscaleImage } from "@/lib/image";
 import type { ConvexError } from "convex/values";
 
@@ -110,6 +110,8 @@ export default function Scanner() {
   const [storageIds, setStorageIds] = useState<string[]>([]);
   const [storageTypes, setStorageTypes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [extraText, setExtraText] = useState("");
+  const [willBeLong, setWillBeLong] = useState(false);
 
   const usage = useQuery(api.usage.getMyUsage);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
@@ -157,6 +159,7 @@ export default function Scanner() {
   const handleAnalyze = async () => {
     if (files.length === 0) return;
     setError(null);
+    setWillBeLong(false);
     setPhase("ocr");
     setStep("analyzing");
     try {
@@ -189,8 +192,16 @@ export default function Scanner() {
       }
 
       // ---- Étape 2 : génération de la réponse à partir du texte ----
+      // Énoncés longs / problèmes : on prévient l'utilisateur que l'analyse
+      // peut prendre 1 à 2 minutes.
+      setWillBeLong(
+        isLongExercise(`${ocr.fullText}\n${extraText.trim()}`),
+      );
       setPhase("generate");
-      const result = await analyzeText({ text: ocr.fullText });
+      const result = await analyzeText({
+        text: ocr.fullText,
+        prompt: extraText.trim() || undefined,
+      });
       setAnalysis(result);
       setFullText(ocr.fullText);
       setStorageIds(storageIds);
@@ -391,6 +402,31 @@ export default function Scanner() {
             </p>
           )}
 
+          {/* Texte de l'énoncé en option : accélère et fiabilise l'analyse. */}
+          <details className="group mt-6 rounded-2xl border border-border/60 bg-white/50 p-4 open:bg-white/70">
+            <summary className="flex cursor-pointer select-none items-center gap-2 text-sm font-semibold text-primary">
+              <FileText className="size-4" />
+              Ajouter le texte de l'énoncé (optionnel)
+            </summary>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Si tu as l'énoncé en texte (ou si la photo est moyenne), colle-le
+              ici : l'analyse sera plus rapide, plus fiable et les énoncés
+              longs prendront moins de temps.
+            </p>
+            <textarea
+              value={extraText}
+              onChange={(e) => setExtraText(e.target.value)}
+              rows={4}
+              placeholder="Ex. : Résoudre dans R l'équation 2x² − 5x + 3 = 0, puis étudier le signe de f(x) sur R…"
+              className="mt-3 w-full resize-y rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+            />
+            {extraText.trim().length > 700 && (
+              <p className="mt-2 text-xs font-semibold text-amber-700">
+                ⏳ Énoncé long détecté : l'analyse peut prendre 1 à 2 minutes.
+              </p>
+            )}
+          </details>
+
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {[
               { icon: Sparkles, text: "Matière, niveau, consigne détectés automatiquement" },
@@ -463,6 +499,15 @@ export default function Scanner() {
               </div>
             ))}
           </div>
+
+          {phase === "generate" && willBeLong && (
+            <div className="mt-6 max-w-sm rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-left text-xs leading-5 text-amber-900">
+              <p className="font-bold">
+                ⏳ L'analyse peut prendre 1 à 2 minutes
+              </p>
+              <p className="mt-1">{LONG_ANALYSIS_WARNING}</p>
+            </div>
+          )}
         </div>
       )}
 
