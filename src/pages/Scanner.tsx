@@ -218,6 +218,10 @@ export default function Scanner() {
           toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
         } else if (code === "RATE_LIMITED") {
           toast.error("Un petit instant entre deux analyses…");
+        } else if (code === "PARENTAL_PENDING") {
+          toast.error(
+            "Ton compte est en attente de validation par un parent — accès limité jusqu'à sa confirmation.",
+          );
         } else {
           toast.error("L'analyse a échoué. Réessaie avec une photo plus nette.");
         }
@@ -243,6 +247,10 @@ export default function Scanner() {
         toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
       } else if (code === "RATE_LIMITED") {
         toast.error("Un petit instant entre deux scans…");
+      } else if (code === "PARENTAL_PENDING") {
+        toast.error(
+          "Ton compte est en attente de validation par un parent — accès limité jusqu'à sa confirmation.",
+        );
       } else {
         toast.error("Impossible d'enregistrer le scan.");
         console.error(e);

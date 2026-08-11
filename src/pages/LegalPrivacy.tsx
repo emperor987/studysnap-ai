@@ -32,6 +32,30 @@ export default function LegalPrivacy() {
         </p>
       </LegalSection>
 
+      <LegalSection title="0. Utilisateurs mineurs">
+        <p>
+          StudySnap est accessible aux mineurs de moins de 15 ans sous réserve
+          de l&apos;autorisation d&apos;un parent ou tuteur légal. Lors de
+          l&apos;inscription, tout utilisateur déclarant avoir moins de 15 ans
+          doit renseigner l&apos;adresse email d&apos;un parent ou tuteur, qui
+          recevra un lien de confirmation par email. L&apos;accès complet à
+          l&apos;application n&apos;est activé qu&apos;après cette confirmation.
+        </p>
+        <p>
+          Le parent ou tuteur peut à tout moment demander la suppression du
+          compte de l&apos;enfant en contactant{" "}
+          <a
+            href="mailto:privacy@studysnap.app"
+            className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary"
+          >
+            privacy@studysnap.app
+          </a>
+          . L&apos;adresse email du parent n&apos;est utilisée que pour ce
+          consentement et les éventuels rappels ; elle n&apos;est jamais
+          partagée à des fins commerciales.
+        </p>
+      </LegalSection>
+
       <LegalSection title="1. Données collectées et finalités">
         <p>
           Voici, de façon transparente, les données que nous traitons et la

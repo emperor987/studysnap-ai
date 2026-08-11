@@ -126,6 +126,10 @@ export default function Sheets() {
         const code = (e as ConvexError<{ code?: string }>)?.data?.code;
         if (code === "LIMIT_REACHED") {
           toast.error("Limite de 3 fiches gratuites atteinte — passe à Student pour en créer plus.");
+        } else if (code === "PARENTAL_PENDING") {
+          toast.error(
+            "Ton compte est en attente de validation par un parent — accès limité jusqu'à sa confirmation.",
+          );
         } else {
           console.error(e);
           toast.error("La génération a échoué. Réessaie.");

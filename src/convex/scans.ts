@@ -3,8 +3,20 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getOrCreateUsage, getPlan } from "./usage";
 import { demoAnalysis, hashSeed } from "./demoData";
+import { assertParentalConsent } from "./users";
 
 const SCAN_MIN_INTERVAL_MS = 4000;
+
+/** Types MIME d'images autorisés pour l'upload (vérifié côté serveur). */
+const ALLOWED_IMAGE_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/gif",
+  "image/avif",
+]);
 
 export const analysisValidator = v.object({
   detection: v.object({
@@ -55,6 +67,19 @@ export const recordScan = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
+    await assertParentalConsent(ctx, userId);
+
+    // Validation serveur des types MIME annoncés (jamais de confiance au
+    // client seul) — l'extension n'est jamais utilisée comme preuve.
+    if (
+      args.contentTypes &&
+      args.contentTypes.some((t) => !ALLOWED_IMAGE_MIME.has(t))
+    ) {
+      throw new ConvexError({
+        code: "INVALID_UPLOAD",
+        message: "Un des fichiers n'est pas une image valide (JPG, PNG, WebP…).",
+      });
+    }
 
     const plan = await getPlan(ctx, userId);
     const usage = await getOrCreateUsage(ctx, userId);
@@ -172,6 +197,7 @@ export const createDemoScan = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
+    await assertParentalConsent(ctx, userId);
 
     const rng = hashSeed(userId, Date.now());
     const analysis = demoAnalysis(rng);

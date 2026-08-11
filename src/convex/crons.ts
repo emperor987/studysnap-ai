@@ -15,4 +15,15 @@ crons.weekly(
   api.cleanup.cleanupExpiredImages,
 );
 
+/**
+ * Consentement parental : chaque jour, envoie un rappel aux parents qui
+ * n'ont pas confirmé après 48 h (nouveau lien de 72 h), et passe en
+ * "expired" les demandes dont le token a expiré.
+ */
+crons.daily(
+  "parental consent reminders",
+  { hourUTC: 9, minuteUTC: 0 },
+  api.parentalConsentStatus.remindPending,
+);
+
 export default crons;

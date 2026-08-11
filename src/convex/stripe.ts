@@ -33,6 +33,7 @@ async function stripeFetch(
   path: string,
   params: Record<string, string | string[]>,
   key: string,
+  idempotencyKey?: string,
 ): Promise<Record<string, unknown>> {
   const body = new URLSearchParams();
   for (const [k, val] of Object.entries(params)) {
@@ -42,12 +43,14 @@ async function stripeFetch(
       body.append(k, val);
     }
   }
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
   const res = await fetch(`${STRIPE_API}${path}`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers,
     body: body.toString(),
   });
   const data = (await res.json()) as Record<string, unknown>;
@@ -114,6 +117,12 @@ export const createCheckoutSession = action({
       );
     }
 
+    // Idempotency key : même utilisateur + plan + période le même jour → la
+    // même session est renvoyée (jamais de doublon d'abonnement en cas de
+    // double-clic ou de retry). Stripe conserve le résultat 24 h.
+    const dayKey = new Date().toISOString().slice(0, 10);
+    const idempotencyKey = `checkout_${userId}_${args.plan}_${args.billing}_${dayKey}`;
+
     const session = await stripeFetch(
       "/checkout/sessions",
       {
@@ -125,8 +134,10 @@ export const createCheckoutSession = action({
         cancel_url: `${args.origin}/pricing`,
         "metadata[userId]": userId,
         "metadata[plan]": args.plan,
+        "metadata[billing]": args.billing,
       },
       key,
+      idempotencyKey,
     );
     const url = session.url;
     if (typeof url !== "string") throw new Error("Stripe : URL de checkout manquante.");

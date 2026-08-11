@@ -1,19 +1,32 @@
 import { AppShell } from "@/components/app-shell";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   BadgeCheck,
   Check,
+  Download,
   Loader2,
   Lock,
   ShieldCheck,
   Sparkles,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,11 +52,55 @@ const EXPLANATION_LEVELS = [
 ];
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const plan = useQuery(api.subscriptions.getMyPlan);
   const subjects = useQuery(api.subjects.listSubjects);
+  const convex = useConvex();
   const updateProfile = useMutation(api.users.updateProfile);
+  const deleteAccount = useMutation(api.account.deleteMyAccount);
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const data = await convex.query(api.account.exportMyData);
+      if (!data) throw new Error("empty");
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `studysnap-donnees-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Export téléchargé — tes données sont à toi.");
+    } catch {
+      toast.error("Impossible d'exporter tes données, réessaie.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      await signOut();
+      toast.success("Compte supprimé. À bientôt 👋");
+      navigate("/");
+    } catch (e) {
+      console.error(e);
+      toast.error("Impossible de supprimer le compte, réessaie.");
+      setDeleting(false);
+    }
+  };
 
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [schoolLevel, setSchoolLevel] = useState(user?.schoolLevel ?? "seconde");
@@ -297,6 +354,60 @@ export default function Settings() {
                 Supprime un exercice à tout moment depuis Mes exercices.
               </li>
             </ul>
+
+            <div className="mt-5 space-y-2.5 border-t border-white/10 pt-4">
+              <Button
+                onClick={handleExport}
+                disabled={exporting}
+                variant="outline"
+                className="h-10 w-full justify-start gap-2 rounded-xl border-border bg-white/6 px-4 text-sm font-semibold hover:bg-white/15"
+              >
+                <Download className="size-4 text-primary" />
+                Exporter mes données (JSON)
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={deleting}
+                    className="h-10 w-full justify-start gap-2 rounded-xl border-destructive/30 bg-destructive/5 px-4 text-sm font-semibold text-destructive hover:bg-destructive/10"
+                  >
+                    {deleting ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Suppression…
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="size-4" />
+                        Supprimer mon compte
+                      </>
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Supprimer définitivement ton compte ?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tous tes scans, fiches, quiz et photos seront effacés
+                      immédiatement. Cette action est irréversible. Tu peux
+                      d&apos;abord exporter tes données si tu veux les garder.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteAccount}
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                    >
+                      Supprimer mon compte
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </section>
       </div>

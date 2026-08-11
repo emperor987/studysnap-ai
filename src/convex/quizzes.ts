@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getOrCreateUsage, getPlan } from "./usage";
+import { assertParentalConsent } from "./users";
 
 const questionValidator = v.object({
   type: v.union(
@@ -40,6 +41,7 @@ export const saveQuiz = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
+    await assertParentalConsent(ctx, userId);
 
     const plan = await getPlan(ctx, userId);
     const usage = await getOrCreateUsage(ctx, userId);

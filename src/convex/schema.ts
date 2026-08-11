@@ -59,7 +59,27 @@ const schema = defineSchema(
       favoriteSubjects: v.optional(v.array(v.string())),
       language: v.optional(v.string()), // "fr" | "en"
       explanationLevel: v.optional(v.string()), // "simple" | "normal" | "detail" | "expert"
-    }).index("email", ["email"]), // index for the email. do not remove or modify
+
+      // --- Consentement parental (mineurs < 15 ans) ---
+      isMinor: v.optional(v.boolean()), // l'utilisateur a déclaré avoir moins de 15 ans
+      parentEmail: v.optional(v.string()), // email du parent / tuteur légal
+      parentalConsentStatus: v.optional(
+        v.union(
+          v.literal("pending"),
+          v.literal("confirmed"),
+          v.literal("expired"),
+          v.literal("refused"),
+        ),
+      ), // statut de validation parentale
+      parentalConsentConfirmedAt: v.optional(v.number()),
+      parentalConsentTokenHash: v.optional(v.string()), // hash SHA-256 du token (jamais le token brut)
+      parentalConsentTokenExpiresAt: v.optional(v.number()),
+      parentalConsentLastSentAt: v.optional(v.number()),
+      parentalConsentReminderSentAt: v.optional(v.number()),
+    })
+      .index("email", ["email"]) // index for the email. do not remove or modify
+      .index("by_parental_token", ["parentalConsentTokenHash"])
+      .index("by_parental_pending", ["parentalConsentStatus"]),
 
     // Abonnement / plan (Stripe)
     subscriptions: defineTable({

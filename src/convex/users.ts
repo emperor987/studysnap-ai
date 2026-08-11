@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query, QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -32,6 +33,25 @@ export const getCurrentUser = async (ctx: QueryCtx) => {
   }
   return await ctx.db.get(userId);
 };
+
+/**
+ * Bloque les actions de génération (scan, fiche, quiz) tant que le
+ * consentement parental n'est pas confirmé pour un mineur (< 15 ans).
+ * Un utilisateur qui n'a pas déclaré être mineur n'est jamais concerné.
+ */
+export async function assertParentalConsent(
+  ctx: QueryCtx,
+  userId: string,
+) {
+  const user = await ctx.db.get(userId as Id<"users">);
+  if (user?.isMinor && user.parentalConsentStatus !== "confirmed") {
+    throw new ConvexError({
+      code: "PARENTAL_PENDING",
+      message:
+        "Ton compte est en attente de validation par un parent ou tuteur légal — demande-lui de confirmer le lien reçu par email.",
+    });
+  }
+}
 
 /** Met à jour le profil StudySnap de l'utilisateur connecté. */
 export const updateProfile = mutation({

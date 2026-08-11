@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
+import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { resolveRedirectAfterAuth } from "@/lib/redirect";
+import { useAction, useQuery } from "convex/react";
 import {
   ArrowLeft,
   Camera,
@@ -12,7 +13,11 @@ import {
   Loader2,
   Lock,
   Mail,
+  MailCheck,
+  RefreshCw,
+  ShieldCheck,
   Sparkles,
+  UserRound,
   UserX,
 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
@@ -47,6 +52,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [otpStep, setOtpStep] = useState<{ email: string } | null>(null);
   const [otp, setOtp] = useState("");
 
+  // Consentement parental (mineurs < 15 ans)
+  const submitParental = useAction(api.parentalConsent.submitParentalRequest);
+  const resendParental = useAction(api.parentalConsent.resendParentalEmail);
+  const parentalStatus = useQuery(api.parentalConsentStatus.getMyParentalStatus);
+  const [isMinor, setIsMinor] = useState<boolean | null>(null);
+  const [parentEmail, setParentEmail] = useState("");
+  const [parentalPending, setParentalPending] = useState(false);
+  const [parentalSent, setParentalSent] = useState<boolean | null>(null);
+  const [parentalBusy, setParentalBusy] = useState(false);
+  const [parentalMsg, setParentalMsg] = useState<string | null>(null);
+  const [editingParentEmail, setEditingParentEmail] = useState(false);
+
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       navigate(redirect);
@@ -57,6 +74,59 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setTab(next);
     setMethod("password");
     setError(null);
+    setIsMinor(null);
+    setParentEmail("");
+    setParentalPending(false);
+  };
+
+  const runSubmitParental = async (email: string): Promise<boolean> => {
+    const res = await submitParental({
+      parentEmail: email,
+      siteUrl: window.location.origin,
+    });
+    return res.emailSent;
+  };
+
+  const handleResendParental = async () => {
+    setParentalBusy(true);
+    setParentalMsg(null);
+    try {
+      const res = await resendParental({ siteUrl: window.location.origin });
+      setParentalSent(res.ok && res.emailSent === true);
+      setParentalMsg(
+        res.ok && res.emailSent
+          ? "Email renvoyé — vérifie la boîte de réception et les spams."
+          : "L'email n'a pas pu être envoyé pour l'instant — réessaie dans quelques minutes.",
+      );
+    } catch (err) {
+      console.error(err);
+      setParentalMsg(
+        "Impossible de renvoyer l'email pour l'instant (attends un peu entre deux envois).",
+      );
+    } finally {
+      setParentalBusy(false);
+    }
+  };
+
+  const handleUpdateParentEmail = async (newEmail: string) => {
+    setParentalBusy(true);
+    setParentalMsg(null);
+    try {
+      const res = await runSubmitParental(newEmail);
+      setParentEmail(newEmail);
+      setParentalSent(res);
+      setEditingParentEmail(false);
+      setParentalMsg(
+        res
+          ? "Nouvel email enregistré — un lien de confirmation vient d'être envoyé."
+          : "Nouvel email enregistré — l'envoi a échoué, réessaie dans un instant.",
+      );
+    } catch (err) {
+      console.error(err);
+      setParentalMsg("Impossible d'enregistrer cette adresse pour l'instant.");
+    } finally {
+      setParentalBusy(false);
+    }
   };
 
   /* ---------- Connexion / Inscription par mot de passe ---------- */
@@ -78,6 +148,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setError("Les deux mots de passe ne correspondent pas.");
       return;
     }
+    if (tab === "signUp" && isMinor && !parentEmail.trim()) {
+      setError("Renseigne l'email d'un parent ou tuteur légal pour continuer.");
+      return;
+    }
+    if (
+      tab === "signUp" &&
+      isMinor &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parentEmail.trim())
+    ) {
+      setError("L'adresse email du parent ou tuteur n'est pas valide.");
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -86,6 +168,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         email: trimmedEmail,
         password,
       });
+      if (tab === "signUp" && isMinor) {
+        // Compte créé : envoi de la demande de validation parentale.
+        setParentalPending(true);
+        try {
+          const sent = await runSubmitParental(parentEmail.trim());
+          setParentalSent(sent);
+        } catch (err) {
+          console.error(err);
+          setParentalSent(false);
+        }
+        setIsLoading(false);
+        return; // reste sur l'écran « validation parentale en attente »
+      }
       navigate(redirect);
     } catch (err) {
       console.error("Échec de connexion par mot de passe :", err);
@@ -144,6 +239,35 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setIsLoading(false);
     }
   };
+
+  /* ---------- Écran validation parentale ---------- */
+
+  const parentalBlocked =
+    parentalPending ||
+    (searchParams.get("mode") === "parental" &&
+      parentalStatus !== undefined &&
+      parentalStatus !== null &&
+      parentalStatus.status !== "confirmed");
+
+  if (parentalBlocked) {
+    const status = parentalStatus?.status ?? "pending";
+    return (
+      <AuthShell>
+        <ParentalPendingPanel
+          status={status}
+          parentEmail={parentEmail || parentalStatus?.parentEmail || ""}
+          sent={parentalSent}
+          busy={parentalBusy}
+          msg={parentalMsg}
+          editing={editingParentEmail}
+          onToggleEdit={() => setEditingParentEmail((v) => !v)}
+          onResend={handleResendParental}
+          onUpdateEmail={handleUpdateParentEmail}
+        />
+        <AuthFooter />
+      </AuthShell>
+    );
+  }
 
   /* ---------- Écran code par email ---------- */
 
@@ -386,6 +510,68 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </div>
           )}
 
+          {tab === "signUp" && (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Quel est ton âge ?
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMinor(false)}
+                  className={cn(
+                    "h-10 rounded-xl text-sm font-semibold transition-all",
+                    isMinor === false
+                      ? "bg-primary/15 text-foreground shadow-sm"
+                      : "bg-white/5 text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  15 ans ou plus
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMinor(true)}
+                  className={cn(
+                    "h-10 rounded-xl text-sm font-semibold transition-all",
+                    isMinor === true
+                      ? "bg-primary/15 text-foreground shadow-sm"
+                      : "bg-white/5 text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Moins de 15 ans
+                </button>
+              </div>
+              {isMinor && (
+                <div className="mt-3">
+                  <label
+                    htmlFor="parent-email"
+                    className="mb-1.5 block text-xs font-semibold text-muted-foreground"
+                  >
+                    Email d&apos;un parent ou tuteur légal (obligatoire)
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+                    <Input
+                      id="parent-email"
+                      type="email"
+                      value={parentEmail}
+                      onChange={(e) => setParentEmail(e.target.value)}
+                      placeholder="parent@email.fr"
+                      autoComplete="email"
+                      className="h-11 rounded-xl pl-10"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+                    🔒 Ton parent recevra un email de confirmation. Tant qu&apos;il
+                    n&apos;a pas validé (lien valable 72 h), ton accès reste limité.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === "signIn" && (
             <div className="flex justify-end">
               <Button
@@ -485,6 +671,160 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       </div>
       <AuthFooter />
     </AuthShell>
+  );
+}
+
+/* ---------- Panneau validation parentale ---------- */
+
+function ParentalPendingPanel({
+  status,
+  parentEmail,
+  sent,
+  busy,
+  msg,
+  editing,
+  onToggleEdit,
+  onResend,
+  onUpdateEmail,
+}: {
+  status: "pending" | "confirmed" | "expired" | "refused";
+  parentEmail: string;
+  sent: boolean | null;
+  busy: boolean;
+  msg: string | null;
+  editing: boolean;
+  onToggleEdit: () => void;
+  onResend: () => void;
+  onUpdateEmail: (email: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const isRefused = status === "refused";
+  const isExpired = status === "expired";
+
+  return (
+    <div className="glass-panel rounded-3xl p-7 sm:p-9">
+      <div className="text-center">
+        <div
+          className={`mx-auto flex size-14 items-center justify-center rounded-2xl ${
+            isRefused
+              ? "bg-rose-500/10 text-rose-300"
+              : "bg-amber-500/10 text-amber-300"
+          }`}
+        >
+          <ShieldCheck className="size-7" />
+        </div>
+        <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+          {isRefused ? "Demande refusée" : "Validation parentale en attente"}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          {isRefused
+            ? "Le parent ou tuteur a refusé (ou signalé) cette demande. Ton accès reste limité — contacte le support si c'est une erreur."
+            : isExpired
+              ? "Le lien de confirmation a expiré. Renvoie un nouvel email à ton parent, ou renseigne une autre adresse."
+              : "Un email de confirmation a été envoyé à ton parent ou tuteur légal. Ton accès est limité tant qu'il n'a pas validé (lien valable 72 h)."}
+        </p>
+      </div>
+
+      {!editing ? (
+        <div className="mt-6 space-y-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Email du parent / tuteur
+            </p>
+            <p className="mt-1 flex items-center gap-2 font-semibold">
+              <Mail className="size-4 shrink-0 text-primary" />
+              {parentEmail || "—"}
+            </p>
+          </div>
+          {sent === false && (
+            <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+              L&apos;email n&apos;a pas pu être envoyé automatiquement. Réessaie
+              dans quelques minutes.
+            </p>
+          )}
+          {msg && <p className="text-sm leading-6 text-muted-foreground">{msg}</p>}
+          <Button
+            type="button"
+            onClick={onResend}
+            disabled={busy}
+            className="h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
+          >
+            {busy ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Envoi…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 size-4" />
+                Renvoyer l&apos;email
+              </>
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onToggleEdit}
+            disabled={busy}
+            className="h-11 w-full rounded-xl"
+          >
+            Changer l&apos;adresse du parent
+          </Button>
+          <Link
+            to="/dashboard"
+            className="block text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Revenir au tableau de bord
+          </Link>
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const value = draft.trim();
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+              onUpdateEmail(value);
+            }
+          }}
+          className="mt-6 space-y-4"
+        >
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+            <Input
+              type="email"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="parent@email.fr"
+              className="h-12 rounded-xl pl-10"
+              disabled={busy}
+              required
+            />
+          </div>
+          {msg && <p className="text-sm leading-6 text-muted-foreground">{msg}</p>}
+          <Button
+            type="submit"
+            disabled={busy}
+            className="h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
+          >
+            {busy ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <MailCheck className="mr-2 size-4" />
+            )}
+            Envoyer un nouveau lien à cette adresse
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onToggleEdit}
+            disabled={busy}
+            className="h-10 w-full"
+          >
+            ← Annuler
+          </Button>
+        </form>
+      )}
+    </div>
   );
 }
 

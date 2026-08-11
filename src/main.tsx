@@ -28,6 +28,7 @@ const LegalPrivacy = lazy(() => import("./pages/LegalPrivacy.tsx"));
 const LegalMentions = lazy(() => import("./pages/LegalMentions.tsx"));
 const LegalContact = lazy(() => import("./pages/LegalContact.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const ParentalConsentPage = lazy(() => import("./pages/ParentalConsent.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -139,6 +140,7 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/legal/privacy" element={<LegalPrivacy />} />
               <Route path="/legal/mentions-legales" element={<LegalMentions />} />
               <Route path="/legal/contact" element={<LegalContact />} />
+              <Route path="/parental-consent" element={<ParentalConsentPage />} />
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}

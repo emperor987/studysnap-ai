@@ -94,6 +94,7 @@ export function AppShell({
 }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const parental = useQuery(api.parentalConsentStatus.getMyParentalStatus);
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "Élève";
 
   const handleSignOut = async () => {
@@ -202,6 +203,21 @@ export function AppShell({
       {/* ---------- Contenu ---------- */}
       <main className="px-5 pb-28 pt-6 sm:px-8 lg:ml-72 lg:pb-12 lg:pt-10">
         <div className="mx-auto w-full max-w-5xl">
+          {parental && parental.status !== "confirmed" && (
+            <div className="mb-6 flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-6 text-amber-300">
+                🔒 Ton compte est en attente de validation par un parent ou
+                tuteur légal — ton accès est limité jusqu&apos;à sa confirmation.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/auth?mode=parental")}
+                className="shrink-0 text-sm font-semibold text-amber-300 underline decoration-amber-500/40 underline-offset-2 transition-colors hover:text-amber-200"
+              >
+                Voir / renvoyer l&apos;email
+              </button>
+            </div>
+          )}
           {(title || subtitle) && (
             <div className="mb-7">
               {subtitle && (

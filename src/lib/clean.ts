@@ -32,3 +32,19 @@ export function stripHtmlArtifacts(text: string): string {
       return ENTITIES[m.toLowerCase()] ?? m;
     });
 }
+
+/**
+ * Assainit le texte fourni par l'utilisateur avant de l'injecter dans un
+ * prompt IA (défense contre l'injection de prompt) : suppression des
+ * caractères de contrôle, normalisation des retours à la ligne, longueur
+ * plafonnée. Le contenu est toujours traité comme une donnée, jamais comme
+ * une instruction.
+ */
+export function sanitizeUserText(text: string, maxLength = 8000): string {
+  return (text ?? "")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim()
+    .slice(0, maxLength);
+}
