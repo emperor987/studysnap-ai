@@ -5,11 +5,18 @@
  * renvoie { available: false } et l'UI affiche un message « bientôt
  * disponible » — aucun impact sur le plan gratuit.
  *
- * Variables d'environnement :
- *   STRIPE_SECRET_KEY       — clé secrète Stripe
- *   STRIPE_PRICE_STUDENT    — price_id du plan Student (9,99 €/mois)
- *   STRIPE_PRICE_PRO        — price_id du plan Pro (14,99 €/mois)
- *   STRIPE_WEBHOOK_SECRET   — secret du webhook /stripe-webhook
+ * Provisionnement automatique : dès que STRIPE_SECRET_KEY est présente, le
+ * premier checkout déclenche l'action stripe:provisionStripe (module
+ * provisionStripe.ts) qui crée les produits, les prix mensuels EUR et
+ * l'endpoint webhook, puis mémorise la config dans stripe_config (accès
+ * interne uniquement). Plus besoin de renseigner les price_… ni le whsec_….
+ *
+ * Variables d'environnement (toutes optionnelles, en surcharge de la config
+ * auto-provisionnée) :
+ *   STRIPE_SECRET_KEY       — clé secrète Stripe (requise pour provisionner)
+ *   STRIPE_PRICE_STUDENT    — price_id du plan Student (surcharge)
+ *   STRIPE_PRICE_PRO        — price_id du plan Pro (surcharge)
+ *   STRIPE_WEBHOOK_SECRET   — secret du webhook /stripe-webhook (surcharge)
  */
 
 import { v } from "convex/values";
@@ -19,11 +26,12 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 
 const STRIPE_API = "https://api.stripe.com/v1";
 
+/** POST form-urlencoded vers l'API Stripe. */
 async function stripeFetch(
   path: string,
   params: Record<string, string>,
   key: string,
-) {
+): Promise<Record<string, unknown>> {
   const body = new URLSearchParams(params);
   const res = await fetch(`${STRIPE_API}${path}`, {
     method: "POST",
@@ -43,6 +51,8 @@ async function stripeFetch(
 /**
  * Crée une session de checkout d'abonnement.
  * Retourne { available: false } si Stripe n'est pas configuré.
+ * Si les price_id ne sont pas renseignés, provisionne automatiquement
+ * (produits, prix, webhook) au premier checkout.
  */
 export const createCheckoutSession = action({
   args: {
@@ -57,13 +67,24 @@ export const createCheckoutSession = action({
     if (!userId) throw new Error("Vous devez être connecté·e.");
     const user = await ctx.runQuery(api.users.currentUser);
 
-    const priceId =
+    let priceId =
       args.plan === "student"
         ? process.env.STRIPE_PRICE_STUDENT
         : process.env.STRIPE_PRICE_PRO;
+
+    if (!priceId) {
+      const provisioned = await ctx.runAction(api.provisionStripe.provisionStripe);
+      if (provisioned.provisioned) {
+        priceId =
+          args.plan === "student"
+            ? provisioned.config.priceStudent
+            : provisioned.config.pricePro;
+      }
+    }
+
     if (!priceId) {
       throw new Error(
-        `Configurez STRIPE_PRICE_${args.plan === "student" ? "STUDENT" : "PRO"} dans l'UI Keys.`,
+        `Impossible de créer le paiement (plan ${args.plan}). Configurez STRIPE_PRICE_${args.plan === "student" ? "STUDENT" : "PRO"} ou vérifiez STRIPE_SECRET_KEY.`,
       );
     }
 
@@ -128,7 +149,12 @@ async function verifyStripeSignature(
 
 /** Webhook Stripe : met à jour l'abonnement local (session confirmée, résiliation…). */
 export const stripeWebhook = httpAction(async (ctx, request) => {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  // Secret issu de la config auto-provisionnée si l'env n'est pas renseignée.
+  let secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    const config = await ctx.runQuery(internal.stripeConfig.getStripeConfig);
+    secret = config?.webhookSecret;
+  }
   if (!secret) {
     return new Response("Webhook non configuré", { status: 200 });
   }

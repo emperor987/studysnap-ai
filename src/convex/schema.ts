@@ -201,6 +201,18 @@ const schema = defineSchema(
       createdAt: v.number(),
     }).index("by_user", ["userId", "createdAt"]),
 
+    // Configuration Stripe auto-provisionnée (produits, prix, webhook).
+    // Ligne unique (singleton) écrite par l'action stripe:provisionStripe ;
+    // jamais exposée au client (accès via fonctions internes uniquement).
+    stripe_config: defineTable({
+      singleton: v.literal("default"),
+      priceStudent: v.string(), // price_... plan Student (9,99 €/mois)
+      pricePro: v.string(), // price_... plan Student Pro (14,99 €/mois)
+      webhookId: v.string(),
+      webhookSecret: v.string(), // whsec_... (secret du endpoint créé)
+      updatedAt: v.number(),
+    }).index("by_singleton", ["singleton"]),
+
     // Compteurs mensuels (limites plan gratuit + stats)
     usage: defineTable({
       userId: v.id("users"),
