@@ -21,7 +21,12 @@ import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getAiErrorMessage } from "@/lib/ai-errors";
-import { isLongExercise, LONG_ANALYSIS_WARNING } from "@/lib/analysis";
+import {
+  documentKind,
+  FICHE_ANALYSIS_WARNING,
+  LONG_ANALYSIS_WARNING,
+  type DocumentKind,
+} from "@/lib/analysis";
 import { downscaleImage } from "@/lib/image";
 import type { ConvexError } from "convex/values";
 
@@ -112,6 +117,7 @@ export default function Scanner() {
   const [error, setError] = useState<string | null>(null);
   const [extraText, setExtraText] = useState("");
   const [willBeLong, setWillBeLong] = useState(false);
+  const [docKind, setDocKind] = useState<DocumentKind>("exercise");
 
   const usage = useQuery(api.usage.getMyUsage);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
@@ -160,6 +166,7 @@ export default function Scanner() {
     if (files.length === 0) return;
     setError(null);
     setWillBeLong(false);
+    setDocKind("exercise");
     setPhase("ocr");
     setStep("analyzing");
     try {
@@ -192,11 +199,11 @@ export default function Scanner() {
       }
 
       // ---- Étape 2 : génération de la réponse à partir du texte ----
-      // Énoncés longs / problèmes : on prévient l'utilisateur que l'analyse
-      // peut prendre 1 à 2 minutes.
-      setWillBeLong(
-        isLongExercise(`${ocr.fullText}\n${extraText.trim()}`),
-      );
+      // Fiches/cours complets et énoncés longs : on prévient l'utilisateur
+      // que l'analyse peut prendre 1 à 2 minutes.
+      const kind = documentKind(`${ocr.fullText}\n${extraText.trim()}`);
+      setDocKind(kind);
+      setWillBeLong(kind !== "exercise");
       setPhase("generate");
       const result = await analyzeText({
         text: ocr.fullText,
@@ -511,9 +518,15 @@ export default function Scanner() {
           {phase === "generate" && willBeLong && (
             <div className="mt-6 max-w-sm rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-xs leading-5 text-amber-200">
               <p className="font-bold">
-                ⏳ L'analyse peut prendre 1 à 2 minutes
+                ⏳ {docKind === "fiche"
+                  ? "Fiche ou cours complet détecté"
+                  : "L'analyse peut prendre 1 à 2 minutes"}
               </p>
-              <p className="mt-1">{LONG_ANALYSIS_WARNING}</p>
+              <p className="mt-1">
+                {docKind === "fiche"
+                  ? FICHE_ANALYSIS_WARNING
+                  : LONG_ANALYSIS_WARNING}
+              </p>
             </div>
           )}
         </div>
