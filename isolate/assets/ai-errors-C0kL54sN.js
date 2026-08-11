@@ -1,0 +1,1 @@
+const s="AI_RATE_LIMITED",n="AI_TIMEOUT";function r(e){return e instanceof Error&&e.message===s?"Trop de demandes, réessaie dans quelques instants.":e instanceof Error&&e.message===n?"L'analyse a pris trop de temps (file d'attente chargée). Réessaie dans quelques instants.":null}export{r as g};
