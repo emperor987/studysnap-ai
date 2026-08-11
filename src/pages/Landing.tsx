@@ -113,8 +113,44 @@ function useSocialCounter() {
 
 function Hero() {
   const { count, bump } = useSocialCounter();
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  // Dégradé du hero qui s'estompe progressivement au scroll.
+  // Listener passif + rAF : un seul recalcul par frame, zéro re-render React.
+  useEffect(() => {
+    const hero = sectionRef.current;
+    const overlay = overlayRef.current;
+    if (!hero || !overlay) return;
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const scrolled = -hero.getBoundingClientRect().top;
+      const total = hero.offsetHeight;
+      const progress = Math.min(1, Math.max(0, scrolled / total));
+      // ease-out : disparaît vite dès les premiers pixels, doucement en fin de hero
+      overlay.style.opacity = String(Math.pow(1 - progress, 1.5));
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
   return (
-    <section className="relative isolate min-h-[92svh] overflow-hidden">
+    <section
+      ref={sectionRef}
+      className="relative isolate min-h-[92svh] overflow-hidden"
+    >
       {/* Mosaïque de photos */}
       <div className="absolute inset-0 -z-10">
         <div className="grid h-full grid-cols-2 grid-rows-6 gap-1 sm:grid-cols-5 sm:grid-rows-2">
@@ -149,9 +185,14 @@ function Hero() {
             loading="lazy"
           />
         </div>
-        {/* Overlay sombre ~60% pour la lisibilité */}
-        <div className="absolute inset-0 bg-black/60" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
+        {/* Overlay dégradé : léger en haut (lisibilité de la nav), fondu vers la
+            couleur de fond de la page en bas (fusion douce avec la section
+            suivante). Son opacité est pilotée au scroll. */}
+        <div
+          ref={overlayRef}
+          className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/55 to-(--color-background) transition-opacity duration-150 ease-out will-change-[opacity]"
+          style={{ opacity: 1 }}
+        />
       </div>
 
       {/* Nav en overlay */}
