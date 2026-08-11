@@ -10,6 +10,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 
 export type StripeConfig = {
+  mode: "test" | "live";
   priceStudent: string;
   pricePro: string;
   webhookId: string;
@@ -17,6 +18,7 @@ export type StripeConfig = {
 };
 
 const stripeConfigValidator = v.object({
+  mode: v.union(v.literal("test"), v.literal("live")),
   priceStudent: v.string(),
   pricePro: v.string(),
   webhookId: v.string(),
@@ -32,7 +34,9 @@ export const getStripeConfig = internalQuery({
       .withIndex("by_singleton", (q) => q.eq("singleton", "default"))
       .first();
     if (!doc) return null;
+    // Anciennes configs (avant l'ajout du mode) : considérées comme du test.
     return {
+      mode: (doc.mode === "live" ? "live" : "test") as "test" | "live",
       priceStudent: doc.priceStudent,
       pricePro: doc.pricePro,
       webhookId: doc.webhookId,

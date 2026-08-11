@@ -206,6 +206,7 @@ const schema = defineSchema(
     // jamais exposée au client (accès via fonctions internes uniquement).
     stripe_config: defineTable({
       singleton: v.literal("default"),
+      mode: v.string(), // "test" | "live" (environnement des objets créés)
       priceStudent: v.string(), // price_... plan Student (9,99 €/mois)
       pricePro: v.string(), // price_... plan Student Pro (14,99 €/mois)
       webhookId: v.string(),

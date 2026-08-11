@@ -20,7 +20,12 @@ const STRIPE_API = "https://api.stripe.com/v1";
 /** Résultat du provisionnement (annoté explicitement pour éviter un cycle d'inférence TS). */
 export type ProvisionResult =
   | { provisioned: false; reason: string }
-  | { provisioned: true; config: StripeConfig; reused: boolean };
+  | {
+      provisioned: true;
+      config: StripeConfig;
+      reused: boolean;
+      mode: "test" | "live";
+    };
 
 async function stripeFetch(
   path: string,
@@ -85,9 +90,18 @@ export const provisionStripe = action({
       };
     }
 
+    // Les objets Stripe (produits, prix, webhook) sont propres à chaque
+    // environnement : une config enregistrée en test ne vaut pas en live.
+    const mode: "test" | "live" = key.startsWith("sk_live_") ? "live" : "test";
+
     const existing = await ctx.runQuery(internal.stripeConfig.getStripeConfig);
-    if (existing) {
-      return { provisioned: true as const, config: existing, reused: true as const };
+    if (existing && existing.mode === mode) {
+      return {
+        provisioned: true as const,
+        config: existing,
+        reused: true as const,
+        mode,
+      };
     }
 
     // Récupère les prix déjà créés (idempotence si une tentative précédente
@@ -155,6 +169,7 @@ export const provisionStripe = action({
     );
 
     const config = {
+      mode,
       priceStudent,
       pricePro,
       webhookId: String(webhookRes.id ?? ""),
@@ -162,6 +177,6 @@ export const provisionStripe = action({
     };
     await ctx.runMutation(internal.stripeConfig.storeStripeConfig, config);
 
-    return { provisioned: true as const, config, reused: false as const };
+    return { provisioned: true as const, config, reused: false as const, mode };
   },
 });
