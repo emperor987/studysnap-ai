@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import CameraCapture from "@/components/CameraCapture";
 import { api } from "@/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -27,6 +28,7 @@ import {
   LONG_ANALYSIS_WARNING,
   type DocumentKind,
 } from "@/lib/analysis";
+import { useDevice } from "@/hooks/use-device";
 import { downscaleImage } from "@/lib/image";
 import type { ConvexError } from "convex/values";
 
@@ -106,8 +108,11 @@ function LimitReached() {
 
 export default function Scanner() {
   const navigate = useNavigate();
+  const { isMobile } = useDevice();
   const [step, setStep] = useState<Step>("upload");
   const [files, setFiles] = useState<{ file: File; preview: string }[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [phase, setPhase] = useState<"ocr" | "generate">("ocr");
   const [analysis, setAnalysis] = useState<unknown>(null);
@@ -161,6 +166,11 @@ export default function Scanner() {
       return [...prev, ...added];
     });
   }, []);
+
+  const openCamera = () => {
+    setCameraError(null);
+    setCameraOpen(true);
+  };
 
   const handleAnalyze = async () => {
     if (files.length === 0) return;
@@ -293,80 +303,174 @@ export default function Scanner() {
     >
       {/* ---------- Étape upload ---------- */}
       {step === "upload" && (
-        <div className="mx-auto max-w-2xl">
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              addFiles(e.dataTransfer.files);
-            }}
-            className={cn(
-              "glass-panel rounded-3xl border-2 border-dashed p-8 text-center transition-colors sm:p-12",
-              files.length === 0 ? "border-primary/30" : "border-white/10",
-            )}
-          >
-            {files.length === 0 ? (
-              <>
-                <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <ImagePlus className="size-8" />
-                </div>
-                <h2 className="mt-5 text-xl font-bold">
-                  Photo de ton exercice ou de ton cours
-                </h2>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                  Cadre bien l'énoncé, la consigne et les données. Jusqu'à{" "}
-                  {MAX_FILES} photos, {MAX_SIZE_MB} Mo max par image.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => inputRef.current?.click()}
-                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-gradient px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
-                >
-                  <Camera className="size-4" />
-                  Prendre ou importer une photo
-                </button>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  JPG, PNG, WEBP ou HEIC · photos supprimées automatiquement après
-                  30 jours
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold">
-                    {files.length} photo{files.length > 1 ? "s" : ""} prête
-                    {files.length > 1 ? "s" : ""}
-                  </h2>
+        <div
+          className="mx-auto max-w-2xl"
+          onDragOver={(e) => {
+            if (isMobile) return;
+            e.preventDefault();
+          }}
+          onDrop={(e) => {
+            if (isMobile) return;
+            e.preventDefault();
+            addFiles(e.dataTransfer.files);
+          }}
+        >
+          {cameraOpen ? (
+            /* Viewfinder caméra (mobile uniquement). La permission n'est
+               demandée qu'ici, au clic sur « Prendre une photo ». */
+            <CameraCapture
+              onCapture={(file) => {
+                setCameraError(null);
+                setCameraOpen(false);
+                addFiles([file]);
+              }}
+              onClose={() => setCameraOpen(false)}
+              onPermissionDenied={(reason) => {
+                setCameraOpen(false);
+                setCameraError(
+                  reason === "permission"
+                    ? "Accès à la caméra refusé. Tu peux importer une photo depuis ta galerie à la place."
+                    : "Aucune caméra disponible sur cet appareil. Tu peux importer une photo depuis ta galerie à la place.",
+                );
+                // Redirection automatique vers l'import galerie.
+                window.setTimeout(() => inputRef.current?.click(), 60);
+              }}
+            />
+          ) : files.length === 0 ? (
+            <>
+              {cameraError && (
+                <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-amber-200">{cameraError}</p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setFiles([]);
-                    }}
-                    className="text-xs font-semibold text-muted-foreground hover:text-destructive"
+                    onClick={() => inputRef.current?.click()}
+                    className="shrink-0 text-sm font-semibold text-amber-200 underline decoration-amber-500/40 underline-offset-2 transition-colors hover:text-amber-100"
                   >
-                    Tout effacer
+                    Importer depuis la galerie
                   </button>
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
-                  {files.map((f, i) => (
-                    <div key={i} className="group relative overflow-hidden rounded-2xl">
-                      <img
-                        src={f.preview}
-                        alt={`Photo ${i + 1}`}
-                        className="aspect-[3/4] w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFiles((prev) => prev.filter((_, j) => j !== i))
-                        }
-                        className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        <Trash2 className="size-3" />
-                      </button>
+              )}
+
+              {isMobile ? (
+                /* ---------- Version mobile : 2 options directes ---------- */
+                <div className="glass-panel rounded-3xl border-2 border-dashed border-primary/30 p-6 sm:p-10">
+                  <div className="text-center">
+                    <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <Camera className="size-8" />
                     </div>
-                  ))}
-                  {files.length < MAX_FILES && (
+                    <h2 className="mt-5 text-xl font-bold">
+                      Photo de ton exercice ou de ton cours
+                    </h2>
+                    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                      Cadre bien l'énoncé, la consigne et les données. Jusqu'à{" "}
+                      {MAX_FILES} photos, {MAX_SIZE_MB} Mo max par image.
+                    </p>
+                  </div>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={openCamera}
+                      className="flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-5 py-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white/10"
+                    >
+                      <span className="flex size-11 items-center justify-center rounded-full bg-brand-gradient text-white shadow-lg shadow-indigo-500/25">
+                        <Camera className="size-5" />
+                      </span>
+                      <span className="text-sm font-bold">Prendre une photo</span>
+                      <span className="text-xs leading-5 text-muted-foreground">
+                        Ouvre la caméra avec un cadre d'alignement
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => inputRef.current?.click()}
+                      className="flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-5 py-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white/10"
+                    >
+                      <span className="flex size-11 items-center justify-center rounded-full bg-white/10 text-primary">
+                        <ImagePlus className="size-5" />
+                      </span>
+                      <span className="text-sm font-bold">
+                        Importer depuis la galerie
+                      </span>
+                      <span className="text-xs leading-5 text-muted-foreground">
+                        Choisis une photo déjà prise
+                      </span>
+                    </button>
+                  </div>
+
+                  <p className="mt-5 text-center text-xs text-muted-foreground">
+                    JPG, PNG, WEBP ou HEIC · photos supprimées automatiquement
+                    après 30 jours
+                  </p>
+                </div>
+              ) : (
+                /* ---------- Version PC : dépôt de fichier minimal ---------- */
+                <div className="glass-panel rounded-3xl border-2 border-dashed border-primary/30 p-8 text-center transition-colors sm:p-12">
+                  <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <ImagePlus className="size-8" />
+                  </div>
+                  <h2 className="mt-5 text-xl font-bold">
+                    Photo de ton exercice ou de ton cours
+                  </h2>
+                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                    Dépose ta photo ici ou choisis un fichier. Cadre bien
+                    l'énoncé, la consigne et les données. Jusqu'à {MAX_FILES}{" "}
+                    photos, {MAX_SIZE_MB} Mo max par image.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-gradient px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+                  >
+                    <ImagePlus className="size-4" />
+                    Choisir un fichier
+                  </button>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    JPG, PNG, WEBP ou HEIC · photos supprimées automatiquement
+                    après 30 jours
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            /* ---------- Aperçu des photos (commun mobile / PC) ---------- */
+            <div className="glass-panel rounded-3xl border-2 border-dashed border-white/10 p-6 sm:p-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">
+                  {files.length} photo{files.length > 1 ? "s" : ""} prête
+                  {files.length > 1 ? "s" : ""}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiles([]);
+                  }}
+                  className="text-xs font-semibold text-muted-foreground hover:text-destructive"
+                >
+                  Tout effacer
+                </button>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {files.map((f, i) => (
+                  <div key={i} className="group relative overflow-hidden rounded-2xl">
+                    <img
+                      src={f.preview}
+                      alt={`Photo ${i + 1}`}
+                      className="aspect-[3/4] w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFiles((prev) => prev.filter((_, j) => j !== i))
+                      }
+                      className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </div>
+                ))}
+                {files.length < MAX_FILES && (
+                  <>
                     <button
                       type="button"
                       onClick={() => inputRef.current?.click()}
@@ -375,29 +479,39 @@ export default function Scanner() {
                       <ImagePlus className="size-5" />
                       <span className="text-[11px] font-semibold">Ajouter</span>
                     </button>
-                  )}
-                </div>
-                <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                  <button
-                    type="button"
-                    onClick={handleAnalyze}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 sm:w-auto"
-                  >
-                    <ScanLine className="size-4" />
-                    Analyser mon exercice
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFiles([])}
-                    className="inline-flex items-center gap-1.5 rounded-full px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="size-4" />
-                    Recommencer
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                    {isMobile && (
+                      <button
+                        type="button"
+                        onClick={openCamera}
+                        className="flex aspect-[3/4] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                      >
+                        <Camera className="size-5" />
+                        <span className="text-[11px] font-semibold">Photo</span>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 sm:w-auto"
+                >
+                  <ScanLine className="size-4" />
+                  Analyser mon exercice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiles([])}
+                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-4" />
+                  Recommencer
+                </button>
+              </div>
+            </div>
+          )}
 
           <input
             ref={inputRef}
