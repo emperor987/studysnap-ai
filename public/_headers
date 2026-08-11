@@ -3,9 +3,14 @@
 # L'application ne stocke pas de cookies propriétaires : les sessions sont
 # gérées par Convex Auth (cookies httpOnly) et le webhook Stripe valide la
 # signature avant tout traitement.
+#
+# NB : PAS de X-Frame-Options ni de frame-ancestors 'none' — Freebuff affiche
+# l'application dans une iframe (aperçu / preview). Bloquer le framing
+# rendrait l'aperçu entièrement blanc. La protection reste assurée par la
+# politique de connexion (sessions httpOnly, origines vérifiées côté serveur)
+# et par les autres en-têtes ci-dessous.
 /*
   X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; form-action 'self'

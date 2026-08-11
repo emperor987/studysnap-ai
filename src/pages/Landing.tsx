@@ -196,8 +196,9 @@ function Hero() {
         />
       </div>
 
-      {/* Nav en overlay */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
+      {/* Nav en overlay — Connexion + S'inscrire toujours visibles, y
+          compris sur mobile (flex-wrap : jamais de bouton coupé). */}
+      <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-5 sm:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-2.5">
           <span className="truncate text-lg font-extrabold tracking-tight text-white sm:text-xl">
             Study<span className="text-brand-gradient">Snap</span>
@@ -212,7 +213,7 @@ function Hero() {
           </Link>
           <Link
             to="/auth?returnTo=%2Fdashboard"
-            className="hidden text-sm font-medium text-white/90 transition-colors hover:text-white sm:block"
+            className="text-[13px] font-medium text-white/90 transition-colors hover:text-white sm:text-sm"
           >
             Connexion
           </Link>
@@ -225,7 +226,7 @@ function Hero() {
           </a>
           <Link
             to="/auth?returnTo=%2Fdashboard"
-            className="whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/15 sm:px-5 sm:py-2.5"
+            className="whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[13px] font-medium text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/15 sm:px-5 sm:py-2.5 sm:text-sm"
           >
             S&apos;inscrire
           </Link>
@@ -302,7 +303,7 @@ function Hero() {
         >
           <Link
             to="/auth?returnTo=%2Fscanner"
-            className="group inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-full bg-brand-gradient px-6 py-3.5 text-sm font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
+            className="group inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-full bg-brand-gradient px-5 py-3 text-sm font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
           >
             <Camera className="size-4 shrink-0 sm:size-5" />
             Scanner mon premier exercice
@@ -968,15 +969,15 @@ function FinalCTA() {
         <div className="relative mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             to="/auth?returnTo=%2Fscanner"
-            className="group inline-flex items-center gap-2.5 rounded-full bg-brand-gradient px-8 py-4 text-base font-bold text-white shadow-xl shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:brightness-110"
+            className="group inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:brightness-110 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
           >
-            <Camera className="size-5" />
+            <Camera className="size-4 sm:size-5" />
             Scanner gratuitement
-            <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-1 sm:size-5" />
           </Link>
           <Link
             to="/pricing"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-4 text-sm font-semibold text-foreground transition-colors hover:bg-white/15"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-white/15 sm:px-6 sm:py-4"
           >
             <ListChecks className="size-4" />
             Voir les prix
