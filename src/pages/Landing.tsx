@@ -926,10 +926,10 @@ function Footer() {
             </Link>
           </nav>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-            <a href="#" className="hover:text-foreground">CGU</a>
-            <a href="#" className="hover:text-foreground">Politique de confidentialité</a>
-            <a href="#" className="hover:text-foreground">Mentions légales</a>
-            <a href="#" className="hover:text-foreground">Contact</a>
+            <Link to="/legal/cgu" className="hover:text-foreground">CGU</Link>
+            <Link to="/legal/privacy" className="hover:text-foreground">Politique de confidentialité</Link>
+            <Link to="/legal/mentions-legales" className="hover:text-foreground">Mentions légales</Link>
+            <Link to="/legal/contact" className="hover:text-foreground">Contact</Link>
           </div>
           <p className="text-xs text-muted-foreground/80">
             © {new Date().getFullYear()} StudySnap. Tous droits réservés.

@@ -23,6 +23,10 @@ const History = lazy(() => import("./pages/History.tsx"));
 const Progress = lazy(() => import("./pages/Progress.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
 const Pricing = lazy(() => import("./pages/Pricing.tsx"));
+const LegalCgu = lazy(() => import("./pages/LegalCgu.tsx"));
+const LegalPrivacy = lazy(() => import("./pages/LegalPrivacy.tsx"));
+const LegalMentions = lazy(() => import("./pages/LegalMentions.tsx"));
+const LegalContact = lazy(() => import("./pages/LegalContact.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -131,6 +135,10 @@ createRoot(document.getElementById("root")!).render(
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/legal/cgu" element={<LegalCgu />} />
+              <Route path="/legal/privacy" element={<LegalPrivacy />} />
+              <Route path="/legal/mentions-legales" element={<LegalMentions />} />
+              <Route path="/legal/contact" element={<LegalContact />} />
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
