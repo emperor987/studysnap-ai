@@ -13,10 +13,12 @@
  *
  * Variables d'environnement (toutes optionnelles, en surcharge de la config
  * auto-provisionnée) :
- *   STRIPE_SECRET_KEY       — clé secrète Stripe (requise pour provisionner)
- *   STRIPE_PRICE_STUDENT    — price_id du plan Student (surcharge)
- *   STRIPE_PRICE_PRO        — price_id du plan Pro (surcharge)
- *   STRIPE_WEBHOOK_SECRET   — secret du webhook /stripe-webhook (surcharge)
+ *   STRIPE_SECRET_KEY            — clé secrète Stripe (requise pour provisionner)
+ *   STRIPE_PRICE_STUDENT         — price_id Student mensuel (surcharge)
+ *   STRIPE_PRICE_PRO             — price_id Pro mensuel (surcharge)
+ *   STRIPE_PRICE_STUDENT_ANNUAL  — price_id Student annuel (surcharge)
+ *   STRIPE_PRICE_PRO_ANNUAL      — price_id Pro annuel (surcharge)
+ *   STRIPE_WEBHOOK_SECRET        — secret du webhook /stripe-webhook (surcharge)
  */
 
 import { v } from "convex/values";
@@ -64,6 +66,7 @@ async function stripeFetch(
 export const createCheckoutSession = action({
   args: {
     plan: v.union(v.literal("student"), v.literal("pro")),
+    billing: v.union(v.literal("monthly"), v.literal("annual")),
     origin: v.string(),
   },
   handler: async (ctx, args) => {
@@ -74,24 +77,40 @@ export const createCheckoutSession = action({
     if (!userId) throw new Error("Vous devez être connecté·e.");
     const user = await ctx.runQuery(api.users.currentUser);
 
-    let priceId =
-      args.plan === "student"
-        ? process.env.STRIPE_PRICE_STUDENT
-        : process.env.STRIPE_PRICE_PRO;
+    const annual = args.billing === "annual";
+    const envVar = annual
+      ? args.plan === "student"
+        ? "STRIPE_PRICE_STUDENT_ANNUAL"
+        : "STRIPE_PRICE_PRO_ANNUAL"
+      : args.plan === "student"
+        ? "STRIPE_PRICE_STUDENT"
+        : "STRIPE_PRICE_PRO";
+
+    let priceId = process.env[envVar];
 
     if (!priceId) {
       const provisioned = await ctx.runAction(api.provisionStripe.provisionStripe);
       if (provisioned.provisioned) {
-        priceId =
-          args.plan === "student"
+        priceId = annual
+          ? args.plan === "student"
+            ? provisioned.config.priceStudentAnnual
+            : provisioned.config.priceProAnnual
+          : args.plan === "student"
             ? provisioned.config.priceStudent
             : provisioned.config.pricePro;
       }
     }
 
+    // Annuel demandé mais prix annuel indisponible (config ancienne ou env
+    // partielle) : on ne facture jamais le mauvais tarif — l'UI bascule sur
+    // le mensuel avec un message clair.
+    if (!priceId && annual) {
+      return { available: false as const, reason: "annual_unavailable" as const };
+    }
+
     if (!priceId) {
       throw new Error(
-        `Impossible de créer le paiement (plan ${args.plan}). Configurez STRIPE_PRICE_${args.plan === "student" ? "STUDENT" : "PRO"} ou vérifiez STRIPE_SECRET_KEY.`,
+        `Impossible de créer le paiement (plan ${args.plan}). Configurez ${envVar} ou vérifiez STRIPE_SECRET_KEY.`,
       );
     }
 

@@ -1,20 +1,47 @@
 export type PlanId = "free" | "student" | "pro";
+export type BillingPeriod = "monthly" | "annual";
 
-export const PLANS: {
+/** Tarifs en euros (mensuel / annuel) — le produit Stripe est provisionné sur ces montants. */
+export const PRICING: Record<"student" | "pro", Record<BillingPeriod, number>> = {
+  student: { monthly: 4.99, annual: 49.99 },
+  pro: { monthly: 6.99, annual: 69.99 },
+};
+
+/** « 4,99 € » au format français. */
+export function formatPrice(amount: number): string {
+  return `${amount.toLocaleString("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} €`;
+}
+
+/** Note de période affichée à côté du prix. */
+export function priceNote(billing: BillingPeriod): string {
+  return billing === "monthly" ? "/ mois" : "/ an";
+}
+
+/** Équivalent mensuel d'un tarif annuel, ex. « ≈ 4,17 €/mois ». */
+export function annualMonthlyHint(annual: number): string {
+  const perMonth = annual / 12;
+  return `≈ ${perMonth.toLocaleString("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} €/mois`;
+}
+
+export interface PlanDef {
   id: PlanId;
   name: string;
-  price: string;
-  priceNote: string;
   tagline: string;
   features: string[];
   cta: string;
   highlight?: boolean;
-}[] = [
+}
+
+export const PLANS: PlanDef[] = [
   {
     id: "free",
     name: "Gratuit",
-    price: "0 €",
-    priceNote: "/ mois",
     tagline: "Pour tester StudySnap sans engagement.",
     features: [
       "5 scans d'exercices / mois",
@@ -28,8 +55,6 @@ export const PLANS: {
   {
     id: "student",
     name: "Student",
-    price: "9,99 €",
-    priceNote: "/ mois",
     tagline: "L'essentiel pour réviser toute l'année.",
     features: [
       "Scans illimités (fair-use)",
@@ -44,8 +69,6 @@ export const PLANS: {
   {
     id: "pro",
     name: "Student Pro",
-    price: "14,99 €",
-    priceNote: "/ mois",
     tagline: "Pour les grosses révisions et le bac.",
     features: [
       "Tout le plan Student",

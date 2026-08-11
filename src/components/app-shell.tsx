@@ -18,6 +18,7 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
 import { initials } from "@/lib/format";
+import { InstallApp } from "@/components/InstallApp";
 import type { ReactNode } from "react";
 
 const NAV = [
@@ -149,6 +150,7 @@ export function AppShell({
 
         <div className="mt-4 flex flex-col gap-3">
           <UsageBar />
+          <InstallApp variant="sidebar" />
           <PlanChip />
           <div className="mt-1 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -185,6 +187,7 @@ export function AppShell({
         </NavLink>
         <div className="flex items-center gap-2">
           <PlanChip />
+          <InstallApp />
           <button
             type="button"
             onClick={handleSignOut}

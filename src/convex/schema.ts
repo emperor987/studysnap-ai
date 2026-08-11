@@ -207,8 +207,10 @@ const schema = defineSchema(
     stripe_config: defineTable({
       singleton: v.literal("default"),
       mode: v.string(), // "test" | "live" (environnement des objets créés)
-      priceStudent: v.string(), // price_... plan Student (9,99 €/mois)
-      pricePro: v.string(), // price_... plan Student Pro (14,99 €/mois)
+      priceStudent: v.string(), // price_... plan Student mensuel (4,99 €/mois)
+      pricePro: v.string(), // price_... plan Student Pro mensuel (6,99 €/mois)
+      priceStudentAnnual: v.optional(v.string()), // price_... Student annuel (49,99 €/an)
+      priceProAnnual: v.optional(v.string()), // price_... Student Pro annuel (69,99 €/an)
       webhookId: v.string(),
       webhookSecret: v.string(), // whsec_... (secret du endpoint créé)
       updatedAt: v.number(),

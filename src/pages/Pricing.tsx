@@ -1,17 +1,35 @@
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { useAction } from "convex/react";
+import { BillingToggle } from "@/components/billing-toggle";
+import { useAction, useQuery } from "convex/react";
 import { ArrowLeft, Check, Loader2, Sparkles, Zap } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
-import { PLANS } from "@/lib/plans";
+import {
+  PLANS,
+  PRICING,
+  annualMonthlyHint,
+  formatPrice,
+  priceNote,
+  type BillingPeriod,
+  type PlanId,
+} from "@/lib/plans";
+
+const isPaidPlan = (id: PlanId): id is "student" | "pro" => id !== "free";
 
 export default function Pricing() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const createCheckout = useAction(api.stripe.createCheckoutSession);
+  const usage = useQuery(api.usage.getMyUsage);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [billing, setBilling] = useState<BillingPeriod>("monthly");
+
+  // Règle de séquencement : la bascule de facturation n'apparaît qu'une fois
+  // que l'utilisateur a réellement testé l'app (au moins un scan, une fiche
+  // ou un quiz). On ne pousse jamais un plan avant ce moment.
+  const hasTested = !!usage && usage.usage.scans + usage.usage.sheets + usage.usage.quizzes > 0;
 
   const handleSubscribe = async (planId: "student" | "pro") => {
     if (authLoading) return;
@@ -23,9 +41,17 @@ export default function Pricing() {
     try {
       const result = await createCheckout({
         plan: planId,
+        billing,
         origin: window.location.origin,
       });
       if (!result.available) {
+        if ("reason" in result && result.reason === "annual_unavailable") {
+          toast.error(
+            "L'abonnement annuel n'est pas encore disponible — le mensuel fonctionne, réessaie.",
+          );
+          setBilling("monthly");
+          return;
+        }
         toast.info(
           "Le paiement en ligne arrive bientôt — en attendant, le plan gratuit te laisse tout tester.",
         );
@@ -78,9 +104,21 @@ export default function Pricing() {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-6 lg:grid-cols-3">
+        {/* Bascule Mensuel / Annuel — visible seulement après avoir testé l'app */}
+        <div className="mt-10 flex flex-col items-center gap-2">
+          {hasTested ? (
+            <BillingToggle value={billing} onChange={setBilling} />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              🔎 Scanne ton premier exercice gratuitement pour découvrir les
+              tarifs annuels (2 mois offerts).
+            </p>
+          )}
+        </div>
+
+        <div className="mt-10 grid gap-6 lg:grid-cols-3">
           {PLANS.map((plan) => {
-            const paid = plan.id !== "free";
+            const amount = isPaidPlan(plan.id) ? PRICING[plan.id][billing] : 0;
             return (
               <div
                 key={plan.id}
@@ -97,12 +135,17 @@ export default function Pricing() {
                 <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
                 <p className="mt-5">
                   <span className="text-4xl font-black tracking-tight">
-                    {plan.price}
+                    {isPaidPlan(plan.id) ? formatPrice(amount) : "0 €"}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {plan.priceNote}
+                    {isPaidPlan(plan.id) ? priceNote(billing) : " / mois"}
                   </span>
                 </p>
+                {isPaidPlan(plan.id) && billing === "annual" && (
+                  <p className="mt-1.5 text-xs font-semibold text-mint-300">
+                    {annualMonthlyHint(PRICING[plan.id].annual)} · 2 mois offerts
+                  </p>
+                )}
                 <ul className="mt-6 flex-1 space-y-2.5">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5 text-sm">

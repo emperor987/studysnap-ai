@@ -2,13 +2,18 @@
  * StudySnap — provisionnement automatique Stripe.
  *
  * Crée (une seule fois) via l'API Stripe : les produits « Student » et
- * « Student Pro », leurs prix mensuels récurrents en euros, et l'endpoint
- * webhook {SITE_URL}/stripe-webhook. Le résultat (price_id + secret du
- * webhook) est mémorisé dans la table stripe_config via des fonctions
- * internes (jamais exposées au client).
+ * « Student Pro », leurs prix récurrents en euros (mensuel + annuel), et
+ * l'endpoint webhook {SITE_URL}/stripe-webhook. Le résultat (price_id +
+ * secret du webhook) est mémorisé dans la table stripe_config via des
+ * fonctions internes (jamais exposées au client).
  *
- * Idempotent : les prix sont retrouvés par lookup_key et la config déjà
- * enregistrée est réutilisée telle quelle.
+ * Tarifs : Student 4,99 €/mois ou 49,99 €/an — Student Pro 6,99 €/mois ou
+ * 69,99 €/an (≈ 2 mois offerts en annuel).
+ *
+ * Idempotent : les prix sont retrouvés par lookup_key. Les anciens prix
+ * (9,99/14,99 € mensuels) utilisent d'autres lookup_keys : les nouveaux
+ * lookup_keys v2 forcent la création des prix aux nouveaux montants.
+ * Si la config enregistrée date d'avant les prix annuels, on re-provisionne.
  */
 
 import { action } from "./_generated/server";
@@ -71,8 +76,10 @@ async function stripeGet(
   return data;
 }
 
-const STUDENT_LOOKUP = "studysnap_student_monthly";
-const PRO_LOOKUP = "studysnap_pro_monthly";
+const STUDENT_LOOKUP = "studysnap_student_monthly_v2";
+const PRO_LOOKUP = "studysnap_pro_monthly_v2";
+const STUDENT_ANNUAL_LOOKUP = "studysnap_student_annual";
+const PRO_ANNUAL_LOOKUP = "studysnap_pro_annual";
 const WEBHOOK_EVENTS = [
   "checkout.session.completed",
   "customer.subscription.updated",
@@ -95,7 +102,14 @@ export const provisionStripe = action({
     const mode: "test" | "live" = key.startsWith("sk_live_") ? "live" : "test";
 
     const existing = await ctx.runQuery(internal.stripeConfig.getStripeConfig);
-    if (existing && existing.mode === mode) {
+    // Re-provisionne si la config est d'un autre environnement OU si elle
+    // date d'avant l'ajout des prix annuels (champs manquants).
+    if (
+      existing &&
+      existing.mode === mode &&
+      existing.priceStudentAnnual &&
+      existing.priceProAnnual
+    ) {
       return {
         provisioned: true as const,
         config: existing,
@@ -110,8 +124,10 @@ export const provisionStripe = action({
     const lookupParams = new URLSearchParams();
     lookupParams.append("lookup_keys[]", STUDENT_LOOKUP);
     lookupParams.append("lookup_keys[]", PRO_LOOKUP);
+    lookupParams.append("lookup_keys[]", STUDENT_ANNUAL_LOOKUP);
+    lookupParams.append("lookup_keys[]", PRO_ANNUAL_LOOKUP);
     lookupParams.append("active", "true");
-    lookupParams.append("limit", "10");
+    lookupParams.append("limit", "20");
     const lookup = (await stripeGet(
       `/prices?${lookupParams.toString()}`,
       key,
@@ -120,39 +136,58 @@ export const provisionStripe = action({
     const existingPrice = (lk: string) =>
       prices.find((p) => p.lookup_key === lk)?.id;
 
-    let priceStudent = existingPrice(STUDENT_LOOKUP);
-    if (!priceStudent) {
+    const getOrCreate = async (
+      lookupKey: string,
+      unitAmount: string,
+      interval: "month" | "year",
+      name: string,
+      plan: string,
+    ): Promise<string> => {
+      const found = existingPrice(lookupKey);
+      if (found) return found;
       const res = await stripeFetch(
         "/prices",
         {
           currency: "eur",
-          unit_amount: "999",
-          "recurring[interval]": "month",
-          lookup_key: STUDENT_LOOKUP,
-          "product_data[name]": "Student",
-          "product_data[metadata][studysnap_plan]": "student",
+          unit_amount: unitAmount,
+          "recurring[interval]": interval,
+          lookup_key: lookupKey,
+          "product_data[name]": name,
+          "product_data[metadata][studysnap_plan]": plan,
         },
         key,
       );
-      priceStudent = String(res.id ?? "");
-    }
+      return String(res.id ?? "");
+    };
 
-    let pricePro = existingPrice(PRO_LOOKUP);
-    if (!pricePro) {
-      const res = await stripeFetch(
-        "/prices",
-        {
-          currency: "eur",
-          unit_amount: "1499",
-          "recurring[interval]": "month",
-          lookup_key: PRO_LOOKUP,
-          "product_data[name]": "Student Pro",
-          "product_data[metadata][studysnap_plan]": "pro",
-        },
-        key,
-      );
-      pricePro = String(res.id ?? "");
-    }
+    const priceStudent = await getOrCreate(
+      STUDENT_LOOKUP,
+      "499",
+      "month",
+      "Student",
+      "student",
+    );
+    const pricePro = await getOrCreate(
+      PRO_LOOKUP,
+      "699",
+      "month",
+      "Student Pro",
+      "pro",
+    );
+    const priceStudentAnnual = await getOrCreate(
+      STUDENT_ANNUAL_LOOKUP,
+      "4999",
+      "year",
+      "Student",
+      "student",
+    );
+    const priceProAnnual = await getOrCreate(
+      PRO_ANNUAL_LOOKUP,
+      "6999",
+      "year",
+      "Student Pro",
+      "pro",
+    );
 
     const siteUrl = process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? "";
     if (!siteUrl) {
@@ -172,6 +207,8 @@ export const provisionStripe = action({
       mode,
       priceStudent,
       pricePro,
+      priceStudentAnnual,
+      priceProAnnual,
       webhookId: String(webhookRes.id ?? ""),
       webhookSecret: String(webhookRes.secret ?? ""),
     };

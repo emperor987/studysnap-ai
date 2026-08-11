@@ -13,6 +13,8 @@ export type StripeConfig = {
   mode: "test" | "live";
   priceStudent: string;
   pricePro: string;
+  priceStudentAnnual?: string;
+  priceProAnnual?: string;
   webhookId: string;
   webhookSecret: string;
 };
@@ -21,6 +23,8 @@ const stripeConfigValidator = v.object({
   mode: v.union(v.literal("test"), v.literal("live")),
   priceStudent: v.string(),
   pricePro: v.string(),
+  priceStudentAnnual: v.optional(v.string()),
+  priceProAnnual: v.optional(v.string()),
   webhookId: v.string(),
   webhookSecret: v.string(),
 });
@@ -39,6 +43,8 @@ export const getStripeConfig = internalQuery({
       mode: (doc.mode === "live" ? "live" : "test") as "test" | "live",
       priceStudent: doc.priceStudent,
       pricePro: doc.pricePro,
+      priceStudentAnnual: doc.priceStudentAnnual,
+      priceProAnnual: doc.priceProAnnual,
       webhookId: doc.webhookId,
       webhookSecret: doc.webhookSecret,
     };

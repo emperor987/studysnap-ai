@@ -750,7 +750,7 @@ function PricingSection() {
           },
           {
             name: "Student",
-            price: "9,99 €",
+            price: "4,99 €",
             note: "/ mois",
             tagline: "L'essentiel pour réviser toute l'année.",
             features: [
@@ -766,7 +766,7 @@ function PricingSection() {
           },
           {
             name: "Student Pro",
-            price: "14,99 €",
+            price: "6,99 €",
             note: "/ mois",
             tagline: "Pour les grosses révisions et le bac.",
             features: [

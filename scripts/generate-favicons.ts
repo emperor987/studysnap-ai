@@ -22,6 +22,7 @@ const SIZES = [
   { file: "favicon-32.png", size: 32 },
   { file: "favicon-180-apple-touch.png", size: 180 },
   { file: "favicon-192.png", size: 192 },
+  { file: "favicon-512.png", size: 512 },
 ];
 
 async function main() {

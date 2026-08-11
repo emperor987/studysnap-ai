@@ -99,20 +99,22 @@ export default function LegalCgu() {
               explication, révision) et l&apos;historique des exercices.
             </>,
             <>
-              <strong className="text-foreground">Student — 9,99 €/mois</strong>{" "}
-              : scans illimités (dans le cadre d&apos;un usage raisonnable, voir
-              Article 5), fiches de révision illimitées, quiz illimités
-              (5 à 20 questions), explications adaptées au niveau, support par
-              email.
+              <strong className="text-foreground">Student — 4,99 €/mois</strong>{" "}
+              (ou <strong className="text-foreground">49,99 €/an</strong>, soit
+              environ 4,17 €/mois — 2 mois offerts) : scans illimités (dans le
+              cadre d&apos;un usage raisonnable, voir Article 5), fiches de
+              révision illimitées, quiz illimités (5 à 20 questions),
+              explications adaptées au niveau, support par email.
             </>,
             <>
               <strong className="text-foreground">
-                Student Pro — 14,99 €/mois
+                Student Pro — 6,99 €/mois
               </strong>{" "}
-              : tout le plan Student, plus l&apos;analyse multi-pages
-              (plusieurs photos), des statistiques avancées de progression, la
-              priorité IA (réponses plus rapides) et l&apos;export PDF des
-              fiches.
+              (ou <strong className="text-foreground">69,99 €/an</strong>, soit
+              environ 5,83 €/mois — 2 mois offerts) : tout le plan Student,
+              plus l&apos;analyse multi-pages (plusieurs photos), des
+              statistiques avancées de progression, la priorité IA (réponses
+              plus rapides) et l&apos;export PDF des fiches.
             </>,
           ]}
         />
