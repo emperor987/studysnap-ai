@@ -24,10 +24,19 @@ export type ProvisionResult =
 
 async function stripeFetch(
   path: string,
-  params: Record<string, string>,
+  params: Record<string, string | string[]>,
   key: string,
 ): Promise<Record<string, unknown>> {
-  const body = new URLSearchParams(params);
+  // Stripe s'attend à des paramètres form : clés imbriquées (product_data[x])
+  // et tableaux répétés (enabled_events=A&enabled_events=B).
+  const body = new URLSearchParams();
+  for (const [k, val] of Object.entries(params)) {
+    if (Array.isArray(val)) {
+      val.forEach((v) => body.append(k, v));
+    } else {
+      body.append(k, val);
+    }
+  }
   const res = await fetch(`${STRIPE_API}${path}`, {
     method: "POST",
     headers: {
@@ -82,9 +91,15 @@ export const provisionStripe = action({
     }
 
     // Récupère les prix déjà créés (idempotence si une tentative précédente
-    // a échoué après la création des prix).
+    // a échoué après la création des prix). Stripe attend les paramètres de
+    // tableau répétés : lookup_keys[]=A&lookup_keys[]=B.
+    const lookupParams = new URLSearchParams();
+    lookupParams.append("lookup_keys[]", STUDENT_LOOKUP);
+    lookupParams.append("lookup_keys[]", PRO_LOOKUP);
+    lookupParams.append("active", "true");
+    lookupParams.append("limit", "10");
     const lookup = (await stripeGet(
-      `/prices?lookup_keys=${STUDENT_LOOKUP},${PRO_LOOKUP}&active=true&limit=10`,
+      `/prices?${lookupParams.toString()}`,
       key,
     )) as { data?: { id: string; lookup_key?: string }[] };
     const prices = lookup.data ?? [];
@@ -98,10 +113,10 @@ export const provisionStripe = action({
         {
           currency: "eur",
           unit_amount: "999",
-          recurring: '{"interval":"month"}',
+          "recurring[interval]": "month",
           lookup_key: STUDENT_LOOKUP,
-          product_data:
-            '{"name":"Student","description":"StudySnap Student — 9,99 €/mois","metadata":{"studysnap_plan":"student"}}',
+          "product_data[name]": "Student",
+          "product_data[metadata][studysnap_plan]": "student",
         },
         key,
       );
@@ -115,10 +130,10 @@ export const provisionStripe = action({
         {
           currency: "eur",
           unit_amount: "1499",
-          recurring: '{"interval":"month"}',
+          "recurring[interval]": "month",
           lookup_key: PRO_LOOKUP,
-          product_data:
-            '{"name":"Student Pro","description":"StudySnap Student Pro — 14,99 €/mois","metadata":{"studysnap_plan":"pro"}}',
+          "product_data[name]": "Student Pro",
+          "product_data[metadata][studysnap_plan]": "pro",
         },
         key,
       );
@@ -134,7 +149,7 @@ export const provisionStripe = action({
       "/webhook_endpoints",
       {
         url: `${siteUrl}/stripe-webhook`,
-        enabled_events: JSON.stringify(WEBHOOK_EVENTS),
+        "enabled_events[]": WEBHOOK_EVENTS,
       },
       key,
     );

@@ -26,13 +26,20 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 
 const STRIPE_API = "https://api.stripe.com/v1";
 
-/** POST form-urlencoded vers l'API Stripe. */
+/** POST form-urlencoded vers l'API Stripe (tableaux répétés, clés imbriquées). */
 async function stripeFetch(
   path: string,
-  params: Record<string, string>,
+  params: Record<string, string | string[]>,
   key: string,
 ): Promise<Record<string, unknown>> {
-  const body = new URLSearchParams(params);
+  const body = new URLSearchParams();
+  for (const [k, val] of Object.entries(params)) {
+    if (Array.isArray(val)) {
+      val.forEach((v) => body.append(k, v));
+    } else {
+      body.append(k, val);
+    }
+  }
   const res = await fetch(`${STRIPE_API}${path}`, {
     method: "POST",
     headers: {
@@ -92,11 +99,13 @@ export const createCheckoutSession = action({
       "/checkout/sessions",
       {
         mode: "subscription",
-        line_items: `[{"price":"${priceId}","quantity":1}]`,
+        "line_items[][price]": priceId,
+        "line_items[][quantity]": "1",
         customer_email: user?.email ?? "",
         success_url: `${args.origin}/settings?upgraded=1`,
         cancel_url: `${args.origin}/pricing`,
-        metadata: `{"userId":"${userId}","plan":"${args.plan}"}`,
+        "metadata[userId]": userId,
+        "metadata[plan]": args.plan,
       },
       key,
     );
