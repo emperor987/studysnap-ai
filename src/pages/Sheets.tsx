@@ -26,7 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -357,8 +356,6 @@ export default function Sheets() {
           </Button>
         </DialogContent>
       </Dialog>
-
-      <Input className="hidden" aria-hidden />
     </AppShell>
   );
 }

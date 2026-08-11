@@ -7,7 +7,6 @@ import {
   Flame,
   GraduationCap,
   History,
-  Lightbulb,
   ListChecks,
   Play,
   ScanLine,

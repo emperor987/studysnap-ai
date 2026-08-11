@@ -13,6 +13,16 @@ import "./index.css";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const Scanner = lazy(() => import("./pages/Scanner.tsx"));
+const ScanResult = lazy(() => import("./pages/ScanResult.tsx"));
+const Sheets = lazy(() => import("./pages/Sheets.tsx"));
+const SheetView = lazy(() => import("./pages/SheetView.tsx"));
+const Revision = lazy(() => import("./pages/Revision.tsx"));
+const QuizPlayer = lazy(() => import("./pages/QuizPlayer.tsx"));
+const History = lazy(() => import("./pages/History.tsx"));
+const Progress = lazy(() => import("./pages/Progress.tsx"));
+const Settings = lazy(() => import("./pages/Settings.tsx"));
+const Pricing = lazy(() => import("./pages/Pricing.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -120,6 +130,7 @@ createRoot(document.getElementById("root")!).render(
           <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<Landing />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
@@ -129,6 +140,78 @@ createRoot(document.getElementById("root")!).render(
                 element={
                   <RequireAuth>
                     <Dashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/scanner"
+                element={
+                  <RequireAuth>
+                    <Scanner />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/scanner/result/:scanId"
+                element={
+                  <RequireAuth>
+                    <ScanResult />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/sheets"
+                element={
+                  <RequireAuth>
+                    <Sheets />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/sheets/:sheetId"
+                element={
+                  <RequireAuth>
+                    <SheetView />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/revision"
+                element={
+                  <RequireAuth>
+                    <Revision />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/revision/quiz/:quizId"
+                element={
+                  <RequireAuth>
+                    <QuizPlayer />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/exercises"
+                element={
+                  <RequireAuth>
+                    <History />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/progress"
+                element={
+                  <RequireAuth>
+                    <Progress />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <RequireAuth>
+                    <Settings />
                   </RequireAuth>
                 }
               />

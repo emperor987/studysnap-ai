@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { cn } from "@/lib/utils";
 import { levelLabel, subjectEmoji } from "@/lib/format";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -22,7 +22,6 @@ type Answer = { questionIndex: number; selected?: string; isCorrect: boolean };
 
 export default function QuizPlayer() {
   const { quizId } = useParams<{ quizId: string }>();
-  const navigate = useNavigate();
   const quiz = useQuery(api.quizzes.getQuiz, {
     quizId: quizId as Id<"quizzes">,
   });
