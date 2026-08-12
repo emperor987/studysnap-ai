@@ -96,5 +96,18 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
+    // En-têtes appliqués par le serveur de dev à TOUTES les réponses de
+    // l'aperçu (routes, fallback SPA, erreurs). Anti-clickjacking réel : la
+    // plateforme Freebuff affiche l'aperçu dans une iframe, on autorise donc
+    // UNIQUEMENT ses origines — tout autre site ne peut pas encadrer
+    // l'application. En production, public/_headers impose frame-ancestors
+    // 'none' + X-Frame-Options: DENY (aucun embedding légitime).
+    headers: {
+      "Content-Security-Policy":
+        "frame-ancestors 'self' https://freebuff.com https://*.freebuff.com https://freebuff.app https://*.freebuff.app https://*.freebuff.dev https://*.vly.ai https://*.vly.sh",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=()",
+    },
   },
 });

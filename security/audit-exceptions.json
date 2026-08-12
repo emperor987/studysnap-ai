@@ -1,0 +1,10 @@
+{
+  "threshold": "high",
+  "exceptions": [
+    {
+      "id": "GHSA-866g-f22w-33x8",
+      "reason": "@ai-sdk/provider-utils (via @vly-ai/integrations, SDK de la plateforme) — sévérité LOW (CWE-400, CVSS 4.3), non exploitée par StudySnap : le SDK est utilisé pour l'envoi d'emails et les intégrations Vly, pas pour des flux d'entrée contrôlés par un attaquant. Sous le seuil 'high' de la CI ; à revoir lors d'une mise à jour de @vly-ai/integrations.",
+      "expires": "2026-11-01"
+    }
+  ]
+}

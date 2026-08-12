@@ -13,4 +13,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     // bloque la tentative suivante (déblocage progressif ~1/6 min).
     maxFailedAttempsPerHour: 5,
   },
+  session: {
+    // Expiration ABSOLUE des sessions : 14 jours, même en cas d'utilisation
+    // continue (réauthentification périodique). La rotation de session à
+    // chaque connexion (anti-fixation) et l'invalidation serveur au logout
+    // sont assurées par Convex Auth (createNewAndDeleteExistingSession /
+    // suppression du session document + refresh tokens).
+    totalDurationMs: 14 * 24 * 60 * 60 * 1000,
+  },
 });

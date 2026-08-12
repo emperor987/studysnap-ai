@@ -13,6 +13,7 @@ import { ConvexError } from "convex/values";
 import * as files from "@/convex/files";
 import * as scans from "@/convex/scans";
 import * as ai from "@/convex/ai";
+import * as rateLimit from "@/convex/rateLimit";
 
 import {
   call,
@@ -205,7 +206,11 @@ function makeActionCtx(db: ReturnType<typeof makeDb>) {
     ...base,
     runQuery: async (_fn: unknown, args: unknown) =>
       call(files.checkStorageOwnership, makeQueryCtx(db), args),
-    runMutation: async () => undefined,
+    // Les actions IA consomment la limite horaire (rateLimit:consume) avant
+    // le traitement : on dispatche vers la vraie mutation pour que le seau
+    // soit appliqué (et pour couvrir ce chemin dans les tests).
+    runMutation: async (_fn: unknown, args: unknown) =>
+      call(rateLimit.consume, makeMutationCtx(db), args),
     scheduler: { runAfter: async () => undefined },
   };
 }

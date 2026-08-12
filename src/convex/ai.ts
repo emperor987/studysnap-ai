@@ -30,6 +30,7 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { AI_GENERATION_LIMITS } from "./rateLimit";
 import type { Id } from "./_generated/dataModel";
 import { sanitizeUserText, stripHtmlArtifacts } from "../lib/clean";
 import { condenseLongText, documentKind } from "../lib/analysis";
@@ -98,6 +99,39 @@ async function requireUser(ctx: ActionCtx) {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Vous devez être connecté·e.");
   return userId;
+}
+
+/**
+ * Plafond de générations IA par compte et par heure (fenêtre glissante,
+ * compteur distribué dans la table rate_limits). Surchargable via
+ * AI_RATE_LIMIT_MAX (tests uniquement — jamais pour affaiblir la limite en
+ * production, la valeur par défaut reste AI_GENERATION_LIMITS.max).
+ */
+function aiRateLimitMax(): number {
+  const raw = parseInt(process.env.AI_RATE_LIMIT_MAX ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : AI_GENERATION_LIMITS.max;
+}
+
+/**
+ * Vérifie la limite horaire de générations IA du compte AVANT tout travail
+ * (OCR, storage, appel fournisseur). Bloqué → ConvexError RATE_LIMITED avec
+ * un délai de réessai — jamais de détail interne.
+ */
+async function assertWithinAiLimit(ctx: ActionCtx, userId: string) {
+  const rl = await ctx.runMutation(internal.rateLimit.consume, {
+    key: `ai:${userId}`,
+    windowMs: AI_GENERATION_LIMITS.windowMs,
+    max: aiRateLimitMax(),
+  });
+  if (rl && typeof rl === "object" && "allowed" in rl && !rl.allowed) {
+    const retryAfterMs =
+      typeof rl.retryAfterMs === "number" ? rl.retryAfterMs : 60_000;
+    const retryAfterSec = Math.max(1, Math.ceil(retryAfterMs / 1000));
+    throw new ConvexError({
+      code: "RATE_LIMITED",
+      message: `Tu as atteint la limite de générations IA (${aiRateLimitMax()} par heure). Réessaie dans ${retryAfterSec} s.`,
+    });
+  }
 }
 
 /**
@@ -701,6 +735,9 @@ export const ocrPhotos = action({
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
 
+    // Limite horaire de générations IA par compte (endpoint coûteux).
+    await assertWithinAiLimit(ctx, userId);
+
     // Propriété des fichiers : jamais d'OCR d'une image d'un autre compte.
     await assertUserOwnsImages(ctx, userId, args.storageIds);
 
@@ -756,6 +793,9 @@ export const analyzeText = action({
   handler: async (ctx, args): Promise<DemoAnalysis> => {
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
+
+    // Limite horaire de générations IA par compte (endpoint coûteux).
+    await assertWithinAiLimit(ctx, userId);
 
     // Mode démo : reste actif tant qu'aucune clé n'est configurée.
     if (!aiKey()) {
@@ -847,6 +887,9 @@ export const generateSheet = action({
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
     const seed = hashSeed(userId, args.sourceText ?? "", args.storageIds?.join(",") ?? "", new Date().getDate());
+
+    // Limite horaire de générations IA par compte (endpoint coûteux).
+    await assertWithinAiLimit(ctx, userId);
 
     // Propriété des fichiers : on ne transforme que ses propres photos.
     if (args.storageIds && args.storageIds.length > 0) {
@@ -959,6 +1002,9 @@ export const generateQuiz = action({
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
     const count = Math.min(20, Math.max(5, args.count));
+
+    // Limite horaire de générations IA par compte (endpoint coûteux).
+    await assertWithinAiLimit(ctx, userId);
     const seed = hashSeed(userId, args.subject, count, args.difficulty, args.types.join(","), args.topic ?? "");
 
     if (!aiKey()) {

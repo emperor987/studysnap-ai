@@ -16,9 +16,9 @@ Légende statuts : ✅ contrôlé et testé · ⚠️ atténué (risque résidue
 | **Registre d'ownership des uploads** : `storageId → userId` ; aucune lecture/OCR/attachement/suppression d'un fichier d'autrui | `schema.ts` (table `uploads`), `files.ts`, `scans.ts`, `revisionSheets.ts`, `ai.ts` | ✅ | `tests/security/storage-access.test.ts` |
 | **Mass assignment** : `userId`, `role`, `status`, `score` fournis par le client ignorés (valeurs imposées par le serveur) | `scans.ts`, `quizzes.ts`, `users.ts` | ✅ | `tests/security/auth.test.ts` (« Mass assignment ») |
 | **Fonctions internes non exposées au client** : cleanup, cron, rappels parentaux passés en `internalMutation`/`internalAction` | `cleanup.ts`, `crons.ts`, `parentalConsent.ts`, `parentalConsentStatus.ts` | ✅ | `convex dev --once` + revue |
-| **Sessions** : cookies httpOnly gérés par Convex Auth ; aucun token/session en `localStorage`/`sessionStorage`/cookie JS | `auth.ts`, `auth.config.ts` | ✅ | `tests/security/frontend-and-infra.test.ts` (« Mots de passe & sessions ») |
-| **Mots de passe** : hash scrypt (provider Password), jamais stockés par notre code, anti-brute-force (`maxFailedAttempsPerHour: 5`) | `auth.ts` | ✅ | `tests/security/frontend-and-infra.test.ts` |
-| **Secrets** : aucune clé en dur ; clés lues depuis `process.env` (UI Keys) ; tokens parentaux hachés SHA-256 | `emailOtp.ts`, `ai.ts`, `stripe.ts`, `consent-token.ts` | ✅ | `tests/security/secrets.test.ts` |
+| **Sessions** : cookies httpOnly + Secure + Partitioned (Convex Auth) ; aucun token/session en `localStorage`/`sessionStorage`/cookie JS ; expiration ABSOLUE 14 j ; rotation de session à chaque connexion (anti-fixation) ; invalidation serveur au logout (suppression du session document + refresh tokens) | `auth.ts`, `auth.config.ts` | ✅ | `tests/security/sessions.test.ts`, `frontend-and-infra.test.ts` |
+| **Mots de passe** : hash scrypt (provider Password), jamais stockés par notre code, anti-brute-force (`maxFailedAttempsPerHour: 5`, compteur distribué) | `auth.ts` | ✅ | `tests/security/frontend-and-infra.test.ts` |
+| **Secrets** : aucune clé en dur ; clés lues depuis `process.env` (UI Keys) ; tokens parentaux hachés SHA-256 ; **rotation avec chevauchement** (clé précédente de secours : email OTP, webhook Stripe) ; scans de secrets repo-wide | `emailOtp.ts`, `ai.ts`, `stripe.ts`, `consent-token.ts` | ✅ | `tests/security/secrets.test.ts`, `secrets-rotation.test.ts` |
 
 ## A03 — Injection
 
@@ -33,7 +33,7 @@ Légende statuts : ✅ contrôlé et testé · ⚠️ atténué (risque résidue
 | Contrôle | Fichiers | Statut | Test |
 |---|---|---|---|
 | **Anti-triche** : `saveQuizResult` recalcule la justesse côté serveur, ignore `isCorrect` du client, borne le nombre de réponses | `quizzes.ts` | ✅ | `tests/security/quiz-grading.test.ts` |
-| **Rate limiting / quotas** : 5 scans / 3 fiches / 3 quiz gratuits ; espacement de 4 s entre scans ; anti-brute-force auth | `scans.ts`, `revisionSheets.ts`, `quizzes.ts`, `auth.ts` | ✅ | `tests/security/rate-limit-and-injection.test.ts`, `frontend-and-infra.test.ts` |
+| **Rate limiting multi-dimension (distribué)** : quotas mensuels par compte (5 scans / 3 fiches / 3 quiz) ; espacement 4 s entre scans ; **générations IA par compte/heure** (30/h, fenêtre glissante `rate_limits`) ; **envois OTP par email** (3/15 min) ; anti-brute-force auth (5 échecs/h) ; erreur `RATE_LIMITED` + délai de réessai. Limite par IP : portée par la plateforme (Convex n'expose pas l'IP client — voir SECURITY.md) | `rateLimit.ts`, `scans.ts`, `revisionSheets.ts`, `quizzes.ts`, `ai.ts`, `emailOtp.ts`, `auth.ts` | ✅ | `tests/security/rate-limit.test.ts`, `rate-limit-and-injection.test.ts` |
 | **Uploads** : URL d'upload signées et temporaires, session obligatoire, tailles/caps | `files.ts`, `quizzes.ts`, `revisionSheets.ts` | ✅ | `tests/security/rate-limit-and-injection.test.ts` (« Uploads ») |
 | **OTP** : code 6 chiffres, expiration 15 min | `emailOtp.ts` | ✅ | `frontend-and-infra.test.ts` |
 
@@ -41,7 +41,7 @@ Légende statuts : ✅ contrôlé et testé · ⚠️ atténué (risque résidue
 
 | Contrôle | Fichiers | Statut | Test |
 |---|---|---|---|
-| En-têtes de sécurité : CSP (`object-src 'none'`, sans frame-ancestors bloquant — l'aperçu Freebuff vit en iframe), `nosniff`, `Referrer-Policy`, `Permissions-Policy` | `public/_headers`, `index.html` | ✅ | `tests/security/frontend-and-infra.test.ts` (« En-têtes ») |
+| En-têtes de sécurité — **anti-clickjacking BLOQUANT** : production `frame-ancestors 'none'` + `X-Frame-Options: DENY` (aucun embedding légitime) ; aperçu de dev : liste d'origines Freebuff explicites (`vite.config.ts` server.headers) ; `nosniff`, `Referrer-Policy`, `Permissions-Policy` | `public/_headers`, `vite.config.ts`, `index.html` | ✅ | `tests/security/clickjacking.test.ts` (politique évaluée contre des origines hostiles), `frontend-and-infra.test.ts` (« En-têtes ») |
 | Pas de CORS sauvage : aucun `Access-Control-Allow-Origin: *` ; le routeur HTTP ne définit pas de CORS | `http.ts`, `stripe.ts` | ✅ | `frontend-and-infra.test.ts` (« CORS ») |
 | **Gestion d'erreurs** : erreurs métier = code + message pédagogique, jamais de stack trace ; erreurs d'envoi génériques (aucun secret) | `scans.ts`, `files.ts`, `emailOtp.ts` | ✅ | `rate-limit-and-injection.test.ts` (« Gestion d'erreurs »), `secrets.test.ts` |
 | **Logs** : aucun `console.*` ne journalise mot de passe/token/cookie/Authorization | tous (`src`) | ✅ | `frontend-and-infra.test.ts` (« Redaction des logs ») |
@@ -51,7 +51,7 @@ Légende statuts : ✅ contrôlé et testé · ⚠️ atténué (risque résidue
 | Contrôle | Fichiers | Statut | Test |
 |---|---|---|---|
 | CI exécute la suite de sécurité à chaque push/PR | `.github/workflows/security-tests.yml` | ✅ | `bun test tests/security` |
-| Audit de dépendances (`bun audit`) non intégré à la CI | — | ⚠️ | à ajouter |
+| **Audit de dépendances en CI** : `bun run audit:deps` (bun audit directes + transitives, seuil « high », exceptions documentées et datées dans `security/audit-exceptions.json`) ; workflow planifié hebdomadaire | `.github/workflows/security-audit.yml`, `scripts/audit-check.ts` | ✅ | `bun run audit:deps` (local + CI) |
 
 ## A07 — Identification & Authentication Failures
 
@@ -64,7 +64,7 @@ Légende statuts : ✅ contrôlé et testé · ⚠️ atténué (risque résidue
 
 | Contrôle | Fichiers | Statut | Test |
 |---|---|---|---|
-| **Webhook Stripe** : vérification HMAC-SHA256 + **anti-rejeu** (timestamp `t=` à ± 5 min) | `stripe.ts` | ✅ | `tests/security/stripe-webhook.test.ts` |
+| **Webhook Stripe** : vérification HMAC-SHA256 + **anti-rejeu** (timestamp `t=` à ± 5 min) ; **multi-secrets** (env primaire / précédente / provisionnée) pour la rotation en chevauchement | `stripe.ts` | ✅ | `tests/security/stripe-webhook.test.ts`, `secrets-rotation.test.ts` |
 
 ## A09 — Security Logging & Monitoring Failures
 
@@ -97,7 +97,6 @@ Légende statuts : ✅ contrôlé et testé · ⚠️ atténué (risque résidue
 ## Points à surveiller (risques résiduels)
 
 1. **Origines en mode dev** : sans `SITE_URL`/`CONVEX_SITE_URL`, les liens email acceptent toute origine https (nécessaire pour l'aperçu) — les contrôles https/credentials restent actifs. **En production, configurer `SITE_URL`** pour activer le régime strict (`src/lib/url.ts`).
-2. **Clickjacking** : `frame-ancestors` n'est pas bloquant pour préserver l'aperçu iframe Freebuff ; la protection repose sur les sessions httpOnly Convex et les vérifications d'origine serveur.
-3. **Rate limiting par IP** : les quotas sont par utilisateur ; un bot non authentifié peut générer des URLs d'upload (session requise, coût faible mais présent).
-4. **Rotation des secrets** : pas d'automatisation de rotation des clés IA / secret webhook Stripe.
-5. **Audit de dépendances** : `bun audit` non branché en CI.
+2. **Rate limiting par IP / réseau** : les quotas sont par compte et par email — pas par IP (Convex 1.43 n'expose pas l'adresse IP client aux fonctions). Un bot authentifié peut multiplier les comptes ; couverture IP à porter par la plateforme (WAF/rate limiting du domaine de production, protections de l'aperçu).
+3. **Rotation des secrets** : mécanismes de chevauchement en place (email OTP, webhook Stripe) ; le déclenchement reste manuel (runbook SECURITY.md) — rotation automatique non automatisable sans infrastructure dédiée (à confier à l'opérateur de la plateforme).
+4. **Clickjacking** : l'aperçu de dev autorise les origines de la plateforme Freebuff (nécessaire pour l'iframe) — production bloquée à `'none'`/DENY.

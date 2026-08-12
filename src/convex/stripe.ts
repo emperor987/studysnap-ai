@@ -19,6 +19,8 @@
  *   STRIPE_PRICE_STUDENT_ANNUAL  — price_id Student annuel (surcharge)
  *   STRIPE_PRICE_PRO_ANNUAL      — price_id Pro annuel (surcharge)
  *   STRIPE_WEBHOOK_SECRET        — secret du webhook /stripe-webhook (surcharge)
+ *   STRIPE_WEBHOOK_SECRET_PREVIOUS — ancien secret pendant une rotation en
+ *                                    chevauchement (voir SECURITY.md)
  */
 
 import { v } from "convex/values";
@@ -210,21 +212,44 @@ export async function verifyStripeSignature(
   return expectedHex.length === received.length && expectedHex === received;
 }
 
-/** Webhook Stripe : met à jour l'abonnement local (session confirmée, résiliation…). */
-export const stripeWebhook = httpAction(async (ctx, request) => {
-  // Secret issu de la config auto-provisionnée si l'env n'est pas renseignée.
-  let secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) {
-    const config = await ctx.runQuery(internal.stripeConfig.getStripeConfig);
-    secret = config?.webhookSecret;
+/**
+ * Vérifie la signature contre une LISTE de secrets candidats : pendant une
+ * rotation, Stripe peut signer avec l'ancien OU le nouveau secret du webhook
+ * (les deux sont actifs en chevauchement). Chaque candidat est essayé —
+ * accepter n'importe lequel, refuser si aucun ne valide (intégrité + anti-
+ * rejeu conservés : verifyStripeSignature contrôle le timestamp).
+ * Exportée pour les tests de sécurité.
+ */
+export async function verifyStripeSignatureAny(
+  raw: string,
+  signature: string,
+  candidates: string[],
+): Promise<boolean> {
+  for (const secret of candidates) {
+    if (await verifyStripeSignature(raw, signature, secret)) return true;
   }
-  if (!secret) {
+  return false;
+}
+
+/**
+ * Webhook Stripe : met à jour l'abonnement local (session confirmée, résiliation…).
+ */
+export const stripeWebhook = httpAction(async (ctx, request) => {
+  // Secrets candidats, dans l'ordre : env primaire → env précédente
+  // (chevauchement de rotation) → secret auto-provisionné.
+  const config = await ctx.runQuery(internal.stripeConfig.getStripeConfig);
+  const candidates = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_PREVIOUS,
+    config?.webhookSecret,
+  ].filter((s): s is string => Boolean(s?.trim()));
+  if (candidates.length === 0) {
     return new Response("Webhook non configuré", { status: 200 });
   }
   const signature = request.headers.get("stripe-signature") ?? "";
   const raw = await request.text();
 
-  const ok = await verifyStripeSignature(raw, signature, secret);
+  const ok = await verifyStripeSignatureAny(raw, signature, candidates);
   if (!ok) return new Response("Signature invalide", { status: 400 });
 
   const event = JSON.parse(raw) as StripeEvent;

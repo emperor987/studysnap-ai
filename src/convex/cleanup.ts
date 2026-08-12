@@ -1,4 +1,5 @@
 import { internalMutation } from "./_generated/server";
+import { purgeExpiredRows } from "./rateLimit";
 
 /**
  * Purge hebdomadaire (planifiée dans crons.ts) : supprime les photos de
@@ -32,6 +33,8 @@ export const cleanupExpiredImages = internalMutation({
         deleted += 1;
       }
     }
+    // Purge également les seaux de rate limiting inactifs (> 7 jours).
+    await purgeExpiredRows(ctx);
     return { deletedScans: deleted };
   },
 });

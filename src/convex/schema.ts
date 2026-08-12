@@ -249,6 +249,17 @@ const schema = defineSchema(
       .index("by_storage", ["storageId"])
       .index("by_user", ["userId", "createdAt"]),
 
+    // Rate limiting distribué (multi-dimension) : seau à fenêtre glissante
+    // par clé — "otp:<email>" (envois de codes), "ai:<userId>" (générations
+    // IA), etc. Écrit par l'interne mutation rateLimit:consume ; les seaux
+    // inactifs sont purgés par le cron hebdomadaire.
+    rate_limits: defineTable({
+      key: v.string(), // clé unique du seau (email / utilisateur / endpoint)
+      windowStart: v.number(), // début de la fenêtre glissante courante
+      count: v.number(), // consommations dans la fenêtre
+      updatedAt: v.number(),
+    }).index("by_key", ["key"]),
+
     // Compteurs mensuels (limites plan gratuit + stats)
     usage: defineTable({
       userId: v.id("users"),

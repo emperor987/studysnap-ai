@@ -1,0 +1,38 @@
+name: Dependency audit
+
+# Contrôle automatisé des dépendances (directes ET transitives) :
+# - `bun audit` sur le lockfile, seuil de sévérité « high » par défaut
+#   (configurable dans security/audit-exceptions.json) ;
+# - exceptions UNIQUEMENT via security/audit-exceptions.json (id + raison +
+#   date d'expiration) — jamais de suppression/masquage du scanner ;
+# - le job échoue dès qu'une vulnérabilité >= au seuil n'est pas exemptée.
+#
+# Les secrets ne sont jamais passés ici : bun audit lit uniquement le
+# lockfile, aucune valeur sensible n'est manipulée ou journalisée.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Exécution planifiée : les nouveaux advisories apparaissent sans attendre
+  # une PR (reproductible — même commande en local : bun run audit:deps).
+  schedule:
+    - cron: "0 6 * * 1" # lundi 06:00 UTC
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies (lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Run dependency audit
+        run: bun run audit:deps

@@ -59,10 +59,14 @@ OWASP_MAPPING.md).
 - **Preuve** : `tests/security/quiz-grading.test.ts`.
 
 ### S4 — Contournement des quotas / abus de ressources (Denial of wallet / abuse)
-- **Vecteur** : spam de générations IA (coût par appel), scans trop rapprochés.
-- **Contrôles** : quotas par plan (5 scans / 3 fiches / 3 quiz gratuits), espacement
-  de 4 s entre scans, OTP à durée courte, génération d'URL d'upload soumise à session.
-- **Preuve** : `tests/security/rate-limit-and-injection.test.ts`.
+- **Vecteur** : spam de générations IA (coût par appel), scans trop rapprochés, flood
+  d'emails OTP, création de comptes en masse.
+- **Contrôles** : rate limiting **distribué multi-dimension** (table `rate_limits`) :
+  quotas mensuels par plan, espacement 4 s entre scans, **30 générations IA/heure/
+  compte** (fenêtre glissante), **3 envois OTP/15 min/email**, anti-brute-force 5
+  échecs/h, cooldown des emails parentaux ; erreurs `RATE_LIMITED` + délai de
+  réessai. Limite par IP : portée par la plateforme (WAF) — voir SECURITY.md.
+- **Preuve** : `tests/security/rate-limit.test.ts`, `tests/security/rate-limit-and-injection.test.ts`.
 
 ### S5 — Rejeu / falsification du webhook Stripe (Integrity, spoofing)
 - **Vecteur** : rejouer une notification valide (double activation de plan) ou forger
@@ -108,28 +112,47 @@ OWASP_MAPPING.md).
 - **Preuve** : `tests/security/frontend-and-infra.test.ts` (Open redirect).
 
 ### S11 — CSRF (session hijacking)
-- **Vecteur** : formulaire hostile dans une autre origine déclenchant des mutations.
-- **Contrôles** : sessions Convex Auth en cookie httpOnly (non lisibles par JS), pas
-  d'authentification par cookie lisible → CSRF non applicable ; aucun CORS sauvage.
-- **Preuve** : `frontend-and-infra.test.ts` (CORS, cookies).
+- **Vecteur** : formulaire hostile dans une autre origine déclenchant des mutations
+  authentifiées (cookie cross-site envoyé automatiquement).
+- **Contrôles** : cookies httpOnly + `Partitioned` (CHIPS) ; les requêtes vers le
+  backend Convex doivent porter un en-tête custom (impossible cross-origin sans
+  préflight CORS approuvé) — protection appliquée par la plateforme Convex ; aucun
+  CORS sauvage dans notre code ; SameSite=None est nécessaire (origine Convex
+  distincte) et compensé par les deux contrôles ci-dessus.
+- **Preuve** : `frontend-and-infra.test.ts` (CORS, cookies), `sessions.test.ts` (flags).
 
 ### S12 — Attaques sur les sessions / tokens
-- **Vecteur** : session persistante après déconnexion, token parental réutilisable.
-- **Contrôles** : sessions révocables (Convex Auth), token parental à usage unique
-  (réinitialisé après confirmation) et expirant.
-- **Preuve** : `secrets.test.ts`, revue.
+- **Vecteur** : fixation de session, session persistante après déconnexion, session
+  sans expiration, token parental réutilisable.
+- **Contrôles** : rotation de session à chaque connexion (anti-fixation), invalidation
+  **serveur** au logout (session + refresh tokens supprimés), expiration absolue
+  14 j, cookies httpOnly/Secure/Partitioned ; token parental à usage unique
+  (réinitialisé après confirmation) et expirant (72 h).
+- **Preuve** : `tests/security/sessions.test.ts`, `tests/security/secrets.test.ts`.
+
+### S13 — Clickjacking (spoofing, session hijacking)
+- **Vecteur** : intégrer StudySnap dans une iframe hostile et superposer des
+  éléments invisibles pour faire cliquer l'utilisateur (scans, paiement…).
+- **Contrôles** : **production** : `frame-ancestors 'none'` + `X-Frame-Options: DENY`
+  (bloquant) ; **aperçu de dev** : liste d'origines explicites limitée à la
+  plateforme Freebuff (l'iframe de preview), tout autre site refusé — appliquée par
+  le serveur de dev sur toutes les routes.
+- **Preuve** : `tests/security/clickjacking.test.ts` (politique évaluée contre des
+  origines hostiles), `frontend-and-infra.test.ts` (en-têtes).
 
 ## Risques résiduels acceptés
 
 1. **Mode dev / aperçu** : sans `SITE_URL`, les liens email acceptent toute origine
    https (nécessaire pour la preview). Strict en production dès que `SITE_URL` est
    défini. → Mettre en place au déploiement.
-2. **Clickjacking** : `frame-ancestors` non bloquant pour préserver l'aperçu en iframe
-   (Freebuff). Mitigé par sessions httpOnly + vérifications d'origine serveur.
-3. **Rate limiting IP** : quotas par compte, pas par IP (un bot peut créer des comptes).
-4. **Audit de dépendances** : `bun audit` pas en CI (à ajouter).
-5. **Rotation des secrets** : manuelle.
-6. **SSRF** : les appels sortants sont vers des endpoints fixes ; le contenu OCR
+2. **Rate limiting IP** : quotas par compte/email/heure, pas par IP (Convex
+   n'expose pas l'IP client) — un bot authentifié peut créer des comptes. Couverture
+   IP à porter par la plateforme (WAF/rate limiting du domaine de production).
+3. **Rotation des secrets** : chevauchement en place (OTP, webhook Stripe), mais
+   déclenchement manuel — automatisation non faisable sans infrastructure dédiée.
+4. **Clickjacking sur l'aperçu de dev** : les origines Freebuff sont autorisées en
+   iframe (nécessaire) — production bloquée (`'none'`/DENY).
+5. **SSRF** : les appels sortants sont vers des endpoints fixes ; le contenu OCR
    (texte extrait d'une image) n'est pas utilisé comme URL.
 
 ## Hypothèses

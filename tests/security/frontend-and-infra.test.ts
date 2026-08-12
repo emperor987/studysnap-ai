@@ -125,15 +125,13 @@ describe("En-têtes de sécurité HTTP", () => {
     expect(headers).toMatch(/X-Content-Type-Options:\s*nosniff/i);
   });
 
-  // L'application doit rester EMBARBABLE en iframe : Freebuff affiche
-  // l'aperçu (preview) dans une iframe. Un X-Frame-Options: DENY ou un
-  // frame-ancestors 'none' rendrait l'aperçu entièrement blanc. La
-  // protection anti-clickjacking repose sur les sessions httpOnly Convex
-  // (jamais de cookie session lisible côté client) et les vérifications
-  // d'origine côté serveur.
-  test("aucun X-Frame-Options bloquant (l'aperçu iframe doit s'afficher)", () => {
-    expect(headers).not.toMatch(/X-Frame-Options:\s*DENY/i);
-    expect(headers).not.toMatch(/X-Frame-Options:\s*SAMEORIGIN/i);
+  // PRODUCTION : aucun embedding légitime → anti-clickjacking BLOQUANT
+  // (frame-ancestors 'none' + X-Frame-Options: DENY pour les navigateurs
+  // anciens). L'aperçu de dev (iframe Freebuff) a sa propre politique dans
+  // vite.config.ts (server.headers) avec une liste d'origines explicites —
+  // voir tests/security/clickjacking.test.ts.
+  test("X-Frame-Options: DENY présent en production (bloquant)", () => {
+    expect(headers).toMatch(/X-Frame-Options:\s*DENY/i);
   });
 
   test("Referrer-Policy restrictive présente", () => {
@@ -144,10 +142,10 @@ describe("En-têtes de sécurité HTTP", () => {
     expect(headers).toMatch(/Permissions-Policy:/i);
   });
 
-  test("Content-Security-Policy présente, sans frame-ancestors bloquant (object-src 'none')", () => {
+  test("Content-Security-Policy présente avec frame-ancestors 'none' (object-src 'none')", () => {
     expect(headers).toMatch(/Content-Security-Policy:/i);
     const csp = headers.match(/Content-Security-Policy:\s*([^\n]+)/i)?.[1] ?? "";
-    expect(csp).not.toMatch(/frame-ancestors/);
+    expect(csp).toMatch(/frame-ancestors\s+'none'/);
     expect(csp).toMatch(/object-src\s+'none'/);
   });
 

@@ -1,16 +1,15 @@
 # En-têtes de sécurité — appliqués par la plateforme d'hébergement
-# (format compatible Cloudflare Pages / Netlify)
-# L'application ne stocke pas de cookies propriétaires : les sessions sont
-# gérées par Convex Auth (cookies httpOnly) et le webhook Stripe valide la
-# signature avant tout traitement.
+# (format compatible Cloudflare Pages / Netlify) à TOUTES les routes,
+# y compris le fallback SPA et les pages d'erreur.
 #
-# NB : PAS de X-Frame-Options ni de frame-ancestors 'none' — Freebuff affiche
-# l'application dans une iframe (aperçu / preview). Bloquer le framing
-# rendrait l'aperçu entièrement blanc. La protection reste assurée par la
-# politique de connexion (sessions httpOnly, origines vérifiées côté serveur)
-# et par les autres en-têtes ci-dessous.
+# Anti-clickjacking BLOQUANT en production : l'application n'a aucun besoin
+# légitime d'être intégrée dans une iframe → frame-ancestors 'none' (CSP) +
+# X-Frame-Options: DENY (navigateurs anciens). Seul l'APERÇU de dev vit dans
+# une iframe (plateforme Freebuff) : les en-têtes de l'aperçu sont définis
+# dans vite.config.ts (server.headers) avec une liste d'origines explicites.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; form-action 'self'
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
