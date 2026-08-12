@@ -629,23 +629,23 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 w-full rounded-xl bg-white/6"
+                  className="h-auto min-h-12 w-full whitespace-normal rounded-xl bg-white/6 px-4 py-3 text-[13px] leading-5 sm:text-sm"
                   onClick={() => {
                     setMethod("emailCode");
                     setError(null);
                   }}
                 >
-                  <Mail className="mr-2 size-4" />
+                  <Mail className="size-4 shrink-0" />
                   Me connecter avec un code par email
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 w-full rounded-xl bg-white/6"
+                  className="h-auto min-h-12 w-full whitespace-normal rounded-xl bg-white/6 px-4 py-3 text-[13px] leading-5 sm:text-sm"
                   onClick={handleGuestLogin}
                   disabled={isLoading}
                 >
-                  <UserX className="mr-2 size-4" />
+                  <UserX className="size-4 shrink-0" />
                   Continuer en invité (démo)
                 </Button>
               </div>
@@ -804,12 +804,12 @@ function ParentalPendingPanel({
           <Button
             type="submit"
             disabled={busy}
-            className="h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
+            className="h-auto min-h-12 w-full whitespace-normal rounded-xl bg-brand-gradient px-4 py-3 text-[13px] font-semibold leading-5 shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110 sm:text-sm"
           >
             {busy ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
+              <Loader2 className="mr-2 size-4 shrink-0 animate-spin" />
             ) : (
-              <MailCheck className="mr-2 size-4" />
+              <MailCheck className="mr-2 size-4 shrink-0" />
             )}
             Envoyer un nouveau lien à cette adresse
           </Button>
