@@ -358,7 +358,7 @@ export default function Scanner() {
 
               {isMobile ? (
                 /* ---------- Version mobile : 2 options directes ---------- */
-                <div className="glass-panel rounded-3xl border-2 border-dashed border-primary/30 p-6 sm:p-10">
+                <div className="glass-panel w-full max-w-full rounded-3xl border-2 border-dashed border-primary/30 p-6 sm:p-10">
                   <div className="text-center">
                     <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                       <Camera className="size-8" />
@@ -603,7 +603,7 @@ export default function Scanner() {
               ? OCR_STEPS[analysisStep]
               : GENERATE_STEPS[analysisStep]}
           </p>
-          <div className="mt-6 h-1.5 w-64 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-6 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/10">
             <motion.div
               className="h-full rounded-full bg-brand-gradient"
               initial={{ width: "8%" }}

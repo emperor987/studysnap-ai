@@ -22,6 +22,46 @@ export const currentUser = query({
 });
 
 /**
+ * Comptes associés à une adresse email (écran « Choisir ton compte »).
+ *
+ * Public (pas d'authentification requise : l'utilisateur n'est pas encore
+ * connecté). Retourne uniquement des informations d'affichage : nom,
+ * email, providers de connexion (mot de passe / code email / invité…).
+ * Une même adresse peut correspondre à plusieurs comptes StudySnap
+ * (ex. un compte créé par mot de passe et un autre via un code email).
+ */
+export const accountsByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return { accounts: [] };
+
+    const users = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", normalized))
+      .collect();
+
+    const accounts = await Promise.all(
+      users.map(async (u) => {
+        const authAccounts = await ctx.db
+          .query("authAccounts")
+          .withIndex("userIdAndProvider", (q) => q.eq("userId", u._id))
+          .collect();
+        return {
+          userId: u._id,
+          name: u.name ?? u.firstName ?? null,
+          email: u.email ?? normalized,
+          isAnonymous: u.isAnonymous ?? false,
+          providers: authAccounts.map((a) => a.provider),
+        };
+      }),
+    );
+
+    return { accounts };
+  },
+});
+
+/**
  * Use this function internally to get the current user data. Remember to handle the null user case.
  * @param ctx
  * @returns

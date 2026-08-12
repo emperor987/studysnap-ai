@@ -93,7 +93,7 @@ export function InstallApp({
         <button
           type="button"
           onClick={handleClick}
-          className="flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-foreground transition-colors hover:bg-white/15"
+          className="flex shrink-0 items-center gap-1 rounded-full bg-white/10 px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-foreground transition-colors hover:bg-white/15"
           title="Ajouter StudySnap à ton écran d'accueil"
         >
           {label}

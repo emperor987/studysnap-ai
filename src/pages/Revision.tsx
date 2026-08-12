@@ -28,9 +28,11 @@ import { getAiErrorMessage } from "@/lib/ai-errors";
 import { formatDateFr, levelLabel, subjectEmoji } from "@/lib/format";
 import type { ConvexError } from "convex/values";
 
+// Libellés courts : sur mobile, les boutons de difficulté (3 colonnes)
+// débordaient avec « Intermédiaire » — on garde l'action essentielle.
 const DIFFICULTIES = [
   { id: "easy", label: "Facile", emoji: "🌱" },
-  { id: "medium", label: "Intermédiaire", emoji: "🔥" },
+  { id: "medium", label: "Mid", emoji: "🔥" },
   { id: "hard", label: "Difficile", emoji: "💀" },
 ];
 

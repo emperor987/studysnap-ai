@@ -142,12 +142,24 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Débordement horizontal coupé dès la racine : aucun élément ne peut
+       forcer un zoom manuel ou un défilement latéral sur mobile. */
+    overflow-x: clip;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     /* Empêche tout débordement horizontal (éléments décoratifs, boutons
        larges…) sur mobile : le contenu est coupé, jamais de scroll latéral. */
     overflow-x: clip;
+  }
+  #root {
+    min-width: 0;
+  }
+  img {
+    /* Les images ne peuvent jamais dépasser la largeur de leur conteneur. */
+    max-width: 100%;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {

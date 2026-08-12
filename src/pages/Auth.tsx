@@ -4,10 +4,13 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { resolveRedirectAfterAuth } from "@/lib/redirect";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useConvex, useQuery } from "convex/react";
+import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  ArrowRight,
   Camera,
+  ChevronRight,
   Eye,
   EyeOff,
   Loader2,
@@ -17,12 +20,18 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  UserRound,
+  UsersRound,
   UserX,
 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { cn } from "@/lib/utils";
+import {
+  accountAvatarLabel,
+  accountDisplayName,
+  accountProviderLabel,
+  type AuthAccountInfo,
+} from "@/lib/auth-accounts";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -52,6 +61,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [otpStep, setOtpStep] = useState<{ email: string } | null>(null);
   const [otp, setOtp] = useState("");
 
+  // Flux « Choisir ton compte » : email → liste des comptes → mot de passe.
+  const convex = useConvex();
+  const [signInStep, setSignInStep] = useState<
+    "email" | "accounts" | "password"
+  >("email");
+  const [accounts, setAccounts] = useState<AuthAccountInfo[] | null>(null);
+  const [checkingAccounts, setCheckingAccounts] = useState(false);
+  const [selectedAccount, setSelectedAccount] =
+    useState<AuthAccountInfo | null>(null);
+
   // Consentement parental (mineurs < 15 ans)
   const submitParental = useAction(api.parentalConsent.submitParentalRequest);
   const resendParental = useAction(api.parentalConsent.resendParentalEmail);
@@ -77,6 +96,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsMinor(null);
     setParentEmail("");
     setParentalPending(false);
+    // Retour à la première étape du flux sign-in (l'email saisi est conservé).
+    setSignInStep("email");
+    setAccounts(null);
+    setSelectedAccount(null);
+    setCheckingAccounts(false);
   };
 
   const runSubmitParental = async (email: string): Promise<boolean> => {
@@ -129,13 +153,67 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
-  /* ---------- Connexion / Inscription par mot de passe ---------- */
+  /* ---------- Flux « Choisir ton compte » (connexion en plusieurs étapes) ---------- */
+
+  const handleEmailContinue = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      setError("Entre ton adresse email.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Cette adresse email n'est pas valide.");
+      return;
+    }
+    setCheckingAccounts(true);
+    try {
+      const res = await convex.query(api.users.accountsByEmail, {
+        email: trimmedEmail,
+      });
+      setAccounts(res.accounts);
+      setSignInStep("accounts");
+    } catch (err) {
+      console.error("Vérification de l'adresse impossible :", err);
+      setError(getAuthErrorMessage(err));
+    } finally {
+      setCheckingAccounts(false);
+    }
+  };
+
+  const selectAccount = (acc: AuthAccountInfo) => {
+    setSelectedAccount(acc);
+    setPassword("");
+    setError(null);
+    setSignInStep("password");
+  };
+
+  const backToAccounts = () => {
+    setSelectedAccount(null);
+    setError(null);
+  };
+
+  const backToEmail = () => {
+    setAccounts(null);
+    setSelectedAccount(null);
+    setSignInStep("email");
+    setError(null);
+  };
+
+  /* ---------- Connexion par mot de passe / Inscription ---------- */
 
   const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
-    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedEmail = (
+      tab === "signIn" && selectedAccount?.email
+        ? selectedAccount.email
+        : email
+    )
+      .trim()
+      .toLowerCase();
     if (!trimmedEmail) {
       setError("Entre ton adresse email.");
       return;
@@ -411,11 +489,245 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     );
   }
 
+  /* ---------- Écran « Choisir ton compte » ---------- */
+
+  if (tab === "signIn" && signInStep === "accounts" && accounts !== null) {
+    return (
+      <AuthShell>
+        <motion.div
+          key={`accounts-${accounts.length}`}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="glass-panel w-full rounded-3xl p-7 sm:p-9"
+        >
+          {accounts.length === 0 ? (
+            /* Aucun compte associé à cette adresse */
+            <div className="text-center">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-300">
+                <UserX className="size-7" />
+              </div>
+              <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+                Aucun compte trouvé
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Aucun compte StudySnap n&apos;est associé à{" "}
+                <span className="font-semibold text-foreground">
+                  {email.trim().toLowerCase()}
+                </span>
+                . Crée ton compte en 30 secondes — 5 scans gratuits par mois,
+                sans carte bancaire.
+              </p>
+              <Button
+                type="button"
+                onClick={() => switchTab("signUp")}
+                className="mt-6 h-auto min-h-12 w-full whitespace-normal rounded-xl bg-brand-gradient px-4 py-3 text-[13px] font-semibold leading-5 shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110 sm:text-sm"
+              >
+                <Sparkles className="mr-2 size-4 shrink-0" />
+                Créer un compte avec cette adresse
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={backToEmail}
+                className="mt-3 h-11 w-full rounded-xl"
+              >
+                ← Utiliser une autre adresse
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <UsersRound className="size-7" />
+                </div>
+                <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+                  Choisir ton compte
+                </h1>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {accounts.length > 1
+                    ? "Plusieurs comptes sont associés à cette adresse. Sélectionne celui avec lequel tu veux continuer."
+                    : "Un compte est associé à cette adresse. Sélectionne-le pour continuer."}
+                </p>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                {accounts.map((acc) => (
+                  <button
+                    key={acc.userId}
+                    type="button"
+                    onClick={() => selectAccount(acc)}
+                    className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-primary/40 hover:bg-white/10"
+                  >
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                      {accountAvatarLabel(acc)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">
+                        {accountDisplayName(acc)}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {acc.email}
+                      </span>
+                      <span className="mt-1.5 flex flex-wrap gap-1">
+                        {acc.providers.map((p) => (
+                          <span
+                            key={p}
+                            className="rounded-full bg-white/8 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
+                          >
+                            {accountProviderLabel(p)}
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                ))}
+              </div>
+
+              <p className="mt-5 text-center text-sm text-muted-foreground">
+                Pas ton compte ?{" "}
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 font-semibold"
+                  onClick={backToEmail}
+                >
+                  Utiliser une autre adresse
+                </Button>
+              </p>
+            </>
+          )}
+        </motion.div>
+        <AuthFooter />
+      </AuthShell>
+    );
+  }
+
+  /* ---------- Écran mot de passe (compte sélectionné) ---------- */
+
+  if (tab === "signIn" && signInStep === "password" && selectedAccount) {
+    const displayName = accountDisplayName(selectedAccount);
+    return (
+      <AuthShell>
+        <motion.div
+          key="password-step"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="glass-panel w-full rounded-3xl p-7 sm:p-9"
+        >
+          <div className="text-center">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <span className="text-sm font-bold">
+                {accountAvatarLabel(selectedAccount)}
+              </span>
+            </div>
+            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+              Salut {displayName} 👋
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Entre ton mot de passe pour te connecter avec{" "}
+              <span className="font-semibold text-foreground">
+                {selectedAccount.email}
+              </span>
+              .
+            </p>
+          </div>
+
+          <form onSubmit={handlePasswordSubmit} className="mt-7 space-y-4">
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Ton mot de passe"
+                autoComplete="current-password"
+                className="h-12 rounded-xl pl-10 pr-11"
+                disabled={isLoading}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3.5 top-3 text-muted-foreground transition-colors hover:text-foreground"
+                tabIndex={-1}
+                aria-label={
+                  showPassword
+                    ? "Masquer le mot de passe"
+                    : "Afficher le mot de passe"
+                }
+              >
+                {showPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </button>
+            </div>
+            {error && (
+              <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Connexion…
+                </>
+              ) : (
+                "Se connecter"
+              )}
+            </Button>
+          </form>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Mot de passe oublié ?{" "}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 font-semibold"
+              onClick={() => {
+                setMethod("emailCode");
+                setError(null);
+              }}
+            >
+              Reçois un code par email
+            </Button>
+          </p>
+          <p className="mt-3 text-center">
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-xs font-medium text-muted-foreground hover:text-foreground"
+              onClick={backToAccounts}
+            >
+              ← Choisir un autre compte
+            </Button>
+          </p>
+        </motion.div>
+        <AuthFooter />
+      </AuthShell>
+    );
+  }
+
   /* ---------- Formulaire principal ---------- */
 
   return (
     <AuthShell>
-      <div className="glass-panel rounded-3xl p-7 sm:p-9">
+      <motion.div
+        key={`main-${tab}-${signInStep}`}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="glass-panel w-full rounded-3xl p-7 sm:p-9"
+      >
         <div className="text-center">
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Sparkles className="size-7" />
@@ -425,7 +737,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {tab === "signIn"
-              ? "Connecte-toi pour retrouver tes exercices et tes fiches."
+              ? "Commence par ton adresse email pour retrouver tes exercices et tes fiches."
               : "5 scans gratuits par mois, sans carte bancaire."}
           </p>
         </div>
@@ -454,166 +766,47 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           ))}
         </div>
 
-        <form onSubmit={handlePasswordSubmit} className="mt-6 space-y-4">
-          <div className="relative">
-            <Mail className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ton@email.fr"
-              autoComplete="email"
-              className="h-12 rounded-xl pl-10"
-              disabled={isLoading}
-              required
-            />
-          </div>
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
-            <Input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={
-                tab === "signUp"
-                  ? "Mot de passe (8 caractères min.)"
-                  : "Ton mot de passe"
-              }
-              autoComplete={tab === "signUp" ? "new-password" : "current-password"}
-              className="h-12 rounded-xl pl-10 pr-11"
-              disabled={isLoading}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((s) => !s)}
-              className="absolute right-3.5 top-3 text-muted-foreground transition-colors hover:text-foreground"
-              tabIndex={-1}
-              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-            >
-              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
-          </div>
-          {tab === "signUp" && (
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
-              <Input
-                type={showPassword ? "text" : "password"}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Confirmer le mot de passe"
-                autoComplete="new-password"
-                className="h-12 rounded-xl pl-10"
-                disabled={isLoading}
-                required
-              />
-            </div>
-          )}
-
-          {tab === "signUp" && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Quel est ton âge ?
-              </p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsMinor(false)}
-                  className={cn(
-                    "h-10 rounded-xl text-sm font-semibold transition-all",
-                    isMinor === false
-                      ? "bg-primary/15 text-foreground shadow-sm"
-                      : "bg-white/5 text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  15 ans ou plus
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMinor(true)}
-                  className={cn(
-                    "h-10 rounded-xl text-sm font-semibold transition-all",
-                    isMinor === true
-                      ? "bg-primary/15 text-foreground shadow-sm"
-                      : "bg-white/5 text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Moins de 15 ans
-                </button>
-              </div>
-              {isMinor && (
-                <div className="mt-3">
-                  <label
-                    htmlFor="parent-email"
-                    className="mb-1.5 block text-xs font-semibold text-muted-foreground"
-                  >
-                    Email d&apos;un parent ou tuteur légal (obligatoire)
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
-                    <Input
-                      id="parent-email"
-                      type="email"
-                      value={parentEmail}
-                      onChange={(e) => setParentEmail(e.target.value)}
-                      placeholder="parent@email.fr"
-                      autoComplete="email"
-                      className="h-11 rounded-xl pl-10"
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                  <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
-                    🔒 Ton parent recevra un email de confirmation. Tant qu&apos;il
-                    n&apos;a pas validé (lien valable 72 h), ton accès reste limité.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {tab === "signIn" && (
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto p-0 text-xs font-semibold text-primary"
-                onClick={() => {
-                  setMethod("emailCode");
-                  setError(null);
-                }}
-              >
-                Mot de passe oublié ?
-              </Button>
-            </div>
-          )}
-
-          {error && (
-            <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </p>
-          )}
-
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                {tab === "signIn" ? "Connexion…" : "Création du compte…"}
-              </>
-            ) : tab === "signIn" ? (
-              "Se connecter"
-            ) : (
-              "Créer mon compte"
-            )}
-          </Button>
-        </form>
-
-        {tab === "signIn" && (
+        {tab === "signIn" ? (
+          /* ---------- Connexion, étape 1 : l'adresse email ---------- */
           <>
+            <form onSubmit={handleEmailContinue} className="mt-6 space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ton@email.fr"
+                  autoComplete="email"
+                  className="h-12 rounded-xl pl-10"
+                  disabled={checkingAccounts}
+                  required
+                />
+              </div>
+              {error && (
+                <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              <Button
+                type="submit"
+                disabled={checkingAccounts}
+                className="h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
+              >
+                {checkingAccounts ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Vérification…
+                  </>
+                ) : (
+                  <>
+                    Continuer
+                    <ArrowRight className="ml-2 size-4" />
+                  </>
+                )}
+              </Button>
+            </form>
+
             <div className="mt-5">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -643,7 +836,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   variant="outline"
                   className="h-auto min-h-12 w-full whitespace-normal rounded-xl bg-white/6 px-4 py-3 text-[13px] leading-5 sm:text-sm"
                   onClick={handleGuestLogin}
-                  disabled={isLoading}
+                  disabled={checkingAccounts}
                 >
                   <UserX className="size-4 shrink-0" />
                   Continuer en invité (démo)
@@ -660,15 +853,153 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               retenir.
             </p>
           </>
-        )}
+        ) : (
+          /* ---------- Inscription ---------- */
+          <>
+            <form onSubmit={handlePasswordSubmit} className="mt-6 space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ton@email.fr"
+                  autoComplete="email"
+                  className="h-12 rounded-xl pl-10"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mot de passe (8 caractères min.)"
+                  autoComplete="new-password"
+                  className="h-12 rounded-xl pl-10 pr-11"
+                  disabled={isLoading}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3.5 top-3 text-muted-foreground transition-colors hover:text-foreground"
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="Confirmer le mot de passe"
+                  autoComplete="new-password"
+                  className="h-12 rounded-xl pl-10"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
 
-        {tab === "signUp" && (
-          <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
-            En créant ton compte, tu acceptes les CGU et la politique de
-            confidentialité.
-          </p>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Quel est ton âge ?
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsMinor(false)}
+                    className={cn(
+                      "h-10 rounded-xl text-sm font-semibold transition-all",
+                      isMinor === false
+                        ? "bg-primary/15 text-foreground shadow-sm"
+                        : "bg-white/5 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    15 ans ou plus
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsMinor(true)}
+                    className={cn(
+                      "h-10 rounded-xl text-sm font-semibold transition-all",
+                      isMinor === true
+                        ? "bg-primary/15 text-foreground shadow-sm"
+                        : "bg-white/5 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Moins de 15 ans
+                  </button>
+                </div>
+                {isMinor && (
+                  <div className="mt-3">
+                    <label
+                      htmlFor="parent-email"
+                      className="mb-1.5 block text-xs font-semibold text-muted-foreground"
+                    >
+                      Email d&apos;un parent ou tuteur légal (obligatoire)
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-3 size-4 text-muted-foreground" />
+                      <Input
+                        id="parent-email"
+                        type="email"
+                        value={parentEmail}
+                        onChange={(e) => setParentEmail(e.target.value)}
+                        placeholder="parent@email.fr"
+                        autoComplete="email"
+                        className="h-11 rounded-xl pl-10"
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+                      🔒 Ton parent recevra un email de confirmation. Tant
+                      qu&apos;il n&apos;a pas validé (lien valable 72 h), ton accès
+                      reste limité.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Création du compte…
+                  </>
+                ) : (
+                  "Créer mon compte"
+                )}
+              </Button>
+            </form>
+
+            <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
+              En créant ton compte, tu acceptes les CGU et la politique de
+              confidentialité.
+            </p>
+          </>
         )}
-      </div>
+      </motion.div>
       <AuthFooter />
     </AuthShell>
   );

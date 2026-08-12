@@ -39,7 +39,7 @@ const BOTTOM_NAV = [
   { to: "/settings", label: "Profil", icon: Settings },
 ];
 
-function PlanChip() {
+function PlanChip({ compact = false }: { compact?: boolean }) {
   const plan = useQuery(api.subscriptions.getMyPlan);
   if (!plan) return null;
   const isFree = plan.plan === "free";
@@ -47,14 +47,21 @@ function PlanChip() {
     <NavLink
       to="/pricing"
       className={cn(
-        "flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
+        "flex items-center gap-1.5 rounded-full font-semibold transition-colors",
+        compact
+          ? "hidden min-[420px]:inline-flex px-2.5 py-1 text-[10px]"
+          : "px-3.5 py-1.5 text-xs",
         isFree
           ? "bg-primary/10 text-primary hover:bg-primary/15"
           : "bg-brand-gradient text-white",
       )}
     >
-      {isFree ? <Sparkles className="size-3.5" /> : null}
-      {plan.plan === "free" ? "Plan gratuit" : `Plan ${plan.plan === "pro" ? "Pro" : "Student"}`}
+      {isFree ? (
+        <Sparkles className={compact ? "size-3" : "size-3.5"} />
+      ) : null}
+      {plan.plan === "free"
+        ? "Plan gratuit"
+        : `Plan ${plan.plan === "pro" ? "Pro" : "Student"}`}
     </NavLink>
   );
 }
@@ -180,19 +187,22 @@ export function AppShell({
       </aside>
 
       {/* ---------- Header mobile ---------- */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-[#121216]/85 px-5 py-3 backdrop-blur-xl lg:hidden">
-        <NavLink to="/dashboard" className="flex items-center gap-2">
-          <span className="text-lg font-extrabold tracking-tight">
+      {/* min-w-0 + truncate + PlanChip compact (masqué sous 420 px) : sur les
+          petits écrans, le header ne déborde jamais et aucun zoom manuel ne
+          devient nécessaire. */}
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-[#121216]/85 px-4 py-3 backdrop-blur-xl lg:hidden">
+        <NavLink to="/dashboard" className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-lg font-extrabold tracking-tight">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </NavLink>
-        <div className="flex items-center gap-2">
-          <PlanChip />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <PlanChip compact />
           <InstallApp />
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex size-8 items-center justify-center rounded-full bg-white/10 text-muted-foreground"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-muted-foreground"
             title="Se déconnecter"
           >
             <LogOut className="size-4" />
