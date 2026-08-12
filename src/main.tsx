@@ -95,9 +95,34 @@ class RootErrorBoundary extends React.Component<
   }
 }
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+// Création du client Convex protégée : si VITE_CONVEX_URL est manquante ou
+// invalide (environnement en cours de provisionnement, build partiel…),
+// `new ConvexReactClient(undefined)` lèverait une erreur au chargement du
+// module et l'écran resterait vierge. À la place, on affiche un avis clair.
+const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined;
 
+let convex: ConvexReactClient | null = null;
+if (convexUrl) {
+  try {
+    convex = new ConvexReactClient(convexUrl);
+  } catch (error) {
+    console.error("[Convex] VITE_CONVEX_URL invalide :", error);
+  }
+}
 
+function MissingBackendNotice() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-6">
+      <div className="max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 text-center">
+        <p className="text-sm font-semibold text-zinc-100">Backend non configuré</p>
+        <p className="mt-2 text-xs leading-5 text-zinc-400">
+          La variable VITE_CONVEX_URL n'est pas définie dans cet environnement.
+          L'application ne peut pas se connecter à son backend pour l'instant.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function RouteSyncer() {
   const location = useLocation();
@@ -122,6 +147,113 @@ function RouteSyncer() {
   return null;
 }
 
+function App() {
+  if (!convex) return <MissingBackendNotice />;
+  return (
+    <ConvexAuthProvider client={convex}>
+      <BrowserRouter>
+        <RouteSyncer />
+        <Suspense fallback={<RouteLoading />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/legal/cgu" element={<LegalCgu />} />
+            <Route path="/legal/privacy" element={<LegalPrivacy />} />
+            <Route path="/legal/mentions-legales" element={<LegalMentions />} />
+            <Route path="/legal/contact" element={<LegalContact />} />
+            <Route path="/parental-consent" element={<ParentalConsentPage />} />
+            <Route
+              path="/auth"
+              element={<AuthPage redirectAfterAuth="/dashboard" />}
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth>
+                  <Dashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/scanner"
+              element={
+                <RequireAuth>
+                  <Scanner />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/scanner/result/:scanId"
+              element={
+                <RequireAuth>
+                  <ScanResult />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/sheets"
+              element={
+                <RequireAuth>
+                  <Sheets />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/sheets/:sheetId"
+              element={
+                <RequireAuth>
+                  <SheetView />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/revision"
+              element={
+                <RequireAuth>
+                  <Revision />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/revision/quiz/:quizId"
+              element={
+                <RequireAuth>
+                  <QuizPlayer />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/exercises"
+              element={
+                <RequireAuth>
+                  <History />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/progress"
+              element={
+                <RequireAuth>
+                  <Progress />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <RequireAuth>
+                  <Settings />
+                </RequireAuth>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+      <Toaster />
+    </ConvexAuthProvider>
+  );
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -129,108 +261,7 @@ createRoot(document.getElementById("root")!).render(
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      <ConvexAuthProvider client={convex}>
-        <BrowserRouter>
-          <RouteSyncer />
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/legal/cgu" element={<LegalCgu />} />
-              <Route path="/legal/privacy" element={<LegalPrivacy />} />
-              <Route path="/legal/mentions-legales" element={<LegalMentions />} />
-              <Route path="/legal/contact" element={<LegalContact />} />
-              <Route path="/parental-consent" element={<ParentalConsentPage />} />
-              <Route
-                path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <RequireAuth>
-                    <Dashboard />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/scanner"
-                element={
-                  <RequireAuth>
-                    <Scanner />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/scanner/result/:scanId"
-                element={
-                  <RequireAuth>
-                    <ScanResult />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/sheets"
-                element={
-                  <RequireAuth>
-                    <Sheets />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/sheets/:sheetId"
-                element={
-                  <RequireAuth>
-                    <SheetView />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/revision"
-                element={
-                  <RequireAuth>
-                    <Revision />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/revision/quiz/:quizId"
-                element={
-                  <RequireAuth>
-                    <QuizPlayer />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/exercises"
-                element={
-                  <RequireAuth>
-                    <History />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/progress"
-                element={
-                  <RequireAuth>
-                    <Progress />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <RequireAuth>
-                    <Settings />
-                  </RequireAuth>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-        <Toaster />
-      </ConvexAuthProvider>
+      <App />
     </RootErrorBoundary>
   </StrictMode>,
 );

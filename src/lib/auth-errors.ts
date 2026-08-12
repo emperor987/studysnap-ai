@@ -5,6 +5,8 @@
  * Les erreurs arrivent côté client sous forme de code dans
  * error.data.code (ConvexError) ou error.name/message — on gère les deux.
  */
+const SERVICE_UNAVAILABLE =
+  "Le service est momentanément indisponible. Réessaie dans quelques instants.";
 
 export function getAuthErrorMessage(e: unknown): string {
   const any = e as {
@@ -19,9 +21,44 @@ export function getAuthErrorMessage(e: unknown): string {
       : typeof any?.code === "string"
         ? any.code
         : null;
-  const hay = (code ?? any?.name ?? any?.message ?? "").toLowerCase();
+  // On inspecte code + name + message ensemble : pour un `Error` classique,
+  // `name` vaut « Error » et c'est `message` qui contient l'information utile.
+  const hay = [
+    typeof code === "string" ? code : "",
+    typeof any?.name === "string" ? any.name : "",
+    typeof any?.message === "string" ? any.message : "",
+  ]
+    .join(" ")
+    .toLowerCase();
 
-  if (!hay) return "Une erreur est survenue. Réessaie.";
+  if (!hay.trim()) return "Une erreur est survenue. Réessaie.";
+
+  // Backend / réseau injoignable (ex. Convex momentanément indisponible) :
+  // détecté AVANT les autres règles, car un message du type
+  // « status code 502 » contient aussi « code ».
+  const NETWORK_HINTS = [
+    "network",
+    "fetch",
+    "econnrefused",
+    "econnreset",
+    "unreachable",
+    "unavailable",
+    "temporarily",
+    "timed out",
+    "timeout",
+    "502",
+    "503",
+    "504",
+  ];
+  if (NETWORK_HINTS.some((hint) => hay.includes(hint))) {
+    return SERVICE_UNAVAILABLE;
+  }
+
+  // Mot de passe : à tester avant « invalid »/« credential », sinon
+  // « Invalid password » serait traduit en « email ou mot de passe incorrect ».
+  if (hay.includes("password")) {
+    return "Le mot de passe doit contenir au moins 8 caractères.";
+  }
   if (hay.includes("invalid") || hay.includes("credential")) {
     return "Email ou mot de passe incorrect.";
   }
@@ -30,9 +67,6 @@ export function getAuthErrorMessage(e: unknown): string {
   }
   if (hay.includes("too_many") || hay.includes("too many") || hay.includes("rate") || hay.includes("429")) {
     return "Trop de tentatives de connexion. Réessaie dans quelques minutes.";
-  }
-  if (hay.includes("password")) {
-    return "Le mot de passe doit contenir au moins 8 caractères.";
   }
   if (hay.includes("code") || hay.includes("expired")) {
     return "Le code est incorrect ou expiré. Redemande un code.";
