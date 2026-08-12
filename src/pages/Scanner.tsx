@@ -633,7 +633,7 @@ export default function Scanner() {
                 ) : (
                   <Loader2 className="size-3.5 animate-spin" />
                 )}
-                <span className="truncate">{s}</span>
+                <span className="break-words">{s}</span>
               </div>
             ))}
           </div>

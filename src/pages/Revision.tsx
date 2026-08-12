@@ -296,7 +296,7 @@ export default function Revision() {
                   className="glass-card rounded-2xl p-5 transition-all hover:-translate-y-0.5"
                 >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                  <span className="min-w-0 break-words rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                     {subjectEmoji(q.subject)} {q.subject}
                   </span>
                   <span

@@ -161,6 +161,18 @@
     /* Les images ne peuvent jamais dépasser la largeur de leur conteneur. */
     max-width: 100%;
   }
+  /* Le dézoom est bloqué (overflow-x: clip ci-dessus) : rien ne doit être
+     coupé silencieusement au bord de l'écran. Un mot long sans coupure
+     (formule, URL, titre généré par l'IA) passe à la ligne au lieu de
+     déborder — jamais de texte invisible. Sans effet sur les éléments en
+     `white-space: nowrap` (pills volontaires) ni sur `pre` (exclu ci-dessous). */
+  * {
+    overflow-wrap: break-word;
+  }
+  pre {
+    /* Les blocs de code gardent leur défilement horizontal. */
+    overflow-wrap: normal;
+  }
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;

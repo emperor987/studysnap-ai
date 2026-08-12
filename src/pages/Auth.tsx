@@ -563,10 +563,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       {accountAvatarLabel(acc)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">
+                      {/* Pas de troncature ici : un email coupé empêcherait de
+                          distinguer deux comptes — il passe à la ligne. */}
+                      <span className="block break-words text-sm font-bold leading-5">
                         {accountDisplayName(acc)}
                       </span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      <span className="mt-0.5 block break-words text-xs leading-4 text-muted-foreground">
                         {acc.email}
                       </span>
                       <span className="mt-1.5 flex flex-wrap gap-1">

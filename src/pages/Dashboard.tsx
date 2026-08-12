@@ -234,7 +234,11 @@ export default function Dashboard() {
                       {subjectEmoji(scan.subject)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{scan.title}</p>
+                      {/* line-clamp-2 : le titre peut tenir sur 2 lignes au
+                          lieu d'être coupé après une ligne (dézoom bloqué). */}
+                      <p className="line-clamp-2 break-words text-sm font-semibold leading-5">
+                        {scan.title}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {scan.subject} · {modeLabel(scan.mode ?? "explain")} ·{" "}
                         {formatDateTimeFr(scan.createdAt)}
@@ -270,7 +274,7 @@ export default function Dashboard() {
                     {lastQuiz.score}/{lastQuiz.total}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold sm:text-base">
+                    <p className="line-clamp-2 break-words text-sm font-semibold leading-5 sm:text-base">
                       {lastQuiz.title}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">

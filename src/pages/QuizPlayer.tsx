@@ -9,6 +9,8 @@ import {
   RotateCcw,
   Sparkles,
   Target,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +18,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { cn } from "@/lib/utils";
 import { levelLabel, subjectEmoji } from "@/lib/format";
+import {
+  isQuizSoundEnabled,
+  playCorrectSound,
+  playWrongSound,
+  setQuizSoundEnabled,
+} from "@/lib/quiz-sounds";
 import type { Id } from "@/convex/_generated/dataModel";
 
 type Answer = { questionIndex: number; selected?: string; isCorrect: boolean };
@@ -33,7 +41,16 @@ export default function QuizPlayer() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [finished, setFinished] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [soundOn, setSoundOn] = useState(() => isQuizSoundEnabled());
   const startRef = useRef(Date.now());
+
+  /* Préférence sonore du quiz (icône haut-parleur près de la progression).
+     Persistée en localStorage : conservée entre les sessions. */
+  const toggleSound = () => {
+    const next = !soundOn;
+    setQuizSoundEnabled(next);
+    setSoundOn(next);
+  };
 
   const question = quiz?.questions[index];
 
@@ -71,6 +88,10 @@ export default function QuizPlayer() {
   const checkAnswer = (value: string) => {
     if (!question || answered) return;
     const correct = value.trim().toLowerCase() === question.answer.trim().toLowerCase();
+    // Retour sonore court et distinct (bonne/mauvaise réponse). Appelé dans
+    // un geste utilisateur : l'AudioContext est créé ici, jamais au chargement.
+    if (correct) playCorrectSound();
+    else playWrongSound();
     setSelected(value);
     setAnswered(true);
     setAnswers((prev) => [
@@ -233,7 +254,7 @@ export default function QuizPlayer() {
       subtitle={`${subjectEmoji(quiz.subject)} ${quiz.subject} · ${levelLabel(quiz.level)} · Question ${index + 1}/${quiz.questions.length}`}
     >
       <div className="mx-auto max-w-2xl">
-        {/* Progression */}
+        {/* Progression + sons du quiz */}
         <div className="flex items-center gap-3">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
             <div
@@ -244,6 +265,22 @@ export default function QuizPlayer() {
           <span className="text-xs font-semibold text-muted-foreground">
             {index + 1}/{quiz.questions.length}
           </span>
+          <button
+            type="button"
+            onClick={toggleSound}
+            aria-label={
+              soundOn ? "Couper les sons du quiz" : "Activer les sons du quiz"
+            }
+            title={soundOn ? "Couper le son" : "Activer le son"}
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-full transition-colors",
+              soundOn
+                ? "bg-white/10 text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                : "bg-white/5 text-muted-foreground/50 hover:bg-white/10 hover:text-foreground",
+            )}
+          >
+            {soundOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+          </button>
         </div>
 
         <div className="glass-panel mt-6 rounded-3xl p-6 sm:p-8">

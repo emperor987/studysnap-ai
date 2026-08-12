@@ -126,7 +126,9 @@ export default function History() {
                   {subjectEmoji(scan.subject)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{scan.title}</p>
+                  <p className="line-clamp-2 break-words text-sm font-semibold leading-5">
+                    {scan.title}
+                  </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {scan.subject}
                     {scan.topic ? ` · ${scan.topic}` : ""} ·{" "}

@@ -303,7 +303,7 @@ function Hero() {
         >
           <Link
             to="/auth?returnTo=%2Fscanner"
-            className="group inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-full bg-brand-gradient px-4 py-2.5 text-[13px] font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
+            className="group inline-flex max-w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-4 py-2.5 text-[13px] font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
           >
             <Camera className="size-4 shrink-0 sm:size-5" />
             Scanner mon premier exercice
@@ -754,7 +754,9 @@ function HistoryPreview() {
               {item.emoji}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{item.title}</p>
+              <p className="line-clamp-2 break-words text-sm font-semibold leading-5">
+                {item.title}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {item.subject} · {item.when}
               </p>
