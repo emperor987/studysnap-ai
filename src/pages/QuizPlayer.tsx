@@ -256,7 +256,12 @@ export default function QuizPlayer() {
                   ? "Réponse libre"
                   : "Problème"}
           </span>
-          <h2 className="mt-4 text-lg font-bold leading-7 sm:text-xl">{q.question}</h2>
+          {/* break-words : une question générée par l'IA peut contenir un
+              long mot/formule sans coupure — elle ne doit jamais déborder
+              de la carte sur mobile. */}
+          <h2 className="mt-4 break-words text-lg font-bold leading-7 sm:text-xl">
+            {q.question}
+          </h2>
 
           <div className="mt-6 space-y-2.5">
             {q.options ? (
@@ -276,7 +281,7 @@ export default function QuizPlayer() {
                       answered && !isAnswer && selected !== opt && "border-border/70 bg-white/4 text-muted-foreground",
                     )}
                   >
-                    <span>
+                    <span className="break-words">
                       <span className="mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>
                       {opt}
                     </span>

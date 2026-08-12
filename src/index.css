@@ -234,6 +234,11 @@
 /* ------------------------------------------------------------------ */
 .markdown-body {
   @apply text-[15px] leading-7 text-foreground;
+  /* Casse les mots longs, URLs et formules inline : un mot sans coupure ne
+     déborde jamais de la carte sur mobile (avec overflow-x:clip sur la page,
+     il serait simplement coupé et invisible). Hérité par p, li, td, code… */
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 .markdown-body > *:first-child {
   margin-top: 0;
@@ -292,6 +297,11 @@
 }
 .markdown-body table {
   @apply my-3 w-full border-collapse text-sm;
+  /* Tableau trop large (beaucoup de colonnes) : il défile horizontalement
+     DANS la carte au lieu de faire déborder la mise en page mobile. */
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 .markdown-body th,
 .markdown-body td {
