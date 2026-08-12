@@ -1,11 +1,9 @@
 import { AppShell } from "@/components/app-shell";
-import CameraCapture from "@/components/CameraCapture";
 import { api } from "@/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  Camera,
   CheckCircle2,
   FileText,
   ImagePlus,
@@ -111,8 +109,6 @@ export default function Scanner() {
   const { isMobile } = useDevice();
   const [step, setStep] = useState<Step>("upload");
   const [files, setFiles] = useState<{ file: File; preview: string }[]>([]);
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [phase, setPhase] = useState<"ocr" | "generate">("ocr");
   const [analysis, setAnalysis] = useState<unknown>(null);
@@ -167,11 +163,6 @@ export default function Scanner() {
       return [...prev, ...added];
     });
   }, []);
-
-  const openCamera = () => {
-    setCameraError(null);
-    setCameraOpen(true);
-  };
 
   const handleAnalyze = async () => {
     if (files.length === 0) return;
@@ -324,123 +315,48 @@ export default function Scanner() {
             addFiles(e.dataTransfer.files);
           }}
         >
-          {cameraOpen ? (
-            /* Viewfinder caméra (mobile uniquement). La permission n'est
-               demandée qu'ici, au clic sur « Prendre une photo ». */
-            <CameraCapture
-              onCapture={(file) => {
-                setCameraError(null);
-                setCameraOpen(false);
-                addFiles([file]);
-              }}
-              onClose={() => setCameraOpen(false)}
-              onPermissionDenied={(reason) => {
-                setCameraOpen(false);
-                setCameraError(
-                  reason === "permission"
-                    ? "Accès à la caméra refusé. Tu peux importer une photo depuis ta galerie à la place."
-                    : "Aucune caméra disponible sur cet appareil. Tu peux importer une photo depuis ta galerie à la place.",
-                );
-                // Redirection automatique vers l'import galerie.
-                window.setTimeout(() => inputRef.current?.click(), 60);
-              }}
-            />
-          ) : files.length === 0 ? (
-            <>
-              {cameraError && (
-                <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm leading-6 text-amber-200">{cameraError}</p>
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="shrink-0 text-sm font-semibold text-amber-200 underline decoration-amber-500/40 underline-offset-2 transition-colors hover:text-amber-100"
-                  >
-                    Importer depuis la galerie
-                  </button>
+          {files.length === 0 ? (
+            /* Sélecteur de fichiers UNIQUE (galerie mobile / drag & drop
+               desktop) : la prise de photo directe a été retirée, il n'y a
+               plus de choix à faire avant l'import. */
+            <div className="glass-panel w-full max-w-full rounded-3xl border-2 border-dashed border-primary/30 p-6 sm:p-10">
+              <div className="text-center">
+                <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <ImagePlus className="size-8" />
                 </div>
+                <h2 className="mt-5 text-xl font-bold">
+                  Photo de ton exercice ou de ton cours
+                </h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                  {isMobile
+                    ? "Choisis une photo depuis ta galerie. Cadre bien l'énoncé, la consigne et les données."
+                    : "Dépose ta photo ici ou choisis un fichier. Cadre bien l'énoncé, la consigne et les données."}{" "}
+                  Jusqu'à {MAX_FILES} photos, {MAX_SIZE_MB} Mo max par image.
+                </p>
+              </div>
+
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+                >
+                  <ImagePlus className="size-4" />
+                  {isMobile ? "Importer depuis la galerie" : "Choisir un fichier"}
+                </button>
+              </div>
+
+              {!isMobile && (
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  …ou glisse-dépose une ou plusieurs photos ici
+                </p>
               )}
 
-              {isMobile ? (
-                /* ---------- Version mobile : 2 options directes ---------- */
-                <div className="glass-panel w-full max-w-full rounded-3xl border-2 border-dashed border-primary/30 p-6 sm:p-10">
-                  <div className="text-center">
-                    <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                      <Camera className="size-8" />
-                    </div>
-                    <h2 className="mt-5 text-xl font-bold">
-                      Photo de ton exercice ou de ton cours
-                    </h2>
-                    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                      Cadre bien l'énoncé, la consigne et les données. Jusqu'à{" "}
-                      {MAX_FILES} photos, {MAX_SIZE_MB} Mo max par image.
-                    </p>
-                  </div>
-
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={openCamera}
-                      className="flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-5 py-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white/10"
-                    >
-                      <span className="flex size-11 items-center justify-center rounded-full bg-brand-gradient text-white shadow-lg shadow-indigo-500/25">
-                        <Camera className="size-5" />
-                      </span>
-                      <span className="text-sm font-bold">Prendre une photo</span>
-                      <span className="text-xs leading-5 text-muted-foreground">
-                        Ouvre la caméra avec un cadre d'alignement
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => inputRef.current?.click()}
-                      className="flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-5 py-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white/10"
-                    >
-                      <span className="flex size-11 items-center justify-center rounded-full bg-white/10 text-primary">
-                        <ImagePlus className="size-5" />
-                      </span>
-                      <span className="text-sm font-bold">
-                        Importer depuis la galerie
-                      </span>
-                      <span className="text-xs leading-5 text-muted-foreground">
-                        Choisis une photo déjà prise
-                      </span>
-                    </button>
-                  </div>
-
-                  <p className="mt-5 text-center text-xs text-muted-foreground">
-                    JPG, PNG, WEBP ou HEIC · photos supprimées automatiquement
-                    après 30 jours
-                  </p>
-                </div>
-              ) : (
-                /* ---------- Version PC : dépôt de fichier minimal ---------- */
-                <div className="glass-panel rounded-3xl border-2 border-dashed border-primary/30 p-8 text-center transition-colors sm:p-12">
-                  <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <ImagePlus className="size-8" />
-                  </div>
-                  <h2 className="mt-5 text-xl font-bold">
-                    Photo de ton exercice ou de ton cours
-                  </h2>
-                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                    Dépose ta photo ici ou choisis un fichier. Cadre bien
-                    l'énoncé, la consigne et les données. Jusqu'à {MAX_FILES}{" "}
-                    photos, {MAX_SIZE_MB} Mo max par image.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-gradient px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
-                  >
-                    <ImagePlus className="size-4" />
-                    Choisir un fichier
-                  </button>
-                  <p className="mt-4 text-xs text-muted-foreground">
-                    JPG, PNG, WEBP ou HEIC · photos supprimées automatiquement
-                    après 30 jours
-                  </p>
-                </div>
-              )}
-            </>
+              <p className="mt-5 text-center text-xs text-muted-foreground">
+                JPG, PNG, WEBP ou HEIC · photos supprimées automatiquement
+                après 30 jours
+              </p>
+            </div>
           ) : (
             /* ---------- Aperçu des photos (commun mobile / PC) ---------- */
             <div className="glass-panel rounded-3xl border-2 border-dashed border-white/10 p-6 sm:p-8">
@@ -479,26 +395,14 @@ export default function Scanner() {
                   </div>
                 ))}
                 {files.length < MAX_FILES && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => inputRef.current?.click()}
-                      className="flex aspect-[3/4] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                    >
-                      <ImagePlus className="size-5" />
-                      <span className="text-[11px] font-semibold">Ajouter</span>
-                    </button>
-                    {isMobile && (
-                      <button
-                        type="button"
-                        onClick={openCamera}
-                        className="flex aspect-[3/4] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                      >
-                        <Camera className="size-5" />
-                        <span className="text-[11px] font-semibold">Photo</span>
-                      </button>
-                    )}
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    className="flex aspect-[3/4] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <ImagePlus className="size-5" />
+                    <span className="text-[11px] font-semibold">Ajouter</span>
+                  </button>
                 )}
               </div>
               <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
