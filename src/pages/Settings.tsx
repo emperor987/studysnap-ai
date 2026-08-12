@@ -303,7 +303,7 @@ export default function Settings() {
                 <p className="font-bold">{planLabel}</p>
                 <p className="text-xs text-muted-foreground">
                   {plan?.plan === "free"
-                    ? "5 scans / 3 fiches / 3 quiz par mois"
+                    ? "4 scans / 3 fiches / 3 quiz par mois (5 questions max)"
                     : plan?.plan === "pro"
                       ? "Tout est illimité + stats avancées"
                       : "Scans, fiches et quiz illimités"}

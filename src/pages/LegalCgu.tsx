@@ -94,7 +94,8 @@ export default function LegalCgu() {
           items={[
             <>
               <strong className="text-foreground">Gratuit — 0 €/mois</strong> :{" "}
-              5 scans d&apos;exercices par mois, 3 fiches de révision par mois,
+              4 scans d&apos;exercices par mois, 3 fiches de révision par mois, 3 quiz
+              par mois (5 questions maximum par quiz),
               3 quiz par mois, l&apos;accès aux 3 modes de réponse (rapide,
               explication, révision) et l&apos;historique des exercices.
             </>,

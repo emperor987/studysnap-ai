@@ -98,7 +98,7 @@ export default function Pricing() {
             <span className="text-brand-gradient">Upgrade quand tu veux.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-            Tu testes d&apos;abord l&apos;app avec 5 scans gratuits par mois,
+            Tu testes d&apos;abord l&apos;app avec 4 scans gratuits par mois,
             sans carte bancaire. Les plans payants ne servent qu&apos;à débloquer
             plus de capacité quand tu en as vraiment besoin.
           </p>

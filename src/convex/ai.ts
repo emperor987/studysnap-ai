@@ -31,9 +31,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { AI_GENERATION_LIMITS } from "./rateLimit";
+import { FREE_QUIZ_MAX_QUESTIONS, QUIZ_MAX_QUESTIONS } from "./usage";
 import type { Id } from "./_generated/dataModel";
 import { sanitizeUserText, stripHtmlArtifacts } from "../lib/clean";
 import { condenseLongText, documentKind } from "../lib/analysis";
+import type { DocumentExercise, ScanDocument } from "../lib/document";
 import {
   demoAnalysis,
   demoQuiz,
@@ -241,6 +243,31 @@ function normalizeExercises(
     .filter((x) => x.question.length > 0 || x.answer.length > 0);
 }
 
+/** Coerce le document corrigé (un bloc par exercice de l'énoncé). */
+function normalizeDocument(v: unknown): ScanDocument {
+  const d = (v ?? {}) as Record<string, unknown>;
+  const exercises: DocumentExercise[] = Array.isArray(d.exercises)
+    ? d.exercises
+        .map((x, i) => {
+          const o = (x ?? {}) as Record<string, unknown>;
+          return {
+            number:
+              typeof o.number === "number" && Number.isFinite(o.number)
+                ? o.number
+                : i + 1,
+            question: asString(o.question),
+            answer: asString(o.answer),
+            calculation: asString(o.calculation),
+          };
+        })
+        .filter((x) => x.question.length > 0 || x.answer.length > 0)
+    : [];
+  return {
+    title: asString(d.title, "Correction complète"),
+    exercises,
+  };
+}
+
 /**
  * Normalise la réponse du modèle : il ne respecte pas toujours le schéma
  * demandé (sections manquantes, tableaux en chaînes, champs omis…). On
@@ -280,6 +307,7 @@ function normalizeAnalysis(parsed: Record<string, unknown>): DemoAnalysis {
       keyFormulas: asStringArray(r.keyFormulas),
       exercises: normalizeExercises(r.exercises),
     },
+    document: normalizeDocument(parsed.document),
   };
 }
 
@@ -576,9 +604,10 @@ Règles absolues :
 5. Mode "quick" : réponse finale + calcul essentiel, formulation simple, sans long développement.
 6. Mode "explain" : structure fixe — Ce qu'on demande / Infos importantes / Méthode / Étapes numérotées / Résultat / Erreur fréquente à éviter. Ton naturel.
 7. Mode "revise" : mini-leçon sur la notion + formules clés + 3 exercices similaires générés (avec réponse et indice).
-8. Privilégie la compréhension de la méthode plutôt que la réponse brute.
-9. Détecte la matière ("Mathématiques", "Physique-Chimie", "Français", "SVT", "Histoire-Géo", "Anglais", "Espagnol", "NSI", "Philosophie"...) et le niveau scolaire (college, seconde, premiere, terminale, postbac).
-10. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, au format exact :
+8. Le champ "document" contient la correction COMPLÈTE de TOUS les exercices présents sur la photo, dans l'ordre : un bloc par exercice avec l'énoncé ("question"), la réponse complète rédigée ("answer") et le calcul/démarche essentielle ("calculation"). Si la photo ne contient qu'un exercice, un seul bloc. C'est le document exportable en PDF.
+9. Privilégie la compréhension de la méthode plutôt que la réponse brute.
+10. Détecte la matière ("Mathématiques", "Physique-Chimie", "Français", "SVT", "Histoire-Géo", "Anglais", "Espagnol", "NSI", "Philosophie"...) et le niveau scolaire (college, seconde, premiere, terminale, postbac).
+11. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, au format exact :
 {
   "detection": {
     "subject": "string",
@@ -598,6 +627,10 @@ Règles absolues :
   "revise": {
     "lesson": "string", "keyFormulas": ["string"],
     "exercises": [ { "question": "string", "answer": "string", "hint": "string" } ]
+  },
+  "document": {
+    "title": "string",
+    "exercises": [ { "number": 1, "question": "string", "answer": "string", "calculation": "string" } ]
   }
 }`;
 
@@ -615,10 +648,11 @@ Le document peut couvrir PLUSIEURS notions ou contenir PLUSIEURS exercices. Règ
 2. "quick" : si une consigne d'exercice existe, réponds-y en une phrase + le calcul essentiel. Sinon, donne la phrase clé du document à retenir.
 3. "explain" : structure fixe — Ce qu'on demande / Infos importantes / Méthode / Étapes numérotées / Résultat / Erreur fréquente à éviter. Concentre-toi sur la notion principale ou la première consigne, ne développe pas chaque section du document.
 4. "revise" : mini-leçon qui SYNTHÉTISE l'ensemble du document (notions et formules clés), + 3 exercices similaires.
-5. Ne JAMAIS inventer une donnée absente. Si un élément est illisible, dis-le dans "legibility".
-6. SOIS CONCIS : chaque champ court (2 à 4 phrases max, listes de 3 à 6 éléments). Un document long ne justifie pas une réponse longue.
-7. Réponds en Markdown ; utilise LaTeX entre $...$ ou $$...$$ pour les maths.
-8. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, au format exact :
+5. Le champ "document" contient la correction COMPLÈTE de TOUS les exercices de la feuille, dans l'ordre : un bloc par exercice ({ number, question, answer, calculation }). Reste concis dans chaque bloc (réponse 2 à 6 phrases), mais ne SAUTE AUCUN exercice présent.
+6. Ne JAMAIS inventer une donnée absente. Si un élément est illisible, dis-le dans "legibility".
+7. SOIS CONCIS : chaque champ court (2 à 4 phrases max, listes de 3 à 6 éléments). Un document long ne justifie pas une réponse longue.
+8. Réponds en Markdown ; utilise LaTeX entre $...$ ou $$...$$ pour les maths.
+9. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, au format exact :
 {
   "detection": {
     "subject": "string",
@@ -638,6 +672,10 @@ Le document peut couvrir PLUSIEURS notions ou contenir PLUSIEURS exercices. Règ
   "revise": {
     "lesson": "string", "keyFormulas": ["string"],
     "exercises": [ { "question": "string", "answer": "string", "hint": "string" } ]
+  },
+  "document": {
+    "title": "string",
+    "exercises": [ { "number": 1, "question": "string", "answer": "string", "calculation": "string" } ]
   }
 }`;
 
@@ -1034,12 +1072,20 @@ export const generateQuiz = action({
   handler: async (ctx, args) => {
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
-    const count = Math.min(20, Math.max(5, args.count));
     const storageIds = args.storageIds ?? [];
     const fromDocument = storageIds.length > 0;
 
     // Limite horaire de générations IA par compte (endpoint coûteux).
     await assertWithinAiLimit(ctx, userId);
+
+    // Plan gratuit : quiz plafonnés à 5 questions (re-vérifié dans saveQuiz).
+    // Un bot ne peut pas contourner en appelant generateQuiz directement :
+    // le plafond est appliqué côté serveur selon le compte.
+    const plan = await ctx.runQuery(internal.usage.getPlanForUser, {
+      userId: userId as Id<"users">,
+    });
+    const maxCount = plan === "free" ? FREE_QUIZ_MAX_QUESTIONS : QUIZ_MAX_QUESTIONS;
+    const count = Math.min(maxCount, Math.max(1, args.count));
     const seed = hashSeed(
       userId,
       args.subject,

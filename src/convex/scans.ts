@@ -5,6 +5,7 @@ import { getOrCreateUsage, getPlan } from "./usage";
 import { demoAnalysis, hashSeed } from "./demoData";
 import { assertParentalConsent } from "./users";
 import { assertUserOwnsAllStorage } from "./files";
+import { gateDocument } from "../lib/gating";
 import type { Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -51,12 +52,26 @@ export const analysisValidator = v.object({
       v.object({ question: v.string(), answer: v.string(), hint: v.string() }),
     ),
   }),
+  // Document complet corrigé (un bloc par exercice de l'énoncé) — le
+  // contenu exportable en PDF, réservé aux plans payants (aperçu gratuit
+  // masqué côté serveur via getScan).
+  document: v.object({
+    title: v.string(),
+    exercises: v.array(
+      v.object({
+        number: v.number(),
+        question: v.string(),
+        answer: v.string(),
+        calculation: v.string(),
+      }),
+    ),
+  }),
 });
 
 /**
  * Enregistre un scan terminé.
  * Applique le rate limiting (4 s entre deux scans) et la limite du plan
- * gratuit (5 scans / mois). Le message d'upgrade n'apparaît que lorsque la
+ * gratuit (4 scans / mois). Le message d'upgrade n'apparaît que lorsque la
  * limite gratuite est atteinte — jamais avant.
  */
 export const recordScan = mutation({
@@ -103,11 +118,11 @@ export const recordScan = mutation({
     }
 
     // Limite du plan gratuit
-    if (plan === "free" && usage.scansCount >= 5) {
+    if (plan === "free" && usage.scansCount >= 4) {
       throw new ConvexError({
         code: "LIMIT_REACHED",
         plan,
-        message: "Tu as utilisé tes 5 scans gratuits de ce mois.",
+        message: "Tu as utilisé tes 4 scans gratuits de ce mois.",
       });
     }
 
@@ -187,11 +202,21 @@ export const listMyScans = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    return await ctx.db
+    const scans = await ctx.db
       .query("scans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
+    const plan = await getPlan(ctx, userId);
+    if (plan !== "free") return scans;
+    // Plan gratuit : le document complet corrigé (réservé aux payants) est
+    // retiré des réponses de LISTE — il ne faut pas que le client puisse le
+    // lire sans passer par le paywall de la page de résultat.
+    return scans.map((s) =>
+      s.result
+        ? { ...s, result: { ...s.result, document: undefined } }
+        : s,
+    );
   },
 });
 
@@ -202,6 +227,18 @@ export const getScan = query({
     if (!userId) return null;
     const scan = await ctx.db.get(args.scanId);
     if (!scan || scan.userId !== userId) return null;
+    const plan = await getPlan(ctx, userId);
+    if (plan === "free" && scan.result?.document) {
+      // Paywall côté serveur : le plan gratuit reçoit UNIQUEMENT l'aperçu
+      // (premier exercice visible, reste masqué) — jamais le contenu complet.
+      return {
+        ...scan,
+        result: {
+          ...scan.result,
+          document: gateDocument(scan.result.document),
+        },
+      };
+    }
     return scan;
   },
 });

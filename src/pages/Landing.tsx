@@ -376,7 +376,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Comment fonctionnent les scans gratuits ?",
-    a: "Le plan gratuit inclut 5 scans par mois, 3 fiches de révision et 3 quiz. Aucune carte bancaire n'est demandée. Quand tu atteins la limite, tu peux passer à Student ou Student Pro — ou attendre le mois suivant.",
+    a: "Le plan gratuit inclut 4 scans par mois, 3 fiches de révision et 3 quiz de 5 questions max. Aucune carte bancaire n'est demandée. Quand tu atteins la limite, tu peux passer à Student ou Student Pro — ou attendre le mois suivant.",
   },
   {
     q: "Que faire si l'explication ne me convient pas ?",
@@ -827,7 +827,7 @@ function PricingSection() {
       <SectionTitle
         kicker="Pricing"
         title="Commence gratuitement, upgrade quand tu veux"
-        subtitle="Essaie l'app avec 5 scans gratuits par mois. Aucune carte demandée pour commencer."
+        subtitle="Essaie l'app avec 4 scans gratuits par mois. Aucune carte demandée pour commencer."
       />
       <div className="mt-12 grid gap-6 lg:grid-cols-3">
         {[
@@ -837,7 +837,7 @@ function PricingSection() {
             note: "/ mois",
             tagline: "Pour tester StudySnap sans engagement.",
             features: [
-              "5 scans d'exercices / mois",
+              "4 scans d'exercices / mois",
               "3 fiches de révision / mois",
               "Quiz limités (3 / mois)",
               "Les 3 modes de réponse",
@@ -965,7 +965,7 @@ function FinalCTA() {
           <span className="text-brand-gradient">en 10 secondes</span>
         </h2>
         <p className="relative mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-          5 scans gratuits par mois, sans carte bancaire. Si tu aimes l&apos;expérience,
+          4 scans gratuits par mois, sans carte bancaire. Si tu aimes l&apos;expérience,
           passe à Student quand tu veux — ou pas.
         </p>
         <div className="relative mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">

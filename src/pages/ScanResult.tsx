@@ -8,6 +8,8 @@ import {
   Check,
   ChevronDown,
   Clipboard,
+  FileDown,
+  FileText,
   Lightbulb,
   ListOrdered,
   Loader2,
@@ -24,6 +26,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getAiErrorMessage } from "@/lib/ai-errors";
 import { levelLabel, subjectEmoji } from "@/lib/format";
+import { MaskedBlock, UnlockCard, useIsPaid } from "@/components/UnlockGate";
+import { buildPdf, downloadPdf, markdownToPlainText, type PdfBlock } from "@/lib/pdf";
+import type { GatedDocument } from "@/lib/document";
 import type { Id } from "@/convex/_generated/dataModel";
 
 type Mode = "quick" | "explain" | "revise";
@@ -130,6 +135,7 @@ export default function ScanResult() {
   const [feedbackSent, setFeedbackSent] = useState<"yes" | "no" | null>(null);
   const [creatingSheet, setCreatingSheet] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const isPaid = useIsPaid();
 
   useEffect(() => {
     const m = searchParams.get("mode") as Mode | null;
@@ -184,6 +190,39 @@ export default function ScanResult() {
     window.speechSynthesis.speak(utterance);
   };
 
+  /** Export PDF de marque du document complet corrigé (plan payant). */
+  const handleExportPdf = () => {
+    if (!scan?.result?.document || !isPaid) return;
+    const doc = scan.result.document as GatedDocument;
+    if (doc.locked) return;
+    const blocks: PdfBlock[] = [
+      { type: "h1", text: "Correction complète" },
+      {
+        type: "text",
+        text: [scan.subject, levelLabel(scan.level), scan.topic].filter(Boolean).join(" · "),
+      },
+      { type: "divider" },
+    ];
+    for (const ex of doc.exercises) {
+      blocks.push(
+        { type: "h2", text: `Exercice ${ex.number}` },
+        { type: "text", text: `Question : ${markdownToPlainText(ex.question)}` },
+        { type: "text", text: `Réponse : ${markdownToPlainText(ex.answer)}` },
+      );
+      if (ex.calculation.trim()) {
+        blocks.push({ type: "text", text: `Calcul : ${markdownToPlainText(ex.calculation)}` });
+      }
+      blocks.push({ type: "divider" });
+    }
+    const pdf = buildPdf({
+      title: `StudySnap — ${scan.title}`,
+      subtitle: `Correction complète · ${scan.subject} · ${levelLabel(scan.level)}`,
+      blocks,
+    });
+    const safeName = (scan.title || "correction").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    downloadPdf(pdf, `studysnap-${safeName}.pdf`);
+  };
+
   const handleAddToRevision = async () => {
     if (!scan) return;
     setCreatingSheet(true);
@@ -227,6 +266,12 @@ export default function ScanResult() {
   const quick = scan.result.quick;
   const explain = scan.result.explain;
   const revise = scan.result.revise;
+  // Document complet corrigé : version payante (complète) ou aperçu gratuit
+  // (premier exercice visible, locked=true — masqué côté serveur).
+  const doc = scan.result.document as GatedDocument | undefined;
+  const docExercises = doc?.exercises ?? [];
+  const docLocked = doc?.locked === true;
+  const totalExercises = doc?.totalExercises ?? docExercises.length;
 
   return (
     <AppShell title={scan.title} subtitle="Résultat de ton scan">
@@ -288,6 +333,73 @@ export default function ScanResult() {
                 <Markdown content={quick.keyPoint} />
               </p>
             </Section>
+
+            {/* Document complet corrigé : un bloc par exercice de l'énoncé.
+                Paywall : les gratuits voient l'aperçu (premier exercice),
+                le reste est masqué côté serveur (getScan) — les payants ont
+                tout, plus l'export PDF. */}
+            {scan.result.document && scan.result.document.exercises.length > 0 && (
+              <Section icon={<FileText className="size-4" />} title="Document complet corrigé">
+                <div className="space-y-4">
+                  {scan.result.document.exercises.map((ex) => (
+                    <div
+                      key={ex.number}
+                      className="rounded-2xl border border-white/10 bg-white/6 p-5"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {ex.number}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold leading-6">
+                            <Markdown content={ex.question} />
+                          </p>
+                          <div className="mt-2 rounded-xl bg-mint-500/10 p-4">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-mint-300">
+                              ✓ Réponse
+                            </p>
+                            <div className="mt-1 text-sm leading-6">
+                              <Markdown content={ex.answer} />
+                            </div>
+                            {ex.calculation && (
+                              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                                <span className="font-semibold text-primary">
+                                  Calcul essentiel :{" "}
+                                </span>
+                                <Markdown content={ex.calculation} />
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {docLocked && (
+                    <>
+                      <MaskedBlock label="Exercices suivants — réponses masquées" />
+                      <UnlockCard
+                        title={`${totalExercises - docExercises.length} exercice${
+                          totalExercises - docExercises.length > 1 ? "s" : ""
+                        } restant${totalExercises - docExercises.length > 1 ? "s" : ""} à débloquer`}
+                        description="Passe à Student ou Student Pro pour voir toutes les réponses détaillées et exporter le document corrigé en PDF."
+                      />
+                    </>
+                  )}
+
+                  {!docLocked && (
+                    <button
+                      type="button"
+                      onClick={handleExportPdf}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 sm:w-auto"
+                    >
+                      <FileDown className="size-4" />
+                      Exporter le document en PDF
+                    </button>
+                  )}
+                </div>
+              </Section>
+            )}
           </>
         )}
 

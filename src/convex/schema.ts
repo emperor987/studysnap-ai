@@ -142,6 +142,18 @@ const schema = defineSchema(
               }),
             ),
           }),
+          // Document complet corrigé (un bloc par exercice) — export PDF payant.
+          document: v.object({
+            title: v.string(),
+            exercises: v.array(
+              v.object({
+                number: v.number(),
+                question: v.string(),
+                answer: v.string(),
+                calculation: v.string(),
+              }),
+            ),
+          }),
         }),
       ),
       feedback: v.optional(

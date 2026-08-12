@@ -74,7 +74,7 @@ function LimitReached() {
           🔥
         </div>
         <h2 className="mt-5 text-2xl font-extrabold tracking-tight">
-          Tes 5 scans gratuits de ce mois sont utilisés
+          Tes 4 scans gratuits de ce mois sont utilisés
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           Tu as adoré l'expérience — passe à Student ou Student Pro pour des

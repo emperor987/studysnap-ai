@@ -150,6 +150,27 @@ toutes les clés sont relues à chaque appel.
 
 Preuve : `tests/security/secrets.test.ts`, `tests/security/secrets-rotation.test.ts`.
 
+## Paywall serveur — documents complets (plans payants)
+
+Les documents corrigés complets (Réponse rapide) et les fiches de révision
+sont des contenus **payants** (Student / Student Pro). Le paywall est
+**côté serveur**, jamais un simple masquage frontend :
+
+- `getScan` ne renvoie aux comptes gratuits qu'un **aperçu** (premier
+  exercice visible, le reste retiré — le document complet n'est jamais
+  envoyé au client) ;
+- `listMyScans` retire le document complet des réponses de liste ;
+- `getSheet` / `listMySheets` ne renvoient aux gratuits que quelques
+  concepts d'aperçu + des compteurs (`summary`) ;
+- l'export PDF (`buildPdf`) et le contenu complet ne sont affichés que si
+  le plan est payant (`useIsPaid`, basé sur `subscriptions.getMyPlan`).
+
+Le déblocage est **automatique** : le webhook Stripe
+`checkout.session.completed` appelle `subscriptions.upsertSubscription` avec
+`status: "active"` ; les queries réactives renvoient alors immédiatement le
+contenu complet et les limites gratuites tombent (voir
+`tests/unit/plan-upgrade-workflow.test.ts`).
+
 ## Suite de tests
 
 ```bash

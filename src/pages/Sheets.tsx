@@ -233,13 +233,14 @@ export default function Sheets() {
                 </div>
                 <h3 className="mt-4 font-bold leading-6">{sheet.title}</h3>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {sheet.content.concepts.length} concepts ·{" "}
-                  {sheet.content.formulas.length} formules ·{" "}
-                  {formatDateFr(sheet.createdAt)}
+                  {sheet.summary?.concepts ?? sheet.content.concepts.length}{" "}
+                  concepts · {sheet.summary?.formulas ?? sheet.content.formulas.length}{" "}
+                  formules · {formatDateFr(sheet.createdAt)}
                 </p>
               </Link>
               <div className="mt-4 flex items-center justify-between">
                 <span className="text-[11px] font-medium text-muted-foreground">
+                  {sheet.locked ? "🔒 Aperçu gratuit" : ""}{" "}
                   {sheet.sourceType === "photo"
                     ? "📷 Depuis photo"
                     : sheet.sourceType === "scan"

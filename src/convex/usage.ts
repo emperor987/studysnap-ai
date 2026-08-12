@@ -1,16 +1,28 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
-/** Limites mensuelles du plan gratuit (fair-use) */
+/**
+ * Limites du plan gratuit (fair-use) :
+ *  - 4 scans d'exercices / mois ;
+ *  - 3 fiches de révision / mois ;
+ *  - 3 quiz / mois, limités à 5 questions par quiz (plafonné dans
+ *    generateQuiz et re-vérifié dans saveQuiz).
+ */
 export const FREE_LIMITS = {
-  scans: 5,
+  scans: 4,
   sheets: 3,
   quizzes: 3,
 } as const;
+
+/** Nombre maximal de questions d'un quiz du plan gratuit. */
+export const FREE_QUIZ_MAX_QUESTIONS = 5;
+
+/** Nombre maximal de questions d'un quiz (tout plan confondu). */
+export const QUIZ_MAX_QUESTIONS = 20;
 
 export function currentMonth(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -50,6 +62,18 @@ export async function getPlan(ctx: MutationCtx | QueryCtx, userId: Id<"users">) 
   }
   return "free" as const;
 }
+
+/**
+ * Interne (actions IA) : plan d'un utilisateur à partir de son id, sans
+ * session requise — utilisé pour plafonner la génération côté serveur
+ * (ex. 5 questions max par quiz gratuit).
+ */
+export const getPlanForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return getPlan(ctx, args.userId);
+  },
+});
 
 /** Incrémente un compteur mensuel (avec limite appliquée par l'appelant). */
 export async function bumpUsage(

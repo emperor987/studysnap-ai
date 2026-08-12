@@ -49,6 +49,17 @@ function validAnalysis() {
       commonMistake: "…",
     },
     revise: { lesson: "…", keyFormulas: [], exercises: [] },
+    document: {
+      title: "Correction complète",
+      exercises: [
+        {
+          number: 1,
+          question: "Résoudre dans ℝ : 2x + 3 = 7",
+          answer: "x = 2",
+          calculation: "2x = 4 → x = 2",
+        },
+      ],
+    },
   };
 }
 

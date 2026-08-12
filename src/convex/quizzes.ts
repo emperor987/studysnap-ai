@@ -1,7 +1,12 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getOrCreateUsage, getPlan } from "./usage";
+import {
+  FREE_QUIZ_MAX_QUESTIONS,
+  getOrCreateUsage,
+  getPlan,
+  QUIZ_MAX_QUESTIONS,
+} from "./usage";
 import { assertParentalConsent } from "./users";
 
 const questionValidator = v.object({
@@ -54,10 +59,13 @@ export const saveQuiz = mutation({
     }
 
     // Bornes de taille : le client ne contrôle pas la structure (userId,
-    // status…) mais on ne lui fait pas non plus confiance sur le volume
-    // (un quiz plafonné à 20 questions par le générateur IA).
-    const questions = args.questions.slice(0, 20);
-    const count = Math.min(20, Math.max(1, Math.round(args.settings.count)));
+    // status…) mais on ne lui fait pas non plus confiance sur le volume.
+    // Plan gratuit : 5 questions MAX par quiz — re-vérifié ici, même si un
+    // client contournait le plafond de generateQuiz (un bot ne peut pas
+    // forcer un quiz de 20 questions en appelant saveQuiz directement).
+    const maxQuestions = plan === "free" ? FREE_QUIZ_MAX_QUESTIONS : QUIZ_MAX_QUESTIONS;
+    const questions = args.questions.slice(0, maxQuestions);
+    const count = Math.min(maxQuestions, Math.max(1, Math.round(args.settings.count)));
     const settings = { ...args.settings, count };
 
     const quizId = await ctx.db.insert("quizzes", {

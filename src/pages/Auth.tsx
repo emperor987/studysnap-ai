@@ -515,7 +515,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <span className="font-semibold text-foreground">
                   {email.trim().toLowerCase()}
                 </span>
-                . Crée ton compte en 30 secondes — 5 scans gratuits par mois,
+                . Crée ton compte en 30 secondes — 4 scans gratuits par mois,
                 sans carte bancaire.
               </p>
               <Button
@@ -740,7 +740,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {tab === "signIn"
               ? "Commence par ton adresse email pour retrouver tes exercices et tes fiches."
-              : "5 scans gratuits par mois, sans carte bancaire."}
+              : "4 scans gratuits par mois, sans carte bancaire."}
           </p>
         </div>
 

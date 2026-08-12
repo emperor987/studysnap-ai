@@ -5,6 +5,7 @@ import { getOrCreateUsage, getPlan } from "./usage";
 import { demoSheet, hashSeed } from "./demoData";
 import { assertParentalConsent } from "./users";
 import { assertUserOwnsAllStorage } from "./files";
+import { gateSheetContent, sheetSummary } from "../lib/gating";
 import type { Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -77,11 +78,22 @@ export const listMySheets = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    return await ctx.db
+    const sheets = await ctx.db
       .query("revision_sheets")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
+    const plan = await getPlan(ctx, userId);
+    return sheets.map((s) => {
+      if (plan === "free") {
+        // Paywall côté serveur : la liste ne contient jamais le contenu
+        // complet d'une fiche pour un compte gratuit — seuls les compteurs
+        // (summary) et les concepts d'aperçu restent visibles.
+        const gated = gateSheetContent(s.content);
+        return { ...s, content: gated.content, locked: true, summary: gated.summary };
+      }
+      return { ...s, locked: false, summary: sheetSummary(s.content) };
+    });
   },
 });
 
@@ -92,7 +104,12 @@ export const getSheet = query({
     if (!userId) return null;
     const sheet = await ctx.db.get(args.sheetId);
     if (!sheet || sheet.userId !== userId) return null;
-    return sheet;
+    const plan = await getPlan(ctx, userId);
+    if (plan === "free") {
+      // Aperçu gratuit : quelques concepts visibles, le reste masqué.
+      return { ...sheet, ...gateSheetContent(sheet.content) };
+    }
+    return { ...sheet, locked: false, summary: sheetSummary(sheet.content) };
   },
 });
 

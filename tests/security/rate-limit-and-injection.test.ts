@@ -46,6 +46,17 @@ function validAnalysis(overrides: Record<string, unknown> = {}) {
       commonMistake: "…",
     },
     revise: { lesson: "…", keyFormulas: [], exercises: [] },
+    document: {
+      title: "Correction complète",
+      exercises: [
+        {
+          number: 1,
+          question: "Résoudre dans ℝ : 2x + 3 = 7",
+          answer: "x = 2",
+          calculation: "2x = 4 → x = 2",
+        },
+      ],
+    },
     ...overrides,
   };
 }
@@ -55,11 +66,11 @@ function validAnalysis(overrides: Record<string, unknown> = {}) {
 /* ------------------------------------------------------------------ */
 
 describe("Rate limiting — limites de scans et quotas gratuits", () => {
-  test("5 scans gratuits autorisés, le 6e est bloqué (LIMIT_REACHED)", async () => {
+  test("4 scans gratuits autorisés, le 5e est bloqué (LIMIT_REACHED)", async () => {
     setCurrentUser(uid(1));
     const db = makeDb();
     seedUser(db, uid(1));
-    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 5 });
+    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 4 });
     await expect(
       call(scans.recordScan, makeMutationCtx(db) as never, {
         storageIds: [],
@@ -91,7 +102,7 @@ describe("Rate limiting — limites de scans et quotas gratuits", () => {
     setCurrentUser(uid(1));
     const db = makeDb();
     seedUser(db, uid(1));
-    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 5, lastScanAt: 0 });
+    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 4, lastScanAt: 0 });
     db.seed("subscriptions", [
       {
         _id: "subscriptions-1",
@@ -114,7 +125,7 @@ describe("Rate limiting — limites de scans et quotas gratuits", () => {
     setCurrentUser(uid(1));
     const db = makeDb();
     seedUser(db, uid(1));
-    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 5 });
+    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 4 });
     db.seed("subscriptions", [
       {
         _id: "subscriptions-1",
@@ -315,7 +326,7 @@ describe("Gestion d'erreurs — pas de fuite d'information", () => {
     setCurrentUser(uid(1));
     const db = makeDb();
     seedUser(db, uid(1));
-    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 5 });
+    seedUsage(db, { id: "usage-1", owner: uid(1), scans: 4 });
     try {
       await call(scans.recordScan, makeMutationCtx(db) as never, {
         storageIds: [],

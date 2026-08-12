@@ -73,6 +73,11 @@ export default function Revision() {
   const [searchParams] = useSearchParams();
   const quizzes = useQuery(api.quizzes.listMyQuizzes);
   const subjects = useQuery(api.subjects.listSubjects);
+  // Plan gratuit : quiz plafonnés à 5 questions (limite re-vérifiée côté
+  // serveur dans generateQuiz ET saveQuiz).
+  const plan = useQuery(api.subscriptions.getMyPlan);
+  const isFree = plan?.plan !== "student" && plan?.plan !== "pro";
+  const maxCount = isFree ? 5 : 20;
 
   const [subject, setSubject] = useState(searchParams.get("subject") ?? "");
   const [difficulty, setDifficulty] = useState("medium");
@@ -377,21 +382,27 @@ export default function Revision() {
           )}
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-              Nombre de questions : {count}
+              Nombre de questions : {Math.min(count, maxCount)}
             </label>
             <input
               type="range"
               min={5}
-              max={20}
+              max={maxCount}
               step={1}
-              value={count}
+              value={Math.min(count, maxCount)}
               onChange={(e) => setCount(Number(e.target.value))}
               className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-[#4f4fe5]"
             />
             <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
               <span>5</span>
-              <span>20</span>
+              <span>{maxCount}</span>
             </div>
+            {isFree && (
+              <p className="mt-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-300">
+                ⭐ Limite plan gratuit : 5 questions par quiz — passe à Student
+                pour des quiz jusqu'à 20 questions.
+              </p>
+            )}
           </div>
         </div>
 

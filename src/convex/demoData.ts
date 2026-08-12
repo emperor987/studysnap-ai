@@ -5,11 +5,29 @@
  * (démo à vide) avec des analyses, fiches et quiz crédibles en français.
  */
 
+import type { ScanDocument } from "../lib/document";
+
 export type DemoExercise = {
   question: string;
   answer: string;
   hint: string;
 };
+
+/** Document complet corrigé (un bloc par exercice) pour la démo. */
+export function demoDocument(
+  title: string,
+  exercises: DemoExercise[],
+): ScanDocument {
+  return {
+    title,
+    exercises: exercises.map((ex, i) => ({
+      number: i + 1,
+      question: ex.question,
+      answer: ex.answer,
+      calculation: ex.hint,
+    })),
+  };
+}
 
 export type DemoAnalysis = {
   detection: {
@@ -35,6 +53,8 @@ export type DemoAnalysis = {
     keyFormulas: string[];
     exercises: DemoExercise[];
   };
+  /** Document complet corrigé (un bloc par exercice) — export PDF payant. */
+  document: ScanDocument;
 };
 
 export type DemoSheet = {
@@ -164,6 +184,7 @@ function demoEquations(seed: number): DemoAnalysis {
       ],
       exercises: q,
     },
+    document: demoDocument("Correction complète — Équations du premier degré", q),
   };
 }
 
@@ -234,6 +255,7 @@ function demoPythagore(seed: number): DemoAnalysis {
       ],
       exercises: q,
     },
+    document: demoDocument("Correction complète — Théorème de Pythagore", q),
   };
 }
 
@@ -309,6 +331,7 @@ function demoFactorisation(seed: number): DemoAnalysis {
       ],
       exercises: q,
     },
+    document: demoDocument("Correction complète — Factorisation", q),
   };
 }
 
@@ -378,6 +401,7 @@ function demoFonctions(seed: number): DemoAnalysis {
       ],
       exercises: q,
     },
+    document: demoDocument("Correction complète — Fonctions affines", q),
   };
 }
 
@@ -445,6 +469,7 @@ function demoOhm(seed: number): DemoAnalysis {
       ],
       exercises: q,
     },
+    document: demoDocument("Correction complète — Loi d'Ohm", q),
   };
 }
 
