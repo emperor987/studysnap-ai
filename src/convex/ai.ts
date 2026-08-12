@@ -103,11 +103,17 @@ async function requireUser(ctx: ActionCtx) {
 
 /**
  * Plafond de générations IA par compte et par heure (fenêtre glissante,
- * compteur distribué dans la table rate_limits). Surchargable via
- * AI_RATE_LIMIT_MAX (tests uniquement — jamais pour affaiblir la limite en
- * production, la valeur par défaut reste AI_GENERATION_LIMITS.max).
+ * compteur distribué dans la table rate_limits).
+ *
+ * AI_RATE_LIMIT_MAX est une surcharge de TEST UNIQUEMENT : elle est ignorée
+ * en production (NODE_ENV=production) pour qu'une valeur accidentelle ne
+ * puisse jamais affaiblir la limite anti-abus. La valeur par défaut reste
+ * AI_GENERATION_LIMITS.max.
  */
 function aiRateLimitMax(): number {
+  if (process.env.NODE_ENV === "production") {
+    return AI_GENERATION_LIMITS.max;
+  }
   const raw = parseInt(process.env.AI_RATE_LIMIT_MAX ?? "", 10);
   return Number.isFinite(raw) && raw > 0 ? raw : AI_GENERATION_LIMITS.max;
 }

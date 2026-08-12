@@ -203,15 +203,19 @@ describe("emailOtp — limite d'envoi de codes par email (anti-flood)", () => {
 
 describe("Actions IA — plafond de génération par compte/heure", () => {
   const originalMax = process.env.AI_RATE_LIMIT_MAX;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   afterEach(() => {
     if (originalMax === undefined) delete process.env.AI_RATE_LIMIT_MAX;
     else process.env.AI_RATE_LIMIT_MAX = originalMax;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
     delete process.env.AI_API_KEY;
     delete process.env.OPENAI_API_KEY;
   });
 
   test("analyzeText : 2 appels OK, le 3e lève RATE_LIMITED (sans appel IA)", async () => {
+    process.env.NODE_ENV = "test"; // hors production, la surcharge s'applique
     process.env.AI_RATE_LIMIT_MAX = "2"; // surcharge de test uniquement
     setCurrentUser(uid(1));
     const db = makeDb();
@@ -229,6 +233,21 @@ describe("Actions IA — plafond de génération par compte/heure", () => {
       const msg = String(err.data?.message ?? "");
       expect(msg).not.toMatch(/at |\.ts:\d+/); // pas de stack trace
     }
+  });
+
+  test("AI_RATE_LIMIT_MAX est ignoré en production (plafond par défaut conservé)", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AI_RATE_LIMIT_MAX = "1"; // tentative d'affaiblissement
+    delete process.env.AI_API_KEY; // mode démo (aucun appel réseau)
+    setCurrentUser(uid(9));
+    const db = makeDb();
+    const ctx = consumeCtx(db);
+
+    // 2 appels successifs : la limite reste 30/h (défaut), pas 1 —
+    // la surcharge de test ne peut pas affaiblir la production.
+    await call(ai.analyzeText, ctx as never, { text: "a" } as never);
+    await call(ai.analyzeText, ctx as never, { text: "b" } as never);
+    expect(db.raw("rate_limits")[0].count).toBe(2);
   });
 
   test("les 4 actions IA consomment le même seau par compte (analyse de source)", () => {
