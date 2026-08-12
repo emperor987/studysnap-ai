@@ -15,7 +15,7 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ export default function Sheets() {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<{ file: File; preview: string }[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [genStep, setGenStep] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
@@ -76,26 +77,49 @@ export default function Sheets() {
     toast.success("Fiche supprimée");
   };
 
+  // Étapes affichées pendant la génération de la fiche (l'IA peut prendre
+  // 1 à 2 minutes : un état visuel clair évite de croire la page bloquée).
+  const SHEET_STEPS = [
+    "Lecture de ton cours…",
+    "Extraction des notions clés…",
+    "Structuration de la fiche…",
+  ];
+
+  useEffect(() => {
+    if (!generating) return;
+    setGenStep(0);
+    const t = setInterval(
+      () => setGenStep((s) => Math.min(s + 1, SHEET_STEPS.length - 1)),
+      1400,
+    );
+    return () => clearInterval(t);
+  }, [generating]);
+
   const handleGenerate = async () => {
     setGenerating(true);
     try {
       let storageIds: string[] = [];
       const preparedTypes: string[] = [];
       if (sourceType === "photo") {
-        // Compression côté client : photos réduites = génération plus rapide.
-        for (const f of files) {
-          const prepared = await downscaleImage(f.file);
-          preparedTypes.push(prepared.type);
-          const postUrl = await generateUploadUrl();
-          const res = await fetch(postUrl, {
-            method: "POST",
-            headers: { "Content-Type": prepared.type },
-            body: prepared,
-          });
-          if (!res.ok) throw new Error("upload");
-          const { storageId } = (await res.json()) as { storageId: string };
-          storageIds.push(storageId);
-        }
+        // Compression + upload en PARALLÈLE : les photos sont indépendantes
+        // (l'ordre est préservé par Promise.all).
+        const prepared = await Promise.all(
+          files.map((f) => downscaleImage(f.file)),
+        );
+        preparedTypes.push(...prepared.map((p) => p.type));
+        storageIds = await Promise.all(
+          prepared.map(async (p) => {
+            const postUrl = await generateUploadUrl();
+            const res = await fetch(postUrl, {
+              method: "POST",
+              headers: { "Content-Type": p.type },
+              body: p,
+            });
+            if (!res.ok) throw new Error("upload");
+            const { storageId } = (await res.json()) as { storageId: string };
+            return storageId;
+          }),
+        );
       }
       const generated = await generateSheet({
         storageIds,
@@ -361,7 +385,7 @@ export default function Sheets() {
             {generating ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                Génération de la fiche…
+                Génération…
               </>
             ) : (
               <>
@@ -370,6 +394,23 @@ export default function Sheets() {
               </>
             )}
           </Button>
+
+          {generating && (
+            <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                  {SHEET_STEPS[genStep]}
+                </p>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  1 à 2 min max
+                </span>
+              </div>
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-2/3 animate-pulse rounded-full bg-brand-gradient" />
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AppShell>

@@ -266,15 +266,38 @@ interface ChatOptions {
   signal?: AbortSignal;
 }
 
+type AttemptShape = { jsonMode: boolean; thinking?: "off" | "on" };
+
+/**
+ * Erreur de configuration / requête invalide (HTTP 4xx hors 429, ou réponse
+ * 200 systématiquement vide) : retenter ne changera rien — on lève
+ * immédiatement au lieu de rejouer toute la chaîne de tentatives.
+ */
+class AiConfigError extends Error {}
+
+/**
+ * Cache du mode de requête qui fonctionne par (modèle, mode JSON/texte).
+ *
+ * Problème corrigé : chaque génération re-tentait en séquence des combinaisons
+ * de paramètres que l'endpoint rejette — ex. OpenAI renvoie 400 sur
+ * `chat_template_kwargs`, certains modèles NIM refusent `response_format` —
+ * et CHAQUE tentative échouée coûtait un aller-retour complet au fournisseur
+ * (30 s à 2 min sur le free tier). La latence de chaque génération était donc
+ * multipliée par le nombre de tentatives échouées. Une fois la bonne
+ * combinaison trouvée, elle est réutilisée en premier sur les appels suivants.
+ */
+const workingAttempt = new Map<string, number>();
+
 /**
  * Appel brut au fournisseur : renvoie le texte de la réponse.
- * Repli progressif (JSON activé/désactivé, raisonnement activé/désactivé)
- * et nouvelle tentative automatique sur échec transitoire (jamais sur 429).
+ * Repli progressif (JSON activé/désactivé, raisonnement activé/désactivé),
+ * nouvelle tentative automatique UNIQUEMENT sur échec transitoire (réseau /
+ * 5xx) — jamais sur 429 ni sur erreur de config (4xx / réponse vide).
  */
 async function chatRaw(
   messages: { role: "system" | "user" | "assistant"; content: unknown }[],
   opts: ChatOptions & {
-    attempts?: { jsonMode: boolean; thinking?: "off" | "on" }[];
+    attempts?: AttemptShape[];
   } = {},
 ): Promise<string> {
   const key = aiKey();
@@ -282,8 +305,9 @@ async function chatRaw(
   const model = opts.model ?? aiModel();
   const tokens = opts.maxTokens ?? aiMaxTokens();
   const attempts = opts.attempts ?? [{ jsonMode: false }];
+  const totalStartedAt = Date.now();
 
-  const post = async (a: { jsonMode: boolean; thinking?: "off" | "on" }) => {
+  const post = async (a: AttemptShape) => {
     const body: Record<string, unknown> = {
       model,
       temperature: 0.4,
@@ -320,37 +344,79 @@ async function chatRaw(
   // Repli progressif : certains endpoints refusent chat_template_kwargs
   // et/ou response_format — on retombe sur des requêtes plus simples. Une
   // réponse 200 avec content vide (bug "thinking-only" de certains endpoints
-  // NIM) déclenche aussi la tentative suivante.
+  // NIM) déclenche aussi la tentative suivante. La tentative gagnante est
+  // mémorisée (workingAttempt) pour sauter les échecs connus ensuite.
   const chatOnce = async (): Promise<string> => {
     let lastStatus = 0;
     let lastBody = "";
-    for (const a of attempts) {
+    let sawEmpty = false;
+
+    // Chaîne d'essais : la tentative gagnante en mémoire d'abord, puis le
+    // reste en repli. Clé = modèle + mode (JSON vs texte) : un modèle peut
+    // accepter des params en mode texte mais pas en mode JSON (et invers.).
+    const chainKey = `${model}|${attempts[0]?.jsonMode ? "json" : "plain"}`;
+    const cached = workingAttempt.get(chainKey);
+    const order = attempts.map((_, i) => i);
+    if (cached !== undefined) {
+      const i = order.indexOf(cached);
+      if (i !== -1) {
+        order.splice(i, 1);
+        order.unshift(cached);
+      }
+    }
+
+    for (const idx of order) {
+      const a = attempts[idx];
+      const attemptStartedAt = Date.now();
       const res = await post(a);
       if (res.status === 429) throw new AiRateLimitedError();
       if (!res.ok) {
         lastStatus = res.status;
         lastBody = (await res.text().catch(() => "")).slice(0, 300);
+        console.log(
+          `[StudySnap ai] ${model} tentative ${JSON.stringify(a)} → HTTP ${lastStatus} (${Date.now() - attemptStartedAt} ms)`,
+        );
         continue;
       }
       const data = (await res.json()) as {
         choices?: { message?: { content?: string } }[];
       };
       const content = data.choices?.[0]?.message?.content ?? "";
-      if (content.trim().length > 0) return content;
+      if (content.trim().length > 0) {
+        workingAttempt.set(chainKey, idx);
+        console.log(
+          `[StudySnap ai] ${model} tentative ${JSON.stringify(a)} OK (${Date.now() - attemptStartedAt} ms)`,
+        );
+        return content;
+      }
+      sawEmpty = true;
       lastBody = "Réponse IA vide (content vide)";
+      console.log(
+        `[StudySnap ai] ${model} tentative ${JSON.stringify(a)} → contenu vide (${Date.now() - attemptStartedAt} ms)`,
+      );
+    }
+    // 4xx (config/requête invalide) ou réponse vide sur toute la chaîne :
+    // rejouer la même chose ne donnera pas un résultat différent.
+    if ((lastStatus >= 400 && lastStatus < 500) || sawEmpty) {
+      throw new AiConfigError(`Erreur IA (${lastStatus}): ${lastBody}`);
     }
     throw new Error(`Erreur IA (${lastStatus}): ${lastBody}`);
   };
 
   // Les endpoints gratuits (NVIDIA free tier) peuvent échouer de façon
-  // transitoire (file d'attente, timeout réseau) : on retente une fois,
-  // sauf en cas de 429 (limite de débit — inutile d'empirer).
+  // transitoire (file d'attente, timeout réseau, 5xx) : on retente une fois.
+  // Jamais sur 429 (limite de débit), ni sur erreur de config (4xx/vide).
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await chatOnce();
+      const text = await chatOnce();
+      console.log(
+        `[StudySnap ai] ${model} réponse complète (${Date.now() - totalStartedAt} ms, ${text.length} caractères)`,
+      );
+      return text;
     } catch (e) {
       if (e instanceof AiRateLimitedError) throw e;
+      if (e instanceof AiConfigError) throw e;
       if (e instanceof Error && e.name === "AbortError") {
         // Timeout global atteint (file d'attente trop longue, ex: free tier
         // NVIDIA) : on arrête immédiatement et on lève une erreur claire —
@@ -608,6 +674,7 @@ export const ocrPhotos = action({
     contentTypes: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args): Promise<OcrResult> => {
+    const startedAt = Date.now();
     await requireUser(ctx);
 
     // Mode démo : reste actif tant qu'aucune clé n'est configurée.
@@ -636,6 +703,9 @@ export const ocrPhotos = action({
     const timer = setTimeout(() => controller.abort(), 120000);
     try {
       const fullText = await ocrImageText(imageParts, controller.signal);
+      console.log(
+        `[StudySnap ai] OCR terminé en ${Date.now() - startedAt} ms (${fullText.length} caractères)`,
+      );
       if (fullText.length < 20) {
         return { unreadable: true, note: UNREADABLE_MESSAGE };
       }
@@ -657,6 +727,7 @@ export const analyzeText = action({
     prompt: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<DemoAnalysis> => {
+    const startedAt = Date.now();
     const userId = await requireUser(ctx);
 
     // Mode démo : reste actif tant qu'aucune clé n'est configurée.
@@ -707,7 +778,11 @@ export const analyzeText = action({
       // Le modèle peut omettre des sections ou mal typer des champs : la
       // normalisation garantit que l'enregistrement du scan ne rejette
       // jamais la réponse (validation stricte côté recordScan).
-      return normalizeAnalysis(parsed);
+      const result = normalizeAnalysis(parsed);
+      console.log(
+        `[StudySnap ai] analyzeText terminé en ${Date.now() - startedAt} ms (type de document: ${kind})`,
+      );
+      return result;
     } finally {
       clearTimeout(timer);
     }
@@ -742,6 +817,7 @@ export const generateSheet = action({
     level: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const startedAt = Date.now();
     const userId = await requireUser(ctx);
     const seed = hashSeed(userId, args.sourceText ?? "", args.storageIds?.join(",") ?? "", new Date().getDate());
 
@@ -785,10 +861,14 @@ export const generateSheet = action({
     // partir du texte seul (bien plus rapide). En cas d'échec OCR, on garde
     // les photos (repli robuste, comportement historique).
     if (imageParts.length > 0 && aiFastModelConfigured()) {
+      const ocrStartedAt = Date.now();
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000);
       try {
         const ocrText = await ocrImageText(imageParts, controller.signal);
+        console.log(
+          `[StudySnap ai] generateSheet — OCR en ${Date.now() - ocrStartedAt} ms`,
+        );
         if (ocrText.length >= 20) {
           parts = [
             {
@@ -819,7 +899,11 @@ export const generateSheet = action({
       ],
       sheetComplete,
     );
-    return normalizeSheet(parsed, args.subject ?? "Mathématiques");
+    const result = normalizeSheet(parsed, args.subject ?? "Mathématiques");
+    console.log(
+      `[StudySnap ai] generateSheet terminé en ${Date.now() - startedAt} ms`,
+    );
+    return result;
   },
 });
 
@@ -840,6 +924,7 @@ export const generateQuiz = action({
     topic: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const startedAt = Date.now();
     const userId = await requireUser(ctx);
     const count = Math.min(20, Math.max(5, args.count));
     const seed = hashSeed(userId, args.subject, count, args.difficulty, args.types.join(","), args.topic ?? "");
@@ -868,6 +953,9 @@ Types : ${args.types.join(", ")}.`,
       },
     ]);
     const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+    console.log(
+      `[StudySnap ai] generateQuiz terminé en ${Date.now() - startedAt} ms (${questions.length} questions)`,
+    );
     return {
       title: String(parsed.title ?? `Quiz ${args.subject}`),
       questions: questions

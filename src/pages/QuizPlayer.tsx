@@ -37,6 +37,26 @@ export default function QuizPlayer() {
 
   const question = quiz?.questions[index];
 
+  /* Notions faibles. Calculé ICI (avant tout retour anticipé) : un useMemo
+   * placé après le `if (!quiz) return` serait un hook conditionnel — quand le
+   * quiz arrive, React lèverait « Rendered more hooks than during the
+   * previous render » et l'écran de résultat ne s'afficherait jamais. */
+  const weakTopics = useMemo(() => {
+    if (answers.length === 0) return [];
+    const byTopic = new Map<string, { c: number; t: number }>();
+    for (const a of answers) {
+      const q = quiz?.questions[a.questionIndex];
+      const t = q?.topic ?? "Général";
+      const e = byTopic.get(t) ?? { c: 0, t: 0 };
+      e.t += 1;
+      if (a.isCorrect) e.c += 1;
+      byTopic.set(t, e);
+    }
+    return [...byTopic.entries()]
+      .filter(([, e]) => e.t >= 1 && e.c / e.t < 0.6)
+      .map(([t]) => t);
+  }, [answers, quiz]);
+
   const isLast = useMemo(
     () => Boolean(quiz) && index === (quiz?.questions.length ?? 1) - 1,
     [quiz, index],
@@ -106,23 +126,6 @@ export default function QuizPlayer() {
       </AppShell>
     );
   }
-
-  /* Notions faibles (calculé au niveau du composant, sans hook conditionnel) */
-  const weakTopics = useMemo(() => {
-    if (answers.length === 0) return [];
-    const byTopic = new Map<string, { c: number; t: number }>();
-    for (const a of answers) {
-      const q = quiz?.questions[a.questionIndex];
-      const t = q?.topic ?? "Général";
-      const e = byTopic.get(t) ?? { c: 0, t: 0 };
-      e.t += 1;
-      if (a.isCorrect) e.c += 1;
-      byTopic.set(t, e);
-    }
-    return [...byTopic.entries()]
-      .filter(([, e]) => e.t >= 1 && e.c / e.t < 0.6)
-      .map(([t]) => t);
-  }, [answers, quiz]);
 
   /* ---------- Écran de score ---------- */
   if (finished && quiz.status === "done" && quiz.score !== undefined) {

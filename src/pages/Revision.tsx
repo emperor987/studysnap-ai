@@ -12,7 +12,7 @@ import {
   Plus,
   Target,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,7 @@ export default function Revision() {
   const [count, setCount] = useState(10);
   const [types, setTypes] = useState<string[]>(["qcm", "truefalse", "free", "problem"]);
   const [creating, setCreating] = useState(false);
+  const [genStep, setGenStep] = useState(0);
 
   const generateQuiz = useAction(api.ai.generateQuiz);
   const saveQuiz = useMutation(api.quizzes.saveQuiz);
@@ -61,6 +62,25 @@ export default function Revision() {
       prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
     );
   };
+
+  // Étapes affichées pendant la génération : la génération IA peut prendre
+  // 1 à 2 minutes (file d'attente du fournisseur), un état visuel clair évite
+  // de laisser l'utilisateur croire que la page est bloquée.
+  const QUIZ_STEPS = [
+    "Préparation des questions…",
+    "Génération par l'IA…",
+    "Finalisation du quiz…",
+  ];
+
+  useEffect(() => {
+    if (!creating) return;
+    setGenStep(0);
+    const t = setInterval(
+      () => setGenStep((s) => Math.min(s + 1, QUIZ_STEPS.length - 1)),
+      1400,
+    );
+    return () => clearInterval(t);
+  }, [creating]);
 
   const handleCreate = async () => {
     if (types.length === 0) {
@@ -220,15 +240,32 @@ export default function Revision() {
           {creating ? (
             <>
               <Loader2 className="mr-2 size-4 animate-spin" />
-              Génération du quiz…
+              Génération…
             </>
           ) : (
             <>
               <Play className="mr-2 size-4" />
-              Générer et commencer le quiz
+              Générer
             </>
           )}
         </Button>
+
+        {creating && (
+          <div className="mt-4 rounded-2xl border border-primary/15 bg-primary/5 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+                <Loader2 className="size-4 animate-spin" />
+                {QUIZ_STEPS[genStep]}
+              </p>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                1 à 2 min max
+              </span>
+            </div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-brand-gradient" />
+            </div>
+          </div>
+        )}
         {searchParams.get("topic") && (
           <p className="mt-3 text-xs text-muted-foreground">
             Notion ciblée : <span className="font-semibold">{searchParams.get("topic")}</span>

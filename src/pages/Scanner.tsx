@@ -181,22 +181,27 @@ export default function Scanner() {
     setStep("analyzing");
     try {
       // Compression côté client : des photos plus petites = analyse IA
-      // beaucoup plus rapide (tokens image réduits).
-      const storageIds: string[] = [];
-      const preparedTypes: string[] = [];
-      for (const f of files) {
-        const prepared = await downscaleImage(f.file);
-        preparedTypes.push(prepared.type);
-        const postUrl = await generateUploadUrl();
-        const res = await fetch(postUrl, {
-          method: "POST",
-          headers: { "Content-Type": prepared.type },
-          body: prepared,
-        });
-        if (!res.ok) throw new Error("Upload impossible");
-        const { storageId } = (await res.json()) as { storageId: string };
-        storageIds.push(storageId);
-      }
+      // beaucoup plus rapide (tokens image réduits). Préparation + upload en
+      // PARALLÈLE : les photos sont indépendantes, les traiter une par une
+      // allongeait l'attente à chaque image (l'ordre est préservé par
+      // Promise.all).
+      const prepared = await Promise.all(
+        files.map((f) => downscaleImage(f.file)),
+      );
+      const preparedTypes = prepared.map((p) => p.type);
+      const storageIds = await Promise.all(
+        prepared.map(async (p) => {
+          const postUrl = await generateUploadUrl();
+          const res = await fetch(postUrl, {
+            method: "POST",
+            headers: { "Content-Type": p.type },
+            body: p,
+          });
+          if (!res.ok) throw new Error("Upload impossible");
+          const { storageId } = (await res.json()) as { storageId: string };
+          return storageId;
+        }),
+      );
 
       // ---- Étape 1 : lecture de la photo (OCR, modèle rapide) ----
       const ocr = await ocrPhotos({ storageIds, contentTypes: preparedTypes });
