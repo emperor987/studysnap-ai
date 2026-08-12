@@ -92,10 +92,9 @@ export default defineConfig({
     // Bind to all interfaces so WebContainer's server-ready event fires.
     host: true,
     port: 5173,
-    // Keep HMR on, but disable full-screen error overlay
-    hmr: {
-      overlay: false,
-    },
+    // Freebuff requires HMR to remain disabled (the platform runs its own
+    // managed dev process; stale HMR state breaks the preview).
+    hmr: false,
     // En-têtes appliqués par le serveur de dev à TOUTES les réponses de
     // l'aperçu (routes, fallback SPA, erreurs). Anti-clickjacking réel : la
     // plateforme Freebuff affiche l'aperçu dans une iframe, on autorise donc
