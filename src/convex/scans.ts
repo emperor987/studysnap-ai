@@ -1,9 +1,12 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { getOrCreateUsage, getPlan } from "./usage";
 import { demoAnalysis, hashSeed } from "./demoData";
 import { assertParentalConsent } from "./users";
+import { assertUserOwnsAllStorage } from "./files";
+import type { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 
 const SCAN_MIN_INTERVAL_MS = 4000;
 
@@ -80,6 +83,13 @@ export const recordScan = mutation({
         message: "Un des fichiers n'est pas une image valide (JPG, PNG, WebP…).",
       });
     }
+    // Propriété des fichiers : un storageId d'un autre compte est refusé
+    // (empêche de lire/OCR/supprimer l'image d'autrui en devinant son id).
+    await assertUserOwnsAllStorage(
+      ctx as unknown as QueryCtx,
+      userId as Id<"users">,
+      args.storageIds,
+    );
 
     const plan = await getPlan(ctx, userId);
     const usage = await getOrCreateUsage(ctx, userId);
@@ -111,7 +121,7 @@ export const recordScan = mutation({
       topic: args.analysis.detection.topic,
       level: args.analysis.detection.level,
       title: args.analysis.detection.topic || args.analysis.detection.prompt.slice(0, 60),
-      fullText: args.fullText,
+      fullText: args.fullText?.slice(0, 20000),
       status: "done",
       mode: args.mode,
       result: args.analysis,
@@ -162,6 +172,11 @@ export const deleteScan = mutation({
     if (!scan || scan.userId !== userId) return;
     for (const id of scan.storageIds) {
       await ctx.storage.delete(id);
+      const up = await ctx.db
+        .query("uploads")
+        .withIndex("by_storage", (q) => q.eq("storageId", id))
+        .first();
+      if (up && up.userId === userId) await ctx.db.delete(up._id);
     }
     await ctx.db.delete(args.scanId);
   },
@@ -219,7 +234,7 @@ export const createDemoScan = mutation({
 });
 
 /** Interne (cron) : scans dont les images doivent être purgées. */
-export const listScansForCleanup = query({
+export const listScansForCleanup = internalQuery({
   args: { cutoff: v.number() },
   handler: async (ctx, args) => {
     const scans = await ctx.db.query("scans").collect();
@@ -230,7 +245,7 @@ export const listScansForCleanup = query({
 });
 
 /** Interne (cron) : vide le champ images d'un scan après purge. */
-export const clearScanImages = mutation({
+export const clearScanImages = internalMutation({
   args: { scanId: v.id("scans") },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.scanId, { storageIds: [] });

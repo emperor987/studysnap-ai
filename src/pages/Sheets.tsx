@@ -58,6 +58,7 @@ export default function Sheets() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const registerUpload = useMutation(api.files.registerUpload);
   const generateSheet = useAction(api.ai.generateSheet);
   const createSheet = useMutation(api.revisionSheets.createSheet);
 
@@ -117,6 +118,9 @@ export default function Sheets() {
             });
             if (!res.ok) throw new Error("upload");
             const { storageId } = (await res.json()) as { storageId: string };
+            // Enregistre le fichier comme appartenant à l'utilisateur : sans
+            // cet enregistrement, les mutations/actions refusent de l'utiliser.
+            await registerUpload({ storageId, contentType: p.type });
             return storageId;
           }),
         );

@@ -6,8 +6,8 @@
  * statut (bannière frontend) et le cron de rappels.
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internalMutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /** Rappel envoyé après 48 h sans confirmation (le token dure 72 h). */
 const REMINDER_AFTER_MS = 48 * 60 * 60 * 1000;
@@ -35,9 +35,10 @@ export const getMyParentalStatus = query({
 /**
  * Cron quotidien : marque "expired" les demandes dont le token a expiré, et
  * envoie un rappel aux parents qui n'ont pas confirmé après 48 h (le rappel
- * génère un nouveau lien de 72 h).
+ * génère un nouveau lien de 72 h). Fonction INTERNE (cron uniquement) : un
+ * client ne doit pas pouvoir déclencher des envois d'emails en masse.
  */
-export const remindPending = mutation({
+export const remindPending = internalMutation({
   args: {},
   handler: async (ctx) => {
     const pending = await ctx.db
@@ -60,7 +61,7 @@ export const remindPending = mutation({
         // Une mutation ne peut pas appeler une action : on planifie l'envoi.
         await ctx.scheduler.runAfter(
           0,
-          api.parentalConsent.sendReminderForUser,
+          internal.parentalConsent.sendReminderForUser,
           { userId: user._id },
         );
         reminders += 1;

@@ -18,35 +18,31 @@
  * sans clé, l'action renvoie { emailSent: false } et l'utilisateur peut
  * réessayer plus tard (le compte reste en attente).
  */
-import { createHash, randomBytes } from "node:crypto";
 import { ConvexError, v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { vly } from "../lib/vly-integrations";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { resolveSiteBaseUrl } from "../lib/url";
+import { CONSENT_TTL_MS, generateToken, hashToken } from "../lib/consent-token";
 import type { ParentalUserView } from "./parentalConsentInternal";
 
-export const CONSENT_TTL_MS = 72 * 60 * 60 * 1000; // 72 h
+// (CONSENT_TTL_MS est défini dans src/lib/consent-token.ts)
 export const RESEND_COOLDOWN_MS = 5 * 60 * 1000; // 5 min entre deux envois
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function siteBaseUrl(fallback?: string): string {
-  return (
-    process.env.SITE_URL ??
-    process.env.CONVEX_SITE_URL ??
-    fallback ??
-    "https://studysnap.app"
-  );
+/** Base serveur configurée (SITE_URL > CONVEX_SITE_URL). */
+function serverBaseUrl(): string {
+  return process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? "";
 }
 
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
+// hashToken / generateToken / CONSENT_TTL_MS : src/lib/consent-token.ts
 
-function generateToken(): { token: string; hash: string; expiresAt: number } {
-  const token = randomBytes(32).toString("base64url");
-  return { token, hash: hashToken(token), expiresAt: Date.now() + CONSENT_TTL_MS };
+/** URL de confirmation : origine validée (voir src/lib/url.ts). */
+function consentConfirmUrl(userProvidedSiteUrl: string | undefined, token: string): string {
+  const base = resolveSiteBaseUrl(userProvidedSiteUrl, serverBaseUrl());
+  return `${base}/parental-consent?token=${encodeURIComponent(token)}`;
 }
 
 function escapeHtml(s: string): string {
@@ -156,7 +152,7 @@ export const submitParentalRequest = action({
       parentalConsentLastSentAt: now,
     });
 
-    const confirmUrl = `${siteBaseUrl(args.siteUrl)}/parental-consent?token=${encodeURIComponent(token)}`;
+    const confirmUrl = consentConfirmUrl(args.siteUrl, token);
     const emailResult = await sendParentalEmail({
       to: email,
       childEmail: user.email,
@@ -208,7 +204,7 @@ export const resendParentalEmail = action({
       parentalConsentLastSentAt: now,
     });
 
-    const confirmUrl = `${siteBaseUrl(args.siteUrl)}/parental-consent?token=${encodeURIComponent(token)}`;
+    const confirmUrl = consentConfirmUrl(args.siteUrl, token);
     const emailResult = await sendParentalEmail({
       to: user.parentEmail,
       childEmail: user.email,
@@ -262,7 +258,7 @@ export const confirmParentalConsent = action({
 /* Rappel automatique (appelé par le cron via scheduler.runAfter)       */
 /* ------------------------------------------------------------------ */
 
-export const sendReminderForUser = action({
+export const sendReminderForUser = internalAction({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const user = (await ctx.runQuery(
@@ -281,7 +277,7 @@ export const sendReminderForUser = action({
       parentalConsentReminderSentAt: now,
     });
 
-    const confirmUrl = `${siteBaseUrl()}/parental-consent?token=${encodeURIComponent(token)}`;
+    const confirmUrl = consentConfirmUrl(undefined, token);
     const emailResult = await sendParentalEmail({
       to: user.parentEmail,
       childEmail: user.email,

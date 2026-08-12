@@ -26,9 +26,11 @@
  * erreur dédiée est levée et affichée côté client.
  */
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, type ActionCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { sanitizeUserText, stripHtmlArtifacts } from "../lib/clean";
 import { condenseLongText, documentKind } from "../lib/analysis";
 import {
@@ -96,6 +98,28 @@ async function requireUser(ctx: ActionCtx) {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Vous devez être connecté·e.");
   return userId;
+}
+
+/**
+ * Vérifie que chaque storageId appartient à l'utilisateur connecté
+ * (BOLA) : une photo d'un autre compte ne peut être ni OCRisée, ni
+ * transformée en fiche. À appeler AVANT toute lecture d'image.
+ */
+async function assertUserOwnsImages(
+  ctx: ActionCtx,
+  userId: string,
+  storageIds: string[],
+): Promise<void> {
+  const { owned } = await ctx.runQuery(
+    internal.files.checkStorageOwnership,
+    { storageIds, userId: userId as Id<"users"> },
+  );
+  if (storageIds.some((id) => !owned[id])) {
+    throw new ConvexError({
+      code: "INVALID_UPLOAD",
+      message: "Un des fichiers ne t'appartient pas.",
+    });
+  }
 }
 
 class AiRateLimitedError extends Error {
@@ -675,7 +699,10 @@ export const ocrPhotos = action({
   },
   handler: async (ctx, args): Promise<OcrResult> => {
     const startedAt = Date.now();
-    await requireUser(ctx);
+    const userId = await requireUser(ctx);
+
+    // Propriété des fichiers : jamais d'OCR d'une image d'un autre compte.
+    await assertUserOwnsImages(ctx, userId, args.storageIds);
 
     // Mode démo : reste actif tant qu'aucune clé n'est configurée.
     if (!aiKey()) {
@@ -820,6 +847,11 @@ export const generateSheet = action({
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
     const seed = hashSeed(userId, args.sourceText ?? "", args.storageIds?.join(",") ?? "", new Date().getDate());
+
+    // Propriété des fichiers : on ne transforme que ses propres photos.
+    if (args.storageIds && args.storageIds.length > 0) {
+      await assertUserOwnsImages(ctx, userId, args.storageIds);
+    }
 
     if (!aiKey()) {
       await minLatency();

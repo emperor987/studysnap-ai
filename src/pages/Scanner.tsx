@@ -126,6 +126,7 @@ export default function Scanner() {
 
   const usage = useQuery(api.usage.getMyUsage);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const registerUpload = useMutation(api.files.registerUpload);
   const ocrPhotos = useAction(api.ai.ocrPhotos);
   const analyzeText = useAction(api.ai.analyzeText);
   const recordScan = useMutation(api.scans.recordScan);
@@ -199,6 +200,9 @@ export default function Scanner() {
           });
           if (!res.ok) throw new Error("Upload impossible");
           const { storageId } = (await res.json()) as { storageId: string };
+          // Enregistre le fichier comme appartenant à l'utilisateur : sans
+          // cet enregistrement, les mutations/actions refusent de l'utiliser.
+          await registerUpload({ storageId, contentType: p.type });
           return storageId;
         }),
       );

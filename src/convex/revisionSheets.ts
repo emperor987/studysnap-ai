@@ -4,6 +4,9 @@ import { mutation, query } from "./_generated/server";
 import { getOrCreateUsage, getPlan } from "./usage";
 import { demoSheet, hashSeed } from "./demoData";
 import { assertParentalConsent } from "./users";
+import { assertUserOwnsAllStorage } from "./files";
+import type { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 
 export const sheetContentValidator = v.object({
   concepts: v.array(v.object({ term: v.string(), definition: v.string() })),
@@ -30,6 +33,13 @@ export const createSheet = mutation({
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
     await assertParentalConsent(ctx, userId);
 
+    // Propriété des fichiers : on ne peut référencer que ses propres uploads.
+    await assertUserOwnsAllStorage(
+      ctx as unknown as QueryCtx,
+      userId as Id<"users">,
+      args.storageIds,
+    );
+
     const plan = await getPlan(ctx, userId);
     const usage = await getOrCreateUsage(ctx, userId);
     if (plan === "free" && usage.sheetsCount >= 3) {
@@ -48,7 +58,7 @@ export const createSheet = mutation({
       level: args.level,
       sourceType: args.sourceType,
       storageIds: args.storageIds,
-      sourceText: args.sourceText,
+      sourceText: args.sourceText?.slice(0, 20000),
       content: args.content,
       createdAt: now,
       updatedAt: now,
@@ -95,6 +105,11 @@ export const deleteSheet = mutation({
     if (!sheet || sheet.userId !== userId) return;
     for (const id of sheet.storageIds) {
       await ctx.storage.delete(id);
+      const up = await ctx.db
+        .query("uploads")
+        .withIndex("by_storage", (q) => q.eq("storageId", id))
+        .first();
+      if (up && up.userId === userId) await ctx.db.delete(up._id);
     }
     await ctx.db.delete(args.sheetId);
   },

@@ -236,6 +236,19 @@ const schema = defineSchema(
       updatedAt: v.number(),
     }).index("by_singleton", ["singleton"]),
 
+    // Registre des images téléversées par chaque utilisateur (sécurité).
+    // Un storageId ne peut être référencé (scan, fiche, OCR) que s'il figure
+    // ici pour le MÊME utilisateur : empêche de lire, de lier ou de supprimer
+    // l'image d'un autre compte en devinant son storageId (BOLA/IDOR).
+    uploads: defineTable({
+      userId: v.id("users"),
+      storageId: v.string(),
+      contentType: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_storage", ["storageId"])
+      .index("by_user", ["userId", "createdAt"]),
+
     // Compteurs mensuels (limites plan gratuit + stats)
     usage: defineTable({
       userId: v.id("users"),

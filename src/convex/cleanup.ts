@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 
 /**
  * Purge hebdomadaire (planifiée dans crons.ts) : supprime les photos de
@@ -6,10 +6,11 @@ import { mutation } from "./_generated/server";
  * Les URLs d'images Convex étant signées et temporaires, les liens expirés
  * deviennent inaccessibles.
  *
- * Mutation volontairement publique mais inoffensive : elle ne supprime que
- * les fichiers dépassant la durée de rétention.
+ * Fonction INTERNE (cron uniquement) : une purge déclenchée par un client
+ * arbitraire serait une opération destructive abusable (DoS sur le
+ * nettoyage, charge inutile). Le cron appelle internal.cleanup…
  */
-export const cleanupExpiredImages = mutation({
+export const cleanupExpiredImages = internalMutation({
   args: {},
   handler: async (ctx) => {
     const retentionDays =
@@ -21,6 +22,11 @@ export const cleanupExpiredImages = mutation({
       if (scan.createdAt < cutoff && scan.storageIds.length > 0) {
         for (const id of scan.storageIds) {
           await ctx.storage.delete(id);
+          const up = await ctx.db
+            .query("uploads")
+            .withIndex("by_storage", (q) => q.eq("storageId", id))
+            .first();
+          if (up) await ctx.db.delete(up._id);
         }
         await ctx.db.patch(scan._id, { storageIds: [] });
         deleted += 1;

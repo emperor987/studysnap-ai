@@ -165,6 +165,13 @@ export const deleteMyAccount = mutation({
       .collect();
     for (const u of usage) await ctx.db.delete(u._id);
 
+    // Registre des fichiers téléversés (sécurité)
+    const uploads = await ctx.db
+      .query("uploads")
+      .withIndex("by_user", (q) => q.eq("userId", userId as never))
+      .collect();
+    for (const u of uploads) await ctx.db.delete(u._id);
+
     const subscription = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", userId as never))

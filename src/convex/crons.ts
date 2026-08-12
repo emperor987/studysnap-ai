@@ -1,5 +1,5 @@
 import { cronJobs } from "convex/server";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 /**
  * Politique de suppression automatique des photos de devoirs :
@@ -12,7 +12,7 @@ const crons = cronJobs();
 crons.weekly(
   "cleanup expired exercise images",
   { dayOfWeek: "sunday", hourUTC: 3, minuteUTC: 0 },
-  api.cleanup.cleanupExpiredImages,
+  internal.cleanup.cleanupExpiredImages,
 );
 
 /**
@@ -23,7 +23,7 @@ crons.weekly(
 crons.daily(
   "parental consent reminders",
   { hourUTC: 9, minuteUTC: 0 },
-  api.parentalConsentStatus.remindPending,
+  internal.parentalConsentStatus.remindPending,
 );
 
 export default crons;

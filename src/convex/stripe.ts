@@ -25,6 +25,7 @@ import { v } from "convex/values";
 import { action, httpAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { resolveStripeOrigin } from "../lib/url";
 
 const STRIPE_API = "https://api.stripe.com/v1";
 
@@ -123,6 +124,17 @@ export const createCheckoutSession = action({
     const dayKey = new Date().toISOString().slice(0, 10);
     const idempotencyKey = `checkout_${userId}_${args.plan}_${args.billing}_${dayKey}`;
 
+    // L'origine vient du client : on ne construit JAMAIS d'URL de
+    // redirection Stripe vers un domaine non validé (open redirect via
+    // Stripe / phishing après paiement).
+    const origin = resolveStripeOrigin(
+      args.origin,
+      process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    );
+    if (!origin) {
+      return { available: false as const, reason: "invalid_origin" as const };
+    }
+
     const session = await stripeFetch(
       "/checkout/sessions",
       {
@@ -130,8 +142,8 @@ export const createCheckoutSession = action({
         "line_items[][price]": priceId,
         "line_items[][quantity]": "1",
         customer_email: user?.email ?? "",
-        success_url: `${args.origin}/settings?upgraded=1`,
-        cancel_url: `${args.origin}/pricing`,
+        success_url: `${origin}/settings?upgraded=1`,
+        cancel_url: `${origin}/pricing`,
         "metadata[userId]": userId,
         "metadata[plan]": args.plan,
         "metadata[billing]": args.billing,
@@ -158,8 +170,16 @@ type StripeEvent = {
   };
 };
 
-/** Vérifie la signature HMAC-SHA256 Stripe (Web Crypto, aucun import Node). */
-async function verifyStripeSignature(
+/** Tolérance d'horloge pour le timestamp de la signature (anti-rejeu). */
+const SIGNATURE_MAX_AGE_MS = 5 * 60 * 1000;
+
+/**
+ * Vérifie la signature HMAC-SHA256 Stripe (Web Crypto, aucun import Node).
+ * Exportée pour les tests de sécurité. Le timestamp `t=` est contrôlé :
+ * une signature valide mais REJOUÉE (timestamp trop ancien) est refusée
+ * (anti-rejeu — ASVS 12.5.1).
+ */
+export async function verifyStripeSignature(
   raw: string,
   signature: string,
   secret: string,
@@ -169,6 +189,10 @@ async function verifyStripeSignature(
   const sigPart = parts.find((p) => p.startsWith("v1="));
   if (!tsPart || !sigPart) return false;
   const timestamp = tsPart.slice(2);
+  const timestampMs = Number(timestamp) * 1000;
+  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return false;
+  // Anti-rejeu : la signature doit être récente (horloge ± 5 min).
+  if (Math.abs(Date.now() - timestampMs) > SIGNATURE_MAX_AGE_MS) return false;
   const signed = `${timestamp}.${raw}`;
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(

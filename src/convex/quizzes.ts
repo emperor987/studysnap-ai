@@ -53,13 +53,20 @@ export const saveQuiz = mutation({
       });
     }
 
+    // Bornes de taille : le client ne contrôle pas la structure (userId,
+    // status…) mais on ne lui fait pas non plus confiance sur le volume
+    // (un quiz plafonné à 20 questions par le générateur IA).
+    const questions = args.questions.slice(0, 20);
+    const count = Math.min(20, Math.max(1, Math.round(args.settings.count)));
+    const settings = { ...args.settings, count };
+
     const quizId = await ctx.db.insert("quizzes", {
       userId: userId as never,
-      subject: args.subject,
-      level: args.level,
-      title: args.title,
-      settings: args.settings,
-      questions: args.questions,
+      subject: args.subject.slice(0, 100),
+      level: args.level.slice(0, 50),
+      title: args.title.slice(0, 200),
+      settings,
+      questions,
       status: "pending",
       createdAt: Date.now(),
     });
@@ -91,12 +98,22 @@ export const saveQuizResult = mutation({
     const quiz = await ctx.db.get(args.quizId);
     if (!quiz || quiz.userId !== userId) return null;
 
-    const score = args.answers.filter((a) => a.isCorrect).length;
     const now = Date.now();
+    let score = 0;
+    let graded = 0;
 
-    for (const a of args.answers) {
+    // Le score est calculé CÔTÉ SERVEUR : le champ isCorrect envoyé par le
+    // client est ignoré (un utilisateur ne peut pas se marquer toutes les
+    // réponses comme correctes pour fausser sa progression). La comparaison
+    // est identique à celle de l'interface (texte, insensible à la casse).
+    for (const a of args.answers.slice(0, quiz.questions.length)) {
       const q = quiz.questions[a.questionIndex];
       if (!q) continue;
+      const serverCorrect =
+        a.selected !== undefined &&
+        a.selected.trim().toLowerCase() === q.answer.trim().toLowerCase();
+      if (serverCorrect) score += 1;
+      graded += 1;
       await ctx.db.insert("quiz_answers", {
         userId: userId as never,
         quizId: args.quizId,
@@ -104,7 +121,7 @@ export const saveQuizResult = mutation({
         topic: q.topic,
         questionIndex: a.questionIndex,
         selected: a.selected,
-        isCorrect: a.isCorrect,
+        isCorrect: serverCorrect,
         createdAt: now,
       });
     }
@@ -112,7 +129,7 @@ export const saveQuizResult = mutation({
     await ctx.db.patch(args.quizId, {
       score,
       total: quiz.questions.length,
-      durationSeconds: args.durationSeconds,
+      durationSeconds: Math.min(86400, Math.max(0, Math.round(args.durationSeconds))),
       status: "done",
     });
     return { score, total: quiz.questions.length };
