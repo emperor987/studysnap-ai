@@ -260,6 +260,20 @@ const schema = defineSchema(
       updatedAt: v.number(),
     }).index("by_key", ["key"]),
 
+    // Journal d'audit des tentatives BLOQUÉES (abus). Écrit par le rate
+    // limiter quand il refuse une requête (jamais sur les requêtes
+    // autorisées). Une ligne par seau et par fenêtre — croissance bornée.
+    // Visible dans le dashboard Convex (table security_events) ; purgé par
+    // le cron hebdomadaire après 30 jours. Jamais exposé au client.
+    security_events: defineTable({
+      bucket: v.string(), // cible : "ai:<userId>", "otp:<email>"…
+      kind: v.string(), // type : "ai_generation" | "otp_flood" | "rate_limit"…
+      windowStart: v.number(), // fenêtre du seau refusée (déduplication exacte)
+      deniedAt: v.number(), // horodatage du refus
+    })
+      .index("by_bucket", ["bucket"])
+      .index("by_denied_at", ["deniedAt"]),
+
     // Compteurs mensuels (limites plan gratuit + stats)
     usage: defineTable({
       userId: v.id("users"),

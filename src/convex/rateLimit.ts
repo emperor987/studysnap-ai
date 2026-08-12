@@ -27,6 +27,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
+import { recordDenial } from "./securityEvents";
 
 /** Envois de code OTP par email : 3 maximum sur 15 minutes (fenêtre glissante). */
 export const OTP_SEND_LIMITS = {
@@ -48,6 +49,16 @@ export const AI_GENERATION_LIMITS = {
 
 /** Rétention des seaux inactifs (purge hebdomadaire via cleanup.ts). */
 export const RATE_LIMIT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Type d'abus associé à une clé de seau — utilisé pour le journal
+ * d'audit des tentatives bloquées (table security_events).
+ */
+export function kindOfKey(key: string): string {
+  if (key.startsWith("otp:")) return "otp_flood";
+  if (key.startsWith("ai:")) return "ai_generation";
+  return "rate_limit";
+}
 
 export type ConsumeResult = {
   allowed: boolean;
@@ -100,6 +111,14 @@ export const consume = internalMutation({
       return { allowed: true, retryAfterMs: 0 };
     }
 
+    // Refus : on journalise l'abus (une ligne par seau et par fenêtre).
+    // C'est la trace visible dans le dashboard pour détecter un abus sans
+    // exposer quoi que ce soit au client (l'erreur reste générique).
+    await recordDenial(ctx, {
+      bucket: args.key,
+      kind: kindOfKey(args.key),
+      windowStart: existing.windowStart,
+    });
     return {
       allowed: false,
       retryAfterMs: existing.windowStart + args.windowMs - now,

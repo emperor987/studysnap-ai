@@ -71,6 +71,22 @@ par compte — d'où aussi les plafonds par email et par heure ci-dessus.
 
 Preuve : `tests/security/rate-limit.test.ts`, `tests/security/rate-limit-and-injection.test.ts`.
 
+## Journal d'abus (`security_events`) et contrôle santé
+
+- **Journal d'abus** : chaque refus du rate limiter (générations IA au-dessus
+  du plafond, flood d'emails OTP, etc.) est journalisé dans la table
+  `security_events` (`bucket`, `kind`, `windowStart`, `deniedAt`). Une ligne
+  par seau et par fenêtre (croissance bornée), jamais exposée au client,
+  purgée par le cron hebdomadaire après 30 jours. Visible dans le dashboard
+  Convex — c'est la première chose à regarder en cas de soupçon d'abus.
+- **Contrôle santé** : `GET /health` (backend Convex) répond `{"status":"ok"}`
+  sans aucune information interne — à brancher sur un service de surveillance
+  de disponibilité (UptimeRobot, Better Stack…).
+- **Guide pratique** (problèmes courants, réflexes anti-abus, routine) :
+  `docs/GUIDE_UTILISATEUR_ET_SECURITE.md`.
+
+Preuve : `tests/security/health-and-events.test.ts`.
+
 ## Clickjacking
 
 - **Production** (`public/_headers`) : `frame-ancestors 'none'` (CSP) +
@@ -159,7 +175,8 @@ CSRF (sessions httpOnly + en-tête Convex), open redirect, path traversal, uploa
 rate limiting multi-dimension, clickjacking (politique évaluée), sessions (flags,
 rotation, logout, TTL), en-têtes de sécurité, CORS, redaction des logs, gestion
 d'erreurs, secrets + rotation, signature webhook + anti-rejeu + multi-secrets,
-notation serveur, tokens parentaux.
+notation serveur, tokens parentaux, journal d'abus `security_events` (déduplication,
+retention, purge), endpoint `/health` (aucune fuite).
 
 ## Signaler une vulnérabilité
 
