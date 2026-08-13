@@ -238,6 +238,32 @@ Le déblocage est **automatique** : le webhook Stripe
 contenu complet et les limites gratuites tombent (voir
 `tests/unit/plan-upgrade-workflow.test.ts`).
 
+## Paywall serveur — contenus avancés (analyse approfondie)
+
+Les contenus « avancés » (philosophie, spécialités de lycée — spé, maths
+expertes, HGGSP, NSI —, niveau post-bac) sont réservés aux plans Student /
+Student Pro. La détection et le blocage sont **côté serveur**, AVANT toute
+génération (aucun quota consommé) :
+
+- `detectAdvancedContent` (base de connaissances `src/lib/curriculum.ts`)
+  est appelé en tête de `analyzeText` sur le texte OCR ; un compte Gratuit
+  reçoit `{ gated: true, reason, category, … }` sans appel au modèle ;
+- les contenus classiques (maths, français, histoire-géo, SVT,
+  physique-chimie, langues, technologie, SES…) ne sont **jamais** marqués
+  (garde-fous : collège, score d'alias dédoublonné, mots isolés de
+  vocabulaire) ;
+- le frontend affiche le panneau paywall (→ `/pricing`) uniquement sur ce
+  résultat serveur ; un abonné actif reçoit l'analyse normale.
+
+La base de connaissances couvre le programme scolaire français (collège
+6ᵉ→3ᵉ et lycée Seconde→Terminale) et est injectée en priorité dans le
+prompt IA. Quand elle ne couvre pas le contenu (`confidence: low`), une
+recherche internet de secours (Brave, clé `SEARCH_API_KEY` dans l'UI Keys)
+complète l'analyse — jamais d'exception, jamais de clé côté client.
+
+Preuve : `tests/unit/curriculum-gating.test.ts` (détection des matières,
+contenus avancés vs classiques, recherche de secours, gating par plan).
+
 ## Suite de tests
 
 ```bash

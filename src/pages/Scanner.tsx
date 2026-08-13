@@ -30,7 +30,14 @@ import { useDevice } from "@/hooks/use-device";
 import { downscaleImage } from "@/lib/image";
 import type { ConvexError } from "convex/values";
 
-type Step = "upload" | "analyzing" | "mode";
+type Step = "upload" | "analyzing" | "gated" | "mode";
+
+type GatedInfo = {
+  category: string;
+  reason: string;
+  subjectLabel?: string;
+  levelLabel?: string;
+};
 
 const MAX_FILES = 6;
 const MAX_SIZE_MB = 10;
@@ -119,6 +126,7 @@ export default function Scanner() {
   const [extraText, setExtraText] = useState("");
   const [willBeLong, setWillBeLong] = useState(false);
   const [docKind, setDocKind] = useState<DocumentKind>("exercise");
+  const [gated, setGated] = useState<GatedInfo | null>(null);
 
   const usage = useQuery(api.usage.getMyUsage);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
@@ -169,6 +177,7 @@ export default function Scanner() {
     setError(null);
     setWillBeLong(false);
     setDocKind("exercise");
+    setGated(null);
     setPhase("ocr");
     setStep("analyzing");
     try {
@@ -219,6 +228,18 @@ export default function Scanner() {
         text: ocr.fullText,
         prompt: extraText.trim() || undefined,
       });
+      // Contenu avancé (philosophie, spécialité de lycée…) sur le plan
+      // Gratuit : l'analyse est bloquée côté serveur → panneau paywall.
+      if ("gated" in result) {
+        setGated({
+          category: result.category,
+          reason: result.reason,
+          subjectLabel: result.subjectLabel,
+          levelLabel: result.levelLabel,
+        });
+        setStep("gated");
+        return;
+      }
       setAnalysis(result);
       setFullText(ocr.fullText);
       setStorageIds(storageIds);
@@ -556,6 +577,52 @@ export default function Scanner() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ---------- Étape contenu avancé détecté (paywall) ---------- */}
+      {step === "gated" && gated && (
+        <div className="mx-auto max-w-xl">
+          <div className="glass-panel rounded-3xl p-8 text-center sm:p-10">
+            <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-brand-gradient text-2xl text-white shadow-lg shadow-indigo-500/25">
+              🎓
+            </div>
+            <span className="glass-chip mx-auto mt-5 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-amber-300">
+              {gated.levelLabel ?? "Niveau avancé détecté"}
+            </span>
+            <h2 className="mt-4 text-2xl font-extrabold tracking-tight">
+              Analyse approfondie réservée aux plans Student
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              {gated.reason}
+            </p>
+            {gated.subjectLabel && (
+              <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                Matière détectée : {gated.subjectLabel}
+              </p>
+            )}
+            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+              >
+                <Zap className="size-4" />
+                Découvrir Student & Student Pro
+              </Link>
+              <button
+                type="button"
+                onClick={() => setStep("upload")}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
+              >
+                <RefreshCw className="size-4" />
+                Scanner autre chose
+              </button>
+            </div>
+            <p className="mt-5 text-xs text-muted-foreground">
+              Les exercices classiques (maths, français, histoire-géo, SVT…) restent
+              gratuits — seul ce type de contenu avancé nécessite un plan payant.
+            </p>
+          </div>
         </div>
       )}
 
