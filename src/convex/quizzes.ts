@@ -108,7 +108,6 @@ export const saveQuizResult = mutation({
 
     const now = Date.now();
     let score = 0;
-    let graded = 0;
 
     // Le score est calculé CÔTÉ SERVEUR : le champ isCorrect envoyé par le
     // client est ignoré (un utilisateur ne peut pas se marquer toutes les
@@ -121,7 +120,6 @@ export const saveQuizResult = mutation({
         a.selected !== undefined &&
         a.selected.trim().toLowerCase() === q.answer.trim().toLowerCase();
       if (serverCorrect) score += 1;
-      graded += 1;
       await ctx.db.insert("quiz_answers", {
         userId: userId as never,
         quizId: args.quizId,

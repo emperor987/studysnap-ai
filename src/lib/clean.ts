@@ -42,6 +42,7 @@ export function stripHtmlArtifacts(text: string): string {
  */
 export function sanitizeUserText(text: string, maxLength = 8000): string {
   return (text ?? "")
+    // eslint-disable-next-line no-control-regex -- suppression volontaire des caractères de contrôle de la sortie IA
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")

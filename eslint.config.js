@@ -24,6 +24,14 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Règles strictes ajoutées dans eslint-plugin-react-hooks v7 : elles
+      // signalent des patterns canoniques (composants shadcn vendus, effets
+      // de synchronisation) et des faux positifs (ex. affectation de
+      // window.location.href dans un handler). Conservées en avertissement
+      // pour garder le signal visible sans bloquer le lint.
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/purity": "warn",
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },

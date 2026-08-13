@@ -24,10 +24,9 @@ import { internal } from "./_generated/api";
 import { vly } from "../lib/vly-integrations";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { resolveSiteBaseUrl } from "../lib/url";
-import { CONSENT_TTL_MS, generateToken, hashToken } from "../lib/consent-token";
+import { generateToken, hashToken } from "../lib/consent-token";
 import type { ParentalUserView } from "./parentalConsentInternal";
 
-// (CONSENT_TTL_MS est défini dans src/lib/consent-token.ts)
 export const RESEND_COOLDOWN_MS = 5 * 60 * 1000; // 5 min entre deux envois
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -5,7 +5,6 @@
  * (jamais de backend déployé, jamais de clé tierce).
  */
 import { describe, expect, test } from "bun:test";
-import { ConvexError } from "convex/values";
 
 import * as scans from "@/convex/scans";
 import * as sheets from "@/convex/revisionSheets";

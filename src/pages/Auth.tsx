@@ -1082,7 +1082,10 @@ function SignupLoadingScreen({
   const [timedOut, setTimedOut] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
+  // Synchronise la dernière version de onDone sans la lire pendant le rendu.
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  });
 
   // Phrases défilantes : une nouvelle phrase toutes les ~2,4 s.
   useEffect(() => {

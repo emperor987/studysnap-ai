@@ -230,7 +230,6 @@ const MARGIN = 46;
 const HEADER_H = 62;
 const FOOTER_GAP = 64; // zone réservée en bas de page
 const BODY_MAX_W = PAGE_W - MARGIN * 2;
-const BODY_MAX_Y = PAGE_H - HEADER_H - FOOTER_GAP;
 const GRADIENT_STEPS = 28;
 
 /** Interpole deux couleurs RGB. */
@@ -282,7 +281,6 @@ function footerOps(page: number, total: number): string {
   ops.push(
     `BT /F2 7.5 Tf ${rgb(INDIGO)} rg ${MARGIN} ${yText} Td (StudySnap) Tj ET`,
   );
-  const tagW = textWidth(brand, 7.5) - textWidth("StudySnap", 7.5);
   ops.push(
     `BT /F1 7.5 Tf ${rgb(GRAY)} rg ${(MARGIN + textWidth("StudySnap", 7.5) + 3).toFixed(2)} ${yText} Td (${encodePdfString(
       brand.slice("StudySnap".length),

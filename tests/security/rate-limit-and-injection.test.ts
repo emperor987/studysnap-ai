@@ -21,7 +21,6 @@ import {
   seedUser,
   setCurrentUser,
   uid,
-  currentMonthForTest,
 } from "../helpers/mock-convex";
 
 /** Analyse valide minimale pour recordScan. */

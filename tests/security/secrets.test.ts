@@ -34,14 +34,14 @@ describe("Secrets — rien en dur dans le code source", () => {
   test("aucune clé API en clair (format x-api-key: \"...\")", () => {
     // Une clé lue depuis l'environnement ne matche pas ce pattern
     // (process.env…); une clé littérale, si.
-    const hardcoded = srcCode.match(/x-api-key["']?\s*[:=]\s*["'][A-Za-z0-9_\-]{16,}["']/g);
+    const hardcoded = srcCode.match(/x-api-key["']?\s*[:=]\s*["'][A-Za-z0-9_-]{16,}["']/g);
     expect(hardcoded).toBeNull();
   });
 
   test("aucun secret d'infrastructure en clair (Stripe, NVIDIA, webhook)", () => {
     expect(srcCode).not.toMatch(/sk_(live|test)_[A-Za-z0-9]{10,}/);
     expect(srcCode).not.toMatch(/whsec_[A-Za-z0-9]{10,}/);
-    expect(srcCode).not.toMatch(/nvapi-[A-Za-z0-9_\-]{10,}/);
+    expect(srcCode).not.toMatch(/nvapi-[A-Za-z0-9_-]{10,}/);
     expect(srcCode).not.toMatch(/AI_API_KEY\s*[:=]\s*["'][^"']{8,}["']/);
   });
 

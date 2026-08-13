@@ -121,7 +121,7 @@ export function pickFrom<T>(rng: () => number, arr: T[]): T {
 function demoEquations(seed: number): DemoAnalysis {
   const rng = mulberry32(seed * 2654435761);
   // Choisit a et b tels que ax + b = 17 admette une solution entière x.
-  let a = 2 + Math.floor(rng() * 5); // 2..6
+  const a = 2 + Math.floor(rng() * 5); // 2..6
   let k = 1 + Math.floor(rng() * 4); // x = k
   while (a * k >= 17) k = 1 + Math.floor(rng() * 4);
   const b = 17 - a * k;
@@ -271,7 +271,6 @@ function demoFactorisation(seed: number): DemoAnalysis {
   ];
   const p = pairs[Math.floor(rng() * pairs.length)];
   const { x, y } = p;
-  const a2 = x * x;
   const q: DemoExercise[] = [
     {
       question: `Factoriser l'expression : ${x}²x² − ${y * y}`,
@@ -533,7 +532,7 @@ function demoQuizMath(
   for (let i = 0; i < count; i++) {
     const type = typePool[i % typePool.length];
     // Génère une équation à solution entière : ax + b = 20 avec b = 20 − a·x
-    let a = 2 + Math.floor(rng() * Math.max(k, 2));
+    const a = 2 + Math.floor(rng() * Math.max(k, 2));
     let x = 1 + Math.floor(rng() * 3);
     while (a * x >= 20) x = 1 + Math.floor(rng() * 3);
     const b = 20 - a * x;
@@ -601,7 +600,6 @@ export function demoQuiz(
     return { title: `Quiz ${subject || "Mathématiques"}`, ...demoQuizMath(seed, count, difficulty, types) };
   }
   // Autres matières : quiz générique crédible
-  const rng = mulberry32(seed * 999);
   const questions: { type: string; question: string; options?: string[]; answer: string; explanation: string; topic: string }[] = [];
   const pool = [
     {
