@@ -147,20 +147,20 @@ describe("rateLimit:consume — fenêtre glissante distribuée", () => {
 /* ------------------------------------------------------------------ */
 
 describe("emailOtp — limite d'envoi de codes par email (anti-flood)", () => {
-  const originalKey = process.env.FREEBUFF_EMAIL_API_KEY;
+  const originalKey = process.env.VLY_INTEGRATION_KEY;
 
   afterEach(() => {
-    if (originalKey === undefined) delete process.env.FREEBUFF_EMAIL_API_KEY;
-    else process.env.FREEBUFF_EMAIL_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.VLY_INTEGRATION_KEY;
+    else process.env.VLY_INTEGRATION_KEY = originalKey;
     vi.restoreAllMocks();
   });
 
   test("3 envois autorisés, le 4e est refusé (message générique, aucun secret)", async () => {
-    process.env.FREEBUFF_EMAIL_API_KEY = "fixture-key";
-    const axios = (await import("axios")).default as unknown as {
-      post: (..._args: unknown[]) => Promise<{ status: number }>;
-    };
-    vi.spyOn(axios, "post").mockResolvedValue({ status: 200 } as never);
+    process.env.VLY_INTEGRATION_KEY = "fixture-key";
+    const { vly } = await import("@/lib/vly-integrations");
+    const sendEmail = vi
+      .spyOn(vly.email, "send")
+      .mockResolvedValue({ success: true } as never);
 
     const db = makeDb();
     const sendCtx = consumeCtx(db);
@@ -176,7 +176,7 @@ describe("emailOtp — limite d'envoi de codes par email (anti-flood)", () => {
     for (let i = 0; i < 3; i++) {
       await send({ identifier: "eleve@example.fr", token: `00000${i}` }, sendCtx);
     }
-    expect(axios.post).toHaveBeenCalledTimes(3);
+    expect(sendEmail).toHaveBeenCalledTimes(3);
 
     try {
       await send({ identifier: "eleve@example.fr", token: "999999" }, sendCtx);
@@ -188,23 +188,23 @@ describe("emailOtp — limite d'envoi de codes par email (anti-flood)", () => {
       expect(msg).not.toContain("fixture-key");
       expect(msg).not.toContain("eleve@example.fr");
       expect(msg.toLowerCase()).toContain("trop de demandes");
-      expect(axios.post).toHaveBeenCalledTimes(3); // aucun 4e appel réseau
+      expect(sendEmail).toHaveBeenCalledTimes(3); // aucun 4e appel réseau
     }
   });
 
   test("sans contexte (tests directs), l'envoi n'est pas limité", async () => {
-    process.env.FREEBUFF_EMAIL_API_KEY = "fixture-key";
-    const axios = (await import("axios")).default as unknown as {
-      post: (..._args: unknown[]) => Promise<{ status: number }>;
-    };
-    vi.spyOn(axios, "post").mockResolvedValue({ status: 200 } as never);
+    process.env.VLY_INTEGRATION_KEY = "fixture-key";
+    const { vly } = await import("@/lib/vly-integrations");
+    const sendEmail = vi
+      .spyOn(vly.email, "send")
+      .mockResolvedValue({ success: true } as never);
     const send = (
       emailOtp as unknown as {
         sendVerificationRequest: (o: { identifier: string; token: string }) => Promise<void>;
       }
     ).sendVerificationRequest;
     await send({ identifier: "a@b.fr", token: "111111" });
-    expect(axios.post).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 });
 

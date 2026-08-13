@@ -45,10 +45,12 @@ describe("Secrets — rien en dur dans le code source", () => {
     expect(srcCode).not.toMatch(/AI_API_KEY\s*[:=]\s*["'][^"']{8,}["']/);
   });
 
-  test("emailOtp lit sa clé depuis process.env et n'a plus de clé en dur", () => {
+  test("emailOtp envoie via le service email natif (VLY_INTEGRATION_KEY, pas de clé en dur)", () => {
     const otp = readFileSync(join(SRC, "convex/auth/emailOtp.ts"), "utf8");
-    expect(otp).toContain("process.env.FREEBUFF_EMAIL_API_KEY");
+    expect(otp).toContain("vly.email.send");
+    expect(otp).toContain("process.env.VLY_INTEGRATION_KEY");
     expect(otp).not.toContain("fb_email_");
+    expect(otp).not.toContain("FREEBUFF_EMAIL_API_KEY");
   });
 });
 
@@ -57,15 +59,15 @@ describe("Secrets — rien en dur dans le code source", () => {
 /* ------------------------------------------------------------------ */
 
 describe("emailOtp — pas de fuite de secret dans les erreurs", () => {
-  const originalKey = process.env.FREEBUFF_EMAIL_API_KEY;
+  const originalKey = process.env.VLY_INTEGRATION_KEY;
   afterEach(() => {
-    if (originalKey === undefined) delete process.env.FREEBUFF_EMAIL_API_KEY;
-    else process.env.FREEBUFF_EMAIL_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.VLY_INTEGRATION_KEY;
+    else process.env.VLY_INTEGRATION_KEY = originalKey;
     vi.restoreAllMocks();
   });
 
   test("clé non configurée → message générique, sans le token", async () => {
-    delete process.env.FREEBUFF_EMAIL_API_KEY;
+    delete process.env.VLY_INTEGRATION_KEY;
     const send = (
       emailOtp as unknown as {
         sendVerificationRequest: (o: {
@@ -85,19 +87,15 @@ describe("emailOtp — pas de fuite de secret dans les erreurs", () => {
     }
   });
 
-  test("échec du fournisseur → message générique (pas de JSON.stringify de l'erreur axios)", async () => {
-    process.env.FREEBUFF_EMAIL_API_KEY = "fixture-key";
-    const axios = (await import("axios")).default as unknown as {
-      post: (url: string, data?: unknown, config?: unknown) => Promise<unknown>;
-    };
-    vi.spyOn(axios, "post").mockRejectedValue(
-      Object.assign(new Error("Request failed"), {
-        config: {
-          headers: { "x-api-key": "fixture-key" },
-          data: JSON.stringify({ otp: "483920" }),
-        },
-      }),
-    );
+  test("échec du fournisseur → message générique (l'erreur du service n'est pas exposée)", async () => {
+    process.env.VLY_INTEGRATION_KEY = "fixture-key";
+    const { vly } = await import("@/lib/vly-integrations");
+    // Un échec du fournisseur peut contenir n'importe quoi (token, clé,
+    // en-têtes) : il ne doit JAMAIS remonter au client.
+    vi.spyOn(vly.email, "send").mockResolvedValue({
+      success: false,
+      error: "fixture-key otp=483920 headers=\"x-api-key: fixture-key\"",
+    } as never);
     const send = (
       emailOtp as unknown as {
         sendVerificationRequest: (o: {

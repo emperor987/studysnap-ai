@@ -1,9 +1,10 @@
 /**
  * Tests de sécurité — Rotation des secrets avec chevauchement :
  *
- * - emailOtp : clé primaire refusée (401/403) → repli sur la clé précédente
- *   (FREEBUFF_EMAIL_API_KEY_PREVIOUS) pendant la période de rotation ;
- *   jamais de clé/token dans les erreurs ;
+ * - emailOtp : envoi via le service email natif de la plateforme
+ *   (VLY_INTEGRATION_KEY injectée automatiquement — plus de clé à stocker ni
+ *   à faire tourner manuellement) ; un refus du service reste générique pour
+ *   le client, jamais de clé/token dans les erreurs ;
  * - Stripe : le webhook accepte la signature signée avec l'ancien OU le
  *   nouveau secret (STRIPE_WEBHOOK_SECRET[_PREVIOUS]), intégrité + anti-rejeu
  *   conservés ;
@@ -27,70 +28,59 @@ const send = (
   }
 ).sendVerificationRequest;
 
-const originalPrimary = process.env.FREEBUFF_EMAIL_API_KEY;
-const originalPrevious = process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS;
+const originalVlyKey = process.env.VLY_INTEGRATION_KEY;
 
 afterEach(() => {
-  if (originalPrimary === undefined) delete process.env.FREEBUFF_EMAIL_API_KEY;
-  else process.env.FREEBUFF_EMAIL_API_KEY = originalPrimary;
-  if (originalPrevious === undefined) delete process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS;
-  else process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS = originalPrevious;
+  if (originalVlyKey === undefined) delete process.env.VLY_INTEGRATION_KEY;
+  else process.env.VLY_INTEGRATION_KEY = originalVlyKey;
   vi.restoreAllMocks();
 });
 
 /* ------------------------------------------------------------------ */
-/* 1. Rotation de la clé d'envoi OTP — chevauchement                   */
+/* 1. Envoi OTP via le service email natif de la plateforme            */
 /* ------------------------------------------------------------------ */
 
-describe("emailOtp — rotation de clé avec chevauchement", () => {
-  test("clé primaire refusée (401) → la clé précédente prend le relais", async () => {
-    process.env.FREEBUFF_EMAIL_API_KEY = "new-key-rotation";
-    process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS = "old-key-rotation";
+describe("emailOtp — service email natif (VLY_INTEGRATION_KEY)", () => {
+  test("clé de la plateforme présente → envoi via vly.email.send, sans fuite", async () => {
+    process.env.VLY_INTEGRATION_KEY = "fixture-key";
+    const { vly } = await import("@/lib/vly-integrations");
+    const sendEmail = vi
+      .spyOn(vly.email, "send")
+      .mockResolvedValue({ success: true } as never);
 
-    const axios = (await import("axios")).default as unknown as {
-      post: (...args: unknown[]) => Promise<{ status: number }>;
-    };
-    const calls: string[] = [];
-    vi.spyOn(axios, "post").mockImplementation(async (_url: unknown, _data: unknown, config?: unknown) => {
-      const key = (config as { headers: { "x-api-key"?: string } }).headers?.["x-api-key"];
-      calls.push(key ?? "");
-      if (key === "new-key-rotation") {
-        throw Object.assign(new Error("Unauthorized"), {
-          response: { status: 401 },
-        });
-      }
-      return { status: 200 };
-    });
-
-    // Pendant la période de chevauchement, l'envoi réussit via l'ancienne clé.
     await send({ identifier: "eleve@example.fr", token: "123456" });
-    expect(calls).toEqual(["new-key-rotation", "old-key-rotation"]);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const payload = sendEmail.mock.calls[0][0] as {
+      to: string;
+      subject: string;
+      text: string;
+      html: string;
+    };
+    expect(payload.to).toBe("eleve@example.fr");
+    expect(payload.text).toContain("123456");
+    expect(payload.html).toContain("123456");
   });
 
-  test("les deux clés refusées → erreur générique sans aucune clé", async () => {
-    process.env.FREEBUFF_EMAIL_API_KEY = "new-key-rotation";
-    process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS = "old-key-rotation";
-    const axios = (await import("axios")).default as unknown as {
-      post: (...args: unknown[]) => Promise<{ status: number }>;
-    };
-    vi.spyOn(axios, "post").mockRejectedValue(
-      Object.assign(new Error("Forbidden"), { response: { status: 403 } }),
-    );
+  test("service refusé → erreur générique, sans clé ni token ni cause exposée", async () => {
+    process.env.VLY_INTEGRATION_KEY = "fixture-key";
+    const { vly } = await import("@/lib/vly-integrations");
+    vi.spyOn(vly.email, "send").mockResolvedValue({
+      success: false,
+      error: "fixture-key otp=654321 headers Forbidden",
+    } as never);
     try {
       await send({ identifier: "eleve@example.fr", token: "654321" });
       expect.unreachable("doit échouer");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      expect(msg).not.toContain("new-key-rotation");
-      expect(msg).not.toContain("old-key-rotation");
+      expect(msg).not.toContain("fixture-key");
       expect(msg).not.toContain("654321");
       expect(msg).not.toContain("Forbidden");
     }
   });
 
   test("sans clé du tout → message de configuration, sans token", async () => {
-    delete process.env.FREEBUFF_EMAIL_API_KEY;
-    delete process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS;
+    delete process.env.VLY_INTEGRATION_KEY;
     try {
       await send({ identifier: "eleve@example.fr", token: "777777" });
       expect.unreachable("doit échouer sans clé");

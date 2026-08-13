@@ -135,11 +135,10 @@ CI (les workflows ne passent pas `secrets.*` à `echo` ; vérifié par tests).
 
 | Secret | Propriétaire | Rotation automatique ? | Chevauchement | Rotation |
 |---|---|---|---|---|
-| `FREEBUFF_EMAIL_API_KEY` | Plateforme (compte de l'utilisateur) | Non — déclenchement manuel | ✅ `FREEBUFF_EMAIL_API_KEY_PREVIOUS` (repli sur 401/403) | 1. Saisir la nouvelle clé dans `FREEBUFF_EMAIL_API_KEY` ; 2. déplacer l'ancienne dans `FREEBUFF_EMAIL_API_KEY_PREVIOUS` ; 3. envoyer un OTP de test ; 4. retirer `*_PREVIOUS` |
+| `VLY_INTEGRATION_KEY` (emails OTP) | Plateforme — service email natif (`vly.email.send`, clé **injectée automatiquement** à la création du projet) | Par la plateforme | Non (clé unique) | Aucune clé à obtenir : les codes OTP transitent par le même canal que les emails de consentement parental. En cas de rotation côté plateforme, remplacer la clé dans l'UI Keys (relue à chaque envoi) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe (endpoint webhook) | Non | ✅ plusieurs secrets actifs (`_PREVIOUS`, config provisionnée) | 1. Ajouter le nouveau secret côté Stripe ; 2. le mettre dans `STRIPE_WEBHOOK_SECRET`, l'ancien dans `_PREVIOUS` ; 3. rejouer un événement de test ; 4. supprimer l'ancien côté Stripe puis en env |
 | `STRIPE_SECRET_KEY` | Stripe | Non | Non nécessaire (rotation immédiate + re-provisionnement) | Remplacer la clé dans l'UI Keys ; le provisionnement recrée la config au prochain checkout. **Changement de compte** : la config est empreintée par l'ID du compte (`accountId`) — une clé d'un AUTRE compte déclenche un re-provisionnement complet (produits, prix, webhook, secret) sans toucher au code |
 | `AI_API_KEY` / `AI_API_KEY_FAST` | Fournisseur IA | Non | Non | Remplacer la clé (lue à chaque appel) |
-| `VLY_INTEGRATION_KEY` | Plateforme (SDK Vly) | Non | Non | Remplacer dans l'UI Keys ; le SDK relit l'env |
 | `SITE_URL`, `CONVEX_SITE_URL`, `VITE_CONVEX_URL` | Config (non secrets) | — | — | — |
 | JWT/session (signature) | Plateforme Convex (clé du déploiement) | Oui, par la plateforme | — | Via le dashboard Convex en cas de compromission |
 

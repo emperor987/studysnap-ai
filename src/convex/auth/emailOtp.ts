@@ -1,8 +1,8 @@
 import { Email } from "@convex-dev/auth/providers/Email";
-import axios from "axios";
 import { RandomReader, generateRandomString } from "@oslojs/crypto/random";
 import { internal } from "../_generated/api";
 import { OTP_SEND_LIMITS } from "../rateLimit";
+import { vly } from "../../lib/vly-integrations";
 
 /**
  * BUG BLOQUANT CORRIGÉ : la bibliothèque @convex-dev/auth exige la variable
@@ -20,18 +20,15 @@ if (!process.env.SITE_URL && process.env.CONVEX_SITE_URL) {
 }
 
 /**
- * Clés d'envoi d'OTP par email — FOURNIES PAR L'ENVIRONNEMENT (UI Keys de la
- * plateforme), jamais codées en dur dans le code source. Sans clé, l'envoi
- * échoue proprement (message générique, aucun secret dans l'erreur).
+ * Envoi des codes OTP par email via le service email NATIF de la plateforme
+ * (`vly.email.send`, cf. integrations.md). La clé `VLY_INTEGRATION_KEY` est
+ * injectée automatiquement par la plateforme à la création du projet — AUCUNE
+ * clé à obtenir, à stocker ni à faire tourner. Le même canal sert déjà aux
+ * emails de consentement parental (src/convex/parentalConsent.ts).
  *
- * ROTATION SANS INTERRUPTION : la clé primaire FREEBUFF_EMAIL_API_KEY est
- * essayée d'abord ; si le fournisseur la refuse (HTTP 401/403), la clé
- * précédente FREEBUFF_EMAIL_API_KEY_PREVIOUS prend le relais pendant la
- * période de chevauchement. Une fois la nouvelle clé validée, retirer
- * *_PREVIOUS de l'environnement (voir SECURITY.md — Runbook de rotation).
- *
- * Lues à chaque envoi (pas capturées à l'import du module) pour rester
- * cohérentes avec l'environnement courant (tests, rechargement de clé).
+ * Sans clé (environnement mal configuré), l'envoi échoue proprement avec un
+ * message générique et la cause réelle est journalisée côté serveur (jamais
+ * de token ni de secret dans le log ni dans l'erreur exposée au client).
  */
 
 type SendCtx = {
@@ -40,6 +37,16 @@ type SendCtx = {
     args: unknown,
   ) => Promise<{ allowed: boolean; retryAfterMs?: number } | undefined>;
 };
+
+/** Échappe un texte pour un template HTML inline (anti-injection). */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 export const emailOtp = Email({
   id: "email-otp",
@@ -91,69 +98,65 @@ export const emailOtp = Email({
       });
     }
 
-    const apiKeys = [
-      process.env.FREEBUFF_EMAIL_API_KEY,
-      process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS,
-    ].filter((k): k is string => Boolean(k?.trim()));
-    if (apiKeys.length === 0) {
-      // Cause réelle journalisée côté serveur (dashboard Convex) — jamais de
-      // clé ni de token dans le log ni dans le message d'erreur.
+    // Garde-fou : clé d'intégration absente → on échoue AVANT l'appel réseau
+    // (createVlyIntegrations accepte un token par défaut qui échouerait
+    // silencieusement côté passerelle). La cause réelle est journalisée côté
+    // serveur, jamais dans le message exposé au client.
+    if (!process.env.VLY_INTEGRATION_KEY?.trim()) {
       console.error(
-        "[emailOtp] Aucune clé d'envoi configurée (FREEBUFF_EMAIL_API_KEY) — vérifier l'onglet Keys.",
+        "[emailOtp] VLY_INTEGRATION_KEY manquante — vérifier la configuration de la plateforme (elle est normalement injectée automatiquement).",
       );
       throw new Error("Le service d'envoi de codes n'est pas configuré.");
     }
 
-    for (const apiKey of apiKeys) {
-      try {
-        const res = await axios.post(
-          "https://auth.freebuff.app/send_otp",
-          {
-            to: email,
-            otp: token,
-            appName: process.env.VLY_APP_NAME || "a freebuff.com application",
-          },
-          {
-            headers: {
-              "x-api-key": apiKey,
-            },
-          },
-        );
-        if (res.status >= 200 && res.status < 300) return;
-        // Clé refusée (401/403) → clé suivante (rotation en chevauchement).
-        // Autre statut (4xx métier, 5xx) → inutile d'essayer une autre clé.
-        if (res.status !== 401 && res.status !== 403) {
-          console.error(
-            `[emailOtp] Envoi du code refusé par le service (HTTP ${res.status}).`,
-          );
-          break;
-        }
-        console.error(
-          `[emailOtp] Clé API refusée (HTTP ${res.status}) — tentative avec la clé de secours.`,
-        );
-      } catch (e) {
-        const status =
-          (e as { response?: { status?: number } })?.response?.status ?? 0;
-        // Réessayer avec la clé suivante UNIQUEMENT si la clé a été refusée
-        // (401/403). Message générique : ne pas sérialiser l'erreur axios
-        // (JSON.stringify d'une AxiosError expose la config de la requête —
-        // clé API + OTP). La cause réelle est journalisée côté serveur.
-        if (status !== 401 && status !== 403) {
-          console.error(
-            `[emailOtp] Échec de l'envoi du code (HTTP ${status || "réseau"}) — cause : ${(e as Error)?.message ?? "inconnue"}`,
-          );
-          throw new Error(
-            "Échec de l'envoi du code — réessaie dans un instant.",
-          );
-        }
-        console.error(
-          `[emailOtp] Clé API refusée (HTTP ${status}) — tentative avec la clé de secours.`,
-        );
-      }
+    const subject = "🔐 Ton code StudySnap";
+    const text = [
+      "Salut !",
+      "",
+      `Ton code de connexion StudySnap est : ${token}`,
+      "",
+      "Il est valable 15 minutes. Si tu n'es pas à l'origine de cette demande,",
+      "tu peux ignorer cet email — personne ne pourra l'utiliser sans ton code.",
+      "",
+      "— L'équipe StudySnap",
+    ].join("\n");
+    const html = `
+      <div style="background:#f4f4fb;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+        <div style="max-width:440px;margin:0 auto;background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #e8e8f2">
+          <div style="background:linear-gradient(135deg,#4f46e5,#ff6b4a);padding:20px 24px">
+            <p style="margin:0;color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.2px">
+              Study<span style="opacity:0.9">Snap</span>
+            </p>
+          </div>
+          <div style="padding:28px 24px">
+            <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#1a1a2e">
+              Ton code de connexion
+            </p>
+            <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#5a5a75">
+              Voici ton code à 6 chiffres pour te connecter avec
+              <strong>${escapeHtml(email)}</strong> :
+            </p>
+            <div style="background:#f6f6fc;border:2px dashed #c7c7e4;border-radius:14px;padding:18px;text-align:center">
+              <span style="font-size:34px;font-weight:800;letter-spacing:8px;color:#4f46e5;font-family:monospace">${escapeHtml(token)}</span>
+            </div>
+            <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#8a8aa3">
+              Ce code expire dans <strong>15 minutes</strong>. Si tu n'es pas à
+              l'origine de cette demande, ignore simplement cet email.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const res = await vly.email.send({ to: email, subject, text, html });
+    if (!res.success) {
+      // Cause réelle journalisée côté serveur (dashboard Convex) — jamais de
+      // token dans le log ni dans le message d'erreur exposé au client.
+      console.error(
+        "[emailOtp] Envoi du code refusé par le service email :",
+        res.error,
+      );
+      throw new Error("Échec de l'envoi du code — réessaie dans un instant.");
     }
-    console.error(
-      "[emailOtp] Toutes les clés d'envoi ont échoué — vérifier FREEBUFF_EMAIL_API_KEY dans l'onglet Keys.",
-    );
-    throw new Error("Échec de l'envoi du code — réessaie dans un instant.");
   },
 });
