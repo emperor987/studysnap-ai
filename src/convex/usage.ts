@@ -102,11 +102,19 @@ export const getMyUsage = query({
         q.eq("userId", userId).eq("month", currentMonth()),
       )
       .unique();
-    const limits =
-      plan === "free" ? FREE_LIMITS : { scans: 9999, sheets: 9999, quizzes: 9999 };
+    // Mode invité (démo, sans compte) : 1 seul scan autorisé, aucune fiche,
+    // aucun quiz — limites exposées au client pour l'UI, mais TOUJOURS
+    // re-vérifiées côté serveur (mutations + actions IA).
+    const isGuest = user.isAnonymous === true;
+    const limits = isGuest
+      ? { scans: 1, sheets: 0, quizzes: 0 }
+      : plan === "free"
+        ? FREE_LIMITS
+        : { scans: 9999, sheets: 9999, quizzes: 9999 };
     return {
       plan,
       month: currentMonth(),
+      isGuest,
       usage: {
         scans: usage?.scansCount ?? 0,
         sheets: usage?.sheetsCount ?? 0,
@@ -117,12 +125,33 @@ export const getMyUsage = query({
   },
 });
 
+/**
+ * Interne (actions IA) : nombre de scans du mois courant d'un utilisateur,
+ * sans session requise — utilisé pour appliquer la limite d'1 scan des
+ * invités AVANT toute génération coûteuse.
+ */
+export const getScansCountForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const usage = await ctx.db
+      .query("usage")
+      .withIndex("by_user_month", (q) =>
+        q.eq("userId", args.userId).eq("month", currentMonth()),
+      )
+      .unique();
+    return usage?.scansCount ?? 0;
+  },
+});
+
 /** Statistiques agrégées pour l'écran Progression. */
 export const getMyStats = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
+    // Invités : pas d'accès à la progression (aucune donnée exposée).
+    const me = await ctx.db.get(userId);
+    if (me?.isAnonymous === true) return null;
 
     const [scans, quizzes, answers] = await Promise.all([
       ctx.db

@@ -6,6 +6,11 @@ import { demoSheet, hashSeed } from "./demoData";
 import { assertParentalConsent } from "./users";
 import { assertUserOwnsAllStorage } from "./files";
 import { gateSheetContent, sheetSummary } from "../lib/gating";
+import {
+  GUEST_LIMIT_CODE,
+  GUEST_UPGRADE_MESSAGE,
+  isGuestUser,
+} from "./guest";
 import type { Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -33,6 +38,15 @@ export const createSheet = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
     await assertParentalConsent(ctx, userId);
+
+    // Invités : les fiches de révision sont réservées aux comptes — un
+    // invité (démo, sans compte) ne peut pas en créer (côté serveur).
+    if (await isGuestUser(ctx, userId)) {
+      throw new ConvexError({
+        code: GUEST_LIMIT_CODE,
+        message: GUEST_UPGRADE_MESSAGE,
+      });
+    }
 
     // Propriété des fichiers : on ne peut référencer que ses propres uploads.
     await assertUserOwnsAllStorage(
@@ -78,6 +92,8 @@ export const listMySheets = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
+    // Invités : aucune fiche (ni accès, ni exposition de données).
+    if (await isGuestUser(ctx, userId)) return [];
     const sheets = await ctx.db
       .query("revision_sheets")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -102,6 +118,8 @@ export const getSheet = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
+    // Invités : pas d'accès aux fiches.
+    if (await isGuestUser(ctx, userId)) return null;
     const sheet = await ctx.db.get(args.sheetId);
     if (!sheet || sheet.userId !== userId) return null;
     const plan = await getPlan(ctx, userId);
@@ -139,6 +157,13 @@ export const createDemoSheet = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
     await assertParentalConsent(ctx, userId);
+    // Invités : pas de fiche, même en démo.
+    if (await isGuestUser(ctx, userId)) {
+      throw new ConvexError({
+        code: GUEST_LIMIT_CODE,
+        message: GUEST_UPGRADE_MESSAGE,
+      });
+    }
     const rng = hashSeed(userId, Date.now());
     const sheet = demoSheet(rng, args.subject ?? "");
     const now = Date.now();

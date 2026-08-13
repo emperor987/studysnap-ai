@@ -8,6 +8,11 @@ import {
   QUIZ_MAX_QUESTIONS,
 } from "./usage";
 import { assertParentalConsent } from "./users";
+import {
+  GUEST_LIMIT_CODE,
+  GUEST_UPGRADE_MESSAGE,
+  isGuestUser,
+} from "./guest";
 
 const questionValidator = v.object({
   type: v.union(
@@ -47,6 +52,15 @@ export const saveQuiz = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
     await assertParentalConsent(ctx, userId);
+
+    // Invités : les quiz sont réservés aux comptes — un invité (démo, sans
+    // compte) ne peut pas en créer ni en enregistrer (côté serveur).
+    if (await isGuestUser(ctx, userId)) {
+      throw new ConvexError({
+        code: GUEST_LIMIT_CODE,
+        message: GUEST_UPGRADE_MESSAGE,
+      });
+    }
 
     const plan = await getPlan(ctx, userId);
     const usage = await getOrCreateUsage(ctx, userId);
@@ -147,6 +161,8 @@ export const listMyQuizzes = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
+    // Invités : aucun quiz (ni accès, ni exposition de données).
+    if (await isGuestUser(ctx, userId)) return [];
     return await ctx.db
       .query("quizzes")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -160,6 +176,8 @@ export const getQuiz = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
+    // Invités : pas d'accès aux quiz.
+    if (await isGuestUser(ctx, userId)) return null;
     const quiz = await ctx.db.get(args.quizId);
     if (!quiz || quiz.userId !== userId) return null;
     return quiz;

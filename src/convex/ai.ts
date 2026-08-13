@@ -32,6 +32,7 @@ import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { AI_GENERATION_LIMITS } from "./rateLimit";
 import { FREE_QUIZ_MAX_QUESTIONS, QUIZ_MAX_QUESTIONS } from "./usage";
+import { GUEST_LIMIT_CODE, GUEST_MAX_SCANS, GUEST_UPGRADE_MESSAGE } from "./guest";
 import type { Id } from "./_generated/dataModel";
 import { sanitizeUserText, stripHtmlArtifacts } from "../lib/clean";
 import { condenseLongText, documentKind } from "../lib/analysis";
@@ -171,6 +172,44 @@ async function assertWithinAiLimit(ctx: ActionCtx, userId: string) {
       message: `Tu as atteint la limite de générations IA (${aiRateLimitMax()} par heure). Réessaie dans ${retryAfterSec} s.`,
     });
   }
+}
+
+/**
+ * Mode invité : 1 seul scan autorisé (démo, sans compte). Vérifié ici AVANT
+ * toute lecture d'image ou génération coûteuse — un client ne peut pas
+ * contourner la limite en appelant les actions IA directement (l'étape
+ * recordScan seule ne suffirait pas : chaque action consommerait des
+ * générations IA à volonté).
+ */
+async function assertGuestScanAllowed(ctx: ActionCtx, userId: string) {
+  const isGuest = await ctx.runQuery(internal.guest.isGuestById, {
+    userId: userId as Id<"users">,
+  });
+  if (!isGuest) return;
+  const scans = await ctx.runQuery(internal.usage.getScansCountForUser, {
+    userId: userId as Id<"users">,
+  });
+  if (scans >= GUEST_MAX_SCANS) {
+    throw new ConvexError({
+      code: GUEST_LIMIT_CODE,
+      message: GUEST_UPGRADE_MESSAGE,
+    });
+  }
+}
+
+/**
+ * Mode invité : fiches et quiz réservés aux comptes. Un invité ne peut pas
+ * générer de fiche ni de quiz (aucune génération IA consommée pour ça).
+ */
+async function assertGuestNoPremium(ctx: ActionCtx, userId: string) {
+  const isGuest = await ctx.runQuery(internal.guest.isGuestById, {
+    userId: userId as Id<"users">,
+  });
+  if (!isGuest) return;
+  throw new ConvexError({
+    code: GUEST_LIMIT_CODE,
+    message: GUEST_UPGRADE_MESSAGE,
+  });
 }
 
 /**
@@ -812,6 +851,9 @@ export const ocrPhotos = action({
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
 
+    // Invités : 1 seul scan de démo autorisé (avant toute lecture d'image).
+    await assertGuestScanAllowed(ctx, userId);
+
     // Limite horaire de générations IA par compte (endpoint coûteux).
     await assertWithinAiLimit(ctx, userId);
 
@@ -870,6 +912,9 @@ export const analyzeText = action({
   handler: async (ctx, args): Promise<AnalyzeResult> => {
     const startedAt = Date.now();
     const userId = await requireUser(ctx);
+
+    // Invités : 1 seul scan de démo autorisé (avant toute génération).
+    await assertGuestScanAllowed(ctx, userId);
 
     // Contenu avancé (philosophie, spécialité de lycée, post-bac) : pour le
     // plan Gratuit on bloque AVANT toute génération (aucun quota consommé) —
@@ -1013,6 +1058,9 @@ export const generateSheet = action({
     const userId = await requireUser(ctx);
     const seed = hashSeed(userId, args.sourceText ?? "", args.storageIds?.join(",") ?? "", new Date().getDate());
 
+    // Invités : pas de fiche de révision (aucune génération consommée).
+    await assertGuestNoPremium(ctx, userId);
+
     // Limite horaire de générations IA par compte (endpoint coûteux).
     await assertWithinAiLimit(ctx, userId);
 
@@ -1155,6 +1203,9 @@ export const generateQuiz = action({
     const userId = await requireUser(ctx);
     const storageIds = args.storageIds ?? [];
     const fromDocument = storageIds.length > 0;
+
+    // Invités : pas de quiz (aucune génération consommée).
+    await assertGuestNoPremium(ctx, userId);
 
     // Limite horaire de générations IA par compte (endpoint coûteux).
     await assertWithinAiLimit(ctx, userId);

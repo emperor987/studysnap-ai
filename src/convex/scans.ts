@@ -6,6 +6,12 @@ import { demoAnalysis, hashSeed } from "./demoData";
 import { assertParentalConsent } from "./users";
 import { assertUserOwnsAllStorage } from "./files";
 import { gateDocument } from "../lib/gating";
+import {
+  GUEST_LIMIT_CODE,
+  GUEST_MAX_SCANS,
+  GUEST_UPGRADE_MESSAGE,
+  isGuestUser,
+} from "./guest";
 import type { Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -109,6 +115,18 @@ export const recordScan = mutation({
     const plan = await getPlan(ctx, userId);
     const usage = await getOrCreateUsage(ctx, userId);
 
+    // Mode invité (démo, sans compte) : 1 seul scan autorisé, pas plus —
+    // vérifié côté serveur (un client ne peut pas contourner en appelant
+    // recordScan directement).
+    if (await isGuestUser(ctx, userId)) {
+      if (usage.scansCount >= GUEST_MAX_SCANS) {
+        throw new ConvexError({
+          code: GUEST_LIMIT_CODE,
+          message: GUEST_UPGRADE_MESSAGE,
+        });
+      }
+    }
+
     // Rate limiting par utilisateur
     if (usage.lastScanAt && Date.now() - usage.lastScanAt < SCAN_MIN_INTERVAL_MS) {
       throw new ConvexError({
@@ -202,6 +220,9 @@ export const listMyScans = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
+    // Invités : pas d'accès à l'historique (la liste reste vide, même si le
+    // scan de démo existe — le résultat reste consultable via getScan).
+    if (await isGuestUser(ctx, userId)) return [];
     const scans = await ctx.db
       .query("scans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -250,6 +271,14 @@ export const createDemoScan = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED" });
     await assertParentalConsent(ctx, userId);
+    // Invités : la démo est LEUR scan unique — la créer ici contournerait le
+    // compteur d'usage et permettrait des scans illimités. Bloqué côté serveur.
+    if (await isGuestUser(ctx, userId)) {
+      throw new ConvexError({
+        code: GUEST_LIMIT_CODE,
+        message: GUEST_UPGRADE_MESSAGE,
+      });
+    }
 
     const rng = hashSeed(userId, Date.now());
     const analysis = demoAnalysis(rng);

@@ -26,4 +26,15 @@ crons.daily(
   internal.parentalConsentStatus.remindPending,
 );
 
+/**
+ * Comptes invités (démo, sans compte) : chaque jour, purge les sessions
+ * abandonnées (onglet fermé sans déconnexion) — aucune donnée d'invité ne
+ * persiste au-delà de sa visite.
+ */
+crons.daily(
+  "cleanup guest accounts",
+  { hourUTC: 4, minuteUTC: 30 },
+  internal.guest.cleanupGuestAccounts,
+);
+
 export default crons;

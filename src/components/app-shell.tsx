@@ -14,9 +14,10 @@ import {
   Plus,
   Settings,
   Sparkles,
+  UserRoundPlus,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { initials } from "@/lib/format";
 import { InstallApp } from "@/components/InstallApp";
 import type { ReactNode } from "react";
@@ -39,10 +40,37 @@ const BOTTOM_NAV = [
   { to: "/settings", label: "Profil", icon: Settings },
 ];
 
+/** Pages auxquelles un invité (démo, sans compte) n'a PAS accès. */
+const GUEST_RESTRICTED_PATHS = new Set([
+  "/sheets",
+  "/revision",
+  "/exercises",
+  "/progress",
+]);
+
 function PlanChip({ compact = false }: { compact?: boolean }) {
+  const { user } = useAuth();
   const plan = useQuery(api.subscriptions.getMyPlan);
   if (!plan) return null;
   const isFree = plan.plan === "free";
+  // Invité : au lieu du plan, un chip « Mode démo » qui mène à la création
+  // de compte (1 seul scan de démo — la suite demande un compte).
+  if (user?.isAnonymous === true) {
+    return (
+      <NavLink
+        to="/auth?mode=signup"
+        className={cn(
+          "flex items-center gap-1.5 rounded-full bg-brand-gradient font-semibold text-white transition-all hover:brightness-110",
+          compact
+            ? "hidden min-[420px]:inline-flex px-2.5 py-1 text-[10px]"
+            : "px-3.5 py-1.5 text-xs",
+        )}
+      >
+        <UserRoundPlus className={compact ? "size-3" : "size-3.5"} />
+        Mode démo
+      </NavLink>
+    );
+  }
   return (
     <NavLink
       to="/pricing"
@@ -69,7 +97,7 @@ function PlanChip({ compact = false }: { compact?: boolean }) {
 function UsageBar() {
   const usage = useQuery(api.usage.getMyUsage);
   const location = useLocation();
-  if (!usage || usage.plan !== "free") return null;
+  if (!usage || usage.plan !== "free" || usage.isGuest) return null;
   const remaining = Math.max(0, usage.limits.scans - usage.usage.scans);
   if (location.pathname.startsWith("/scanner")) return null;
   return (
@@ -101,10 +129,34 @@ export function AppShell({
 }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const wipeMyGuestData = useMutation(api.guest.wipeMyGuestData);
   const parental = useQuery(api.parentalConsentStatus.getMyParentalStatus);
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "Élève";
+  const isGuest = user?.isAnonymous === true;
+
+  // Navigation restreinte pour les invités : seuls Accueil, Scanner et
+  // Paramètres restent accessibles (fiches, quiz, historique, progression =
+  // réservés aux comptes — aussi bloqués côté serveur).
+  const navItems = isGuest
+    ? NAV.filter((item) => !GUEST_RESTRICTED_PATHS.has(item.to))
+    : NAV;
+  const bottomNavItems = isGuest
+    ? BOTTOM_NAV.filter((item) => !GUEST_RESTRICTED_PATHS.has(item.to))
+    : BOTTOM_NAV;
 
   const handleSignOut = async () => {
+    // Invité : on supprime immédiatement ses données (rien ne survit à la
+    // session) avant la déconnexion — la limite est aussi appliquée côté
+    // serveur, ceci garantit « aucune donnée persistée ».
+    if (isGuest) {
+      try {
+        await wipeMyGuestData();
+      } catch (err) {
+        // La purge est un best-effort : le cron quotidien nettoiera les
+        // sessions abandonnées. On ne bloque jamais la déconnexion.
+        console.warn("[guest] Purge des données à la déconnexion impossible :", err);
+      }
+    }
     await signOut();
     navigate("/");
   };
@@ -127,17 +179,27 @@ export function AppShell({
             <Camera className="size-4" />
             Scanner un exercice
           </NavLink>
-          <NavLink
-            to="/sheets"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-white/10"
-          >
-            <Plus className="size-4" />
-            Nouvelle fiche de révision
-          </NavLink>
+          {isGuest ? (
+            <NavLink
+              to="/auth?mode=signup&returnTo=/scanner"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
+            >
+              <UserRoundPlus className="size-4" />
+              Créer mon compte
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/sheets"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-white/10"
+            >
+              <Plus className="size-4" />
+              Nouvelle fiche de révision
+            </NavLink>
+          )}
         </div>
 
         <nav className="mt-7 flex flex-1 flex-col gap-1">
-          {NAV.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -168,7 +230,7 @@ export function AppShell({
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{firstName}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {user?.email ?? "invité"}
+                  {isGuest ? "invité · 1 scan de démo" : user?.email}
                 </p>
               </div>
             </div>
@@ -246,8 +308,13 @@ export function AppShell({
 
       {/* ---------- Bottom nav mobile ---------- */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-[#1c1c22]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl lg:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5">
-          {BOTTOM_NAV.map((item) => (
+        <div
+          className={cn(
+            "mx-auto grid max-w-md",
+            bottomNavItems.length === 3 ? "grid-cols-3" : "grid-cols-5",
+          )}
+        >
+          {bottomNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

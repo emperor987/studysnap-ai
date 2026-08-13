@@ -5,14 +5,19 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import {
   ArrowRight,
+  BarChart3,
   BookOpen,
   Camera,
+  CheckCircle2,
   FileText,
   Flame,
+  History,
+  Lock,
   Play,
   Sparkles,
   Target,
   Trophy,
+  UserRoundPlus,
   Zap,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
@@ -38,8 +43,106 @@ export default function Dashboard() {
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "Élève";
   const loading =
     scans === undefined || sheets === undefined || quizzes === undefined;
+  const isGuest = user?.isAnonymous === true;
 
-  const empty = !loading && scans.length === 0 && sheets.length === 0;
+  /* ---------- Dashboard invité (démo, sans compte) ---------- */
+  if (isGuest) {
+    return (
+      <AppShell
+        title={`Salut, explorateur·rice 👋`}
+        subtitle="Mode démo — un scan gratuit pour tester StudySnap."
+      >
+        {/* CTA principal : le scan de démo unique */}
+        <section className="glass-panel relative overflow-hidden rounded-3xl p-6 sm:p-8">
+          <div className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-primary/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 left-1/3 size-64 rounded-full bg-coral-500/10 blur-3xl" />
+          <div className="relative">
+            <span className="glass-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-primary">
+              <Sparkles className="size-3.5" />
+              Photo → Analyse IA → Ta méthode
+            </span>
+            <h2 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">
+              Un exercice bloquant ?{" "}
+              <span className="text-brand-gradient">Scanne-le.</span>
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+              Tu as droit à <strong className="text-foreground">1 scan de démo</strong>{" "}
+              pour voir StudySnap en action : photo depuis ta galerie, analyse
+              en quelques secondes, réponse directe ou explication détaillée.
+              Aucune donnée n'est conservée après ta visite.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link
+                to="/scanner"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-brand-gradient px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+              >
+                <Camera className="size-4" />
+                Scanner mon premier exercice
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                to="/auth?mode=signup&returnTo=/scanner"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-6 py-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
+              >
+                <UserRoundPlus className="size-4" />
+                Créer mon compte
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Ce qui est inclus en démo vs. ce qui demande un compte */}
+        <section className="mt-8 grid gap-4 lg:grid-cols-2">
+          <div className="glass-card rounded-3xl p-6">
+            <h3 className="text-base font-bold sm:text-lg">
+              Inclus dans ton scan de démo
+            </h3>
+            <ul className="mt-4 space-y-3">
+              {[
+                "1 scan d'exercice, depuis ta galerie",
+                "Réponse directe (Mode 1) ou explication détaillée (Mode 2)",
+                "Matière, niveau et consigne détectés automatiquement",
+              ].map((item) => (
+                <li
+                  key={item}
+                  className="flex items-start gap-2.5 text-sm leading-6 text-muted-foreground"
+                >
+                  <CheckCircle2 className="mt-1 size-4 shrink-0 text-mint-300" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="glass-card rounded-3xl p-6">
+            <h3 className="flex items-center gap-2 text-base font-bold sm:text-lg">
+              <Lock className="size-4 text-primary" />
+              Réservé aux comptes
+            </h3>
+            <ul className="mt-4 space-y-3">
+              {[
+                { icon: FileText, text: "Fiches de révision personnalisées" },
+                { icon: Target, text: "Quiz sur tes cours" },
+                { icon: History, text: "Historique de tes exercices" },
+                { icon: BarChart3, text: "Suivi de ta progression" },
+              ].map(({ icon: Icon, text }) => (
+                <li
+                  key={text}
+                  className="flex items-start gap-2.5 text-sm leading-6 text-muted-foreground"
+                >
+                  <Icon className="mt-1 size-4 shrink-0 text-primary" />
+                  {text}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 text-xs leading-5 text-muted-foreground">
+              Crée ton compte pour continuer à scanner gratuitement et accéder
+              à tout ça — inscription en 10 secondes, juste ton email.
+            </p>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
 
   const handleDemo = async () => {
     try {

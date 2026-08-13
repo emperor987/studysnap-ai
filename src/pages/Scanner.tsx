@@ -12,6 +12,7 @@ import {
   ScanLine,
   Sparkles,
   Trash2,
+  UserRoundPlus,
   X,
   Zap,
 } from "lucide-react";
@@ -72,6 +73,51 @@ const MODES = [
     tag: "Pour retenir",
   },
 ];
+
+function GuestLimitReached() {
+  return (
+    <AppShell title="Mode démo terminé" subtitle="Scanner">
+      <div className="glass-panel mx-auto max-w-lg rounded-3xl p-8 text-center sm:p-10">
+        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-brand-gradient text-2xl text-white shadow-lg shadow-indigo-500/25">
+          ✨
+        </div>
+        <span className="glass-chip mx-auto mt-5 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-primary">
+          <UserRoundPlus className="size-3.5" />
+          Mode démo
+        </span>
+        <h2 className="mt-4 text-2xl font-extrabold tracking-tight">
+          Crée ton compte pour continuer à scanner gratuitement
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Ton scan de démo est utilisé — tu as vu l'essentiel : analyse IA en
+          quelques secondes, réponse directe et explication détaillée. Avec un
+          compte (10 secondes, juste ton email), tu peux scanner gratuitement
+          chaque mois, créer des fiches de révision, faire des quiz et suivre
+          ta progression.
+        </p>
+        <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            to="/auth?mode=signup&returnTo=/scanner"
+            className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+          >
+            <UserRoundPlus className="size-4" />
+            Créer mon compte gratuitement
+          </Link>
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
+          >
+            Retour à l'accueil
+          </Link>
+        </div>
+        <p className="mt-5 text-xs text-muted-foreground">
+          Aucune donnée d'invité n'est conservée — ton compte, lui, garde tes
+          exercices.
+        </p>
+      </div>
+    </AppShell>
+  );
+}
 
 function LimitReached() {
   return (
@@ -252,7 +298,11 @@ export default function Scanner() {
         toast.error(aiMsg);
       } else {
         const code = (e as ConvexError<{ code?: string }>)?.data?.code;
-        if (code === "LIMIT_REACHED") {
+        if (code === "GUEST_LIMIT_REACHED") {
+          // Invité : le scan de démo est déjà utilisé → l'écran de création
+          // de compte s'affiche dès que le compteur remonte (réactif).
+          toast.error("Crée ton compte pour continuer à scanner gratuitement.");
+        } else if (code === "LIMIT_REACHED") {
           toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
         } else if (code === "RATE_LIMITED") {
           toast.error("Un petit instant entre deux analyses…");
@@ -281,7 +331,9 @@ export default function Scanner() {
       navigate(`/scanner/result/${scanId}?mode=${mode}`);
     } catch (e) {
       const code = (e as ConvexError<{ code?: string }>)?.data?.code;
-      if (code === "LIMIT_REACHED") {
+      if (code === "GUEST_LIMIT_REACHED") {
+        toast.error("Crée ton compte pour continuer à scanner gratuitement.");
+      } else if (code === "LIMIT_REACHED") {
         toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
       } else if (code === "RATE_LIMITED") {
         toast.error("Un petit instant entre deux scans…");
@@ -308,7 +360,9 @@ export default function Scanner() {
   }
 
   if (usage.plan === "free" && usage.usage.scans >= usage.limits.scans) {
-    return <LimitReached />;
+    // Invité : le scan de démo est consommé → invitation à créer un compte.
+    // Compte gratuit classique : la limite mensuelle est atteinte → pricing.
+    return usage.isGuest ? <GuestLimitReached /> : <LimitReached />;
   }
 
   const remaining = usage.limits.scans - usage.usage.scans;
@@ -317,11 +371,31 @@ export default function Scanner() {
     <AppShell
       title="Scanner un exercice"
       subtitle={
-        usage.plan === "free"
-          ? `${remaining} scan${remaining > 1 ? "s" : ""} gratuit${remaining > 1 ? "s" : ""} restant${remaining > 1 ? "s" : ""} ce mois`
-          : "Scans illimités — merci d'être Student 🎓"
+        usage.isGuest
+          ? "Mode démo — 1 scan gratuit, rien n'est conservé après ta visite"
+          : usage.plan === "free"
+            ? `${remaining} scan${remaining > 1 ? "s" : ""} gratuit${remaining > 1 ? "s" : ""} restant${remaining > 1 ? "s" : ""} ce mois`
+            : "Scans illimités — merci d'être Student 🎓"
       }
     >
+      {/* Bandeau invité : cadre clair du mode démo avant l'import */}
+      {usage.isGuest && step === "upload" && (
+        <div className="mx-auto mb-5 flex max-w-2xl items-start gap-3 rounded-2xl border border-primary/25 bg-primary/8 p-4">
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <UserRoundPlus className="size-4" />
+          </span>
+          <div className="text-sm leading-6">
+            <p className="font-bold">
+              🧪 Mode démo — {remaining} scan de démo
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Après ce scan, crée ton compte pour continuer à scanner
+              gratuitement. Les fiches, quiz, historique et progression sont
+              réservés aux comptes.
+            </p>
+          </div>
+        </div>
+      )}
       {/* ---------- Étape upload ---------- */}
       {step === "upload" && (
         <div
