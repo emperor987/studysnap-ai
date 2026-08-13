@@ -5,11 +5,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { resolveRedirectAfterAuth } from "@/lib/redirect";
 import { useAction, useConvex, useQuery } from "convex/react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
   Camera,
+  CheckCircle2,
   ChevronRight,
   Eye,
   EyeOff,
@@ -23,7 +24,7 @@ import {
   UsersRound,
   UserX,
 } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +33,14 @@ import {
   accountProviderLabel,
   type AuthAccountInfo,
 } from "@/lib/auth-accounts";
+import {
+  SIGNUP_DONE_DELAY_MS,
+  SIGNUP_LOADING_PHRASES,
+  SIGNUP_LOADING_TIMEOUT_MS,
+  SIGNUP_PHRASE_INTERVAL_MS,
+  isAuthReady,
+  isSignupForEmail,
+} from "@/lib/signup-loading";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -61,6 +70,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [otpStep, setOtpStep] = useState<{ email: string } | null>(null);
   const [otp, setOtp] = useState("");
 
+  // Inscription par code email : le code par email crée le compte si aucune
+  // adresse n'est associée à un compte existant (vérifié au moment de la
+  // demande). Dans ce cas, on affiche un écran de transition pendant que le
+  // compte finit de se créer et que le dashboard charge — jamais lors d'une
+  // simple connexion d'un compte existant.
+  const [otpSignup, setOtpSignup] = useState<boolean | null>(null);
+  const [signupLoading, setSignupLoading] = useState(false);
+
   // Flux « Choisir ton compte » : email → liste des comptes → mot de passe.
   const convex = useConvex();
   const [signInStep, setSignInStep] = useState<
@@ -84,10 +101,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [editingParentEmail, setEditingParentEmail] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    // Pendant l'écran de chargement d'inscription, c'est cet écran qui
+    // déclenche la navigation (après « Chargement terminé ! ») — on ne veut
+    // pas qu'une navigation prématurée fasse sauter la transition.
+    if (!authLoading && isAuthenticated && !signupLoading) {
       navigate(redirect);
     }
-  }, [authLoading, isAuthenticated, navigate, redirect]);
+  }, [authLoading, isAuthenticated, navigate, redirect, signupLoading]);
 
   const switchTab = (next: Tab) => {
     setTab(next);
@@ -279,6 +299,21 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
     setIsLoading(true);
     try {
+      // Détecte si l'adresse correspond à un compte existant : si aucun
+      // compte n'est associé, la validation du code créera un NOUVEAU compte
+      // (inscription) → écran de chargement dédié après le code. Si la
+      // vérification échoue (réseau…), on part sur une connexion classique :
+      // le code fonctionne dans les deux cas.
+      let newAccount = false;
+      try {
+        const res = await convex.query(api.users.accountsByEmail, {
+          email: trimmedEmail,
+        });
+        newAccount = isSignupForEmail(res.accounts);
+      } catch {
+        newAccount = false;
+      }
+      setOtpSignup(newAccount);
       await signIn("email-otp", { email: trimmedEmail });
       setOtpStep({ email: trimmedEmail });
       setIsLoading(false);
@@ -292,15 +327,29 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const handleOtpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!otpStep) return;
-    setIsLoading(true);
     setError(null);
+    // Inscription par code : on bascule IMMÉDIATEMENT sur l'écran de
+    // transition (avant la confirmation serveur) pour qu'aucune navigation
+    // prématurée ne se produise pendant que la session se finalise. En cas de
+    // code erroné, le catch nous ramène sur l'écran OTP avec l'erreur.
+    if (otpSignup) {
+      setSignupLoading(true);
+    } else {
+      setIsLoading(true);
+    }
     try {
       await signIn("email-otp", { email: otpStep.email, code: otp });
+      if (otpSignup) {
+        // L'écran de chargement attend la fin de la création du compte puis
+        // ouvre le dashboard automatiquement (aucun clic requis).
+        return;
+      }
       navigate(redirect);
     } catch (err) {
       console.error("OTP verification error:", err);
       setError("Le code de vérification est incorrect ou expiré.");
       setIsLoading(false);
+      setSignupLoading(false);
       setOtp("");
     }
   };
@@ -317,6 +366,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setIsLoading(false);
     }
   };
+
+  /* ---------- Écran de chargement d'inscription (validation du code) ---------- */
+
+  if (signupLoading) {
+    return (
+      <SignupLoadingScreen
+        authReady={isAuthReady({ authenticated: isAuthenticated, authLoading })}
+        onDone={() => navigate(redirect)}
+      />
+    );
+  }
 
   /* ---------- Écran validation parentale ---------- */
 
@@ -408,6 +468,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 onClick={() => {
                   setOtpStep(null);
                   setOtp("");
+                  setOtpSignup(null);
                 }}
               >
                 Réessayer avec un autre email
@@ -1004,6 +1065,172 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       </motion.div>
       <AuthFooter />
     </AuthShell>
+  );
+}
+
+/* ---------- Écran de chargement d'inscription (après validation du code) ---------- */
+
+function SignupLoadingScreen({
+  authReady,
+  onDone,
+}: {
+  authReady: boolean;
+  onDone: () => void;
+}) {
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [done, setDone] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  // Phrases défilantes : une nouvelle phrase toutes les ~2,4 s.
+  useEffect(() => {
+    if (done || timedOut) return;
+    const id = setInterval(() => {
+      setPhraseIndex((i) => (i + 1) % SIGNUP_LOADING_PHRASES.length);
+    }, SIGNUP_PHRASE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [done, timedOut]);
+
+  // Timeout de sécurité : jamais d'écran de chargement infini.
+  useEffect(() => {
+    if (done || timedOut) return;
+    const id = setTimeout(() => setTimedOut(true), SIGNUP_LOADING_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [done, timedOut, attempt]);
+
+  // Backend + session + profil prêts → « Chargement terminé ! » puis ouverture
+  // automatique du dashboard (transition fluide, aucun clic requis).
+  useEffect(() => {
+    if (done || timedOut || !authReady) return;
+    setDone(true);
+    const id = setTimeout(() => onDoneRef.current(), SIGNUP_DONE_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [done, timedOut, authReady]);
+
+  const retry = () => {
+    setTimedOut(false);
+    setAttempt((a) => a + 1);
+  };
+
+  return (
+    <div className="bg-glow relative flex min-h-screen flex-col overflow-hidden">
+      <div className="pointer-events-none absolute -left-32 top-0 size-96 rounded-full bg-primary/15 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-0 size-96 rounded-full bg-coral-500/10 blur-3xl" />
+
+      {/* Logo StudySnap */}
+      <header className="relative mx-auto flex w-full max-w-5xl items-center justify-center px-5 py-5">
+        <Link to="/" className="flex items-center gap-2">
+          <span className="text-lg font-extrabold tracking-tight">
+            Study<span className="text-brand-gradient">Snap</span>
+          </span>
+        </Link>
+      </header>
+
+      <main className="relative flex flex-1 flex-col items-center justify-center px-5 pb-4">
+        {done ? (
+          <motion.div
+            key="done"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="flex flex-col items-center text-center"
+          >
+            <div className="flex size-16 items-center justify-center rounded-full bg-mint-500/15 text-mint-300">
+              <CheckCircle2 className="size-9" />
+            </div>
+            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+              Chargement terminé !
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              On t&apos;ouvre ton dashboard…
+            </p>
+          </motion.div>
+        ) : timedOut ? (
+          <motion.div
+            key="timeout"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="glass-panel w-full max-w-sm rounded-3xl p-7 text-center"
+          >
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-300">
+              <RefreshCw className="size-7" />
+            </div>
+            <h1 className="mt-4 text-xl font-extrabold tracking-tight">
+              Ça prend plus de temps que prévu
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              La création de ton compte n&apos;est pas terminée. Tu peux
+              réessayer, ou accéder au tableau de bord : si la connexion a bien
+              abouti, tu y seras redirigé·e automatiquement.
+            </p>
+            <Button
+              type="button"
+              onClick={retry}
+              className="mt-5 h-12 w-full rounded-xl bg-brand-gradient font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:brightness-110"
+            >
+              <RefreshCw className="mr-2 size-4" />
+              Réessayer
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onDone}
+              className="mt-2 h-10 w-full"
+            >
+              Aller au tableau de bord
+            </Button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="flex flex-col items-center text-center"
+          >
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-brand-gradient opacity-40 blur-xl" />
+              <div className="relative flex size-16 items-center justify-center rounded-full bg-brand-gradient shadow-lg shadow-indigo-500/30">
+                <Loader2 className="size-8 animate-spin text-white" />
+              </div>
+            </div>
+            <h1 className="mt-5 text-2xl font-extrabold tracking-tight">
+              Création de ton compte…
+            </h1>
+            <p className="mt-1.5 max-w-xs text-sm leading-6 text-muted-foreground">
+              StudySnap prépare ton espace, tes fiches et tes quiz.
+            </p>
+            {/* Barre de progression animée (indéterminée) */}
+            <div className="mt-5 h-1.5 w-56 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-brand-gradient" />
+            </div>
+          </motion.div>
+        )}
+      </main>
+
+      {/* Phrases défilantes, en bas de l'écran */}
+      {!done && !timedOut && (
+        <div className="relative mx-auto w-full max-w-md px-6 pb-10">
+          <div className="flex min-h-16 items-center justify-center">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={phraseIndex}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="text-center text-sm leading-6 text-muted-foreground"
+              >
+                {SIGNUP_LOADING_PHRASES[phraseIndex]}
+              </motion.p>
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -70,7 +70,7 @@ export default function Dashboard() {
     {
       icon: Flame,
       label: "Scans ce mois",
-      value: usage ? `${usage.usage.scans}/${usage.plan === "free" ? 5 : "∞"}` : "—",
+      value: usage ? `${usage.usage.scans}/${usage.plan === "free" ? 4 : "∞"}` : "—",
       hint: usage?.plan === "free" ? "plan gratuit" : "plan illimité",
       color: "text-coral-500 bg-coral-500/10",
     },
