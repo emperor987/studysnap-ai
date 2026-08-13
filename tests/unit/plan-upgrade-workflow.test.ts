@@ -114,8 +114,14 @@ function actionCtx(db: MemoryDb, plan: string) {
     ...base,
     runMutation: async (_fn: unknown, args: unknown) =>
       call(rateLimit.consume, makeMutationCtx(db), args),
-    runQuery: async (_fn: unknown, args: unknown) =>
-      (args as { userId?: string }).userId ? plan : null,
+    // File d'appels internes déterministe pour generateQuiz (les références
+    // Convex sont opaques ici, on s'appuie sur l'ordre du code) :
+    //   1) guest.isGuestById → false (compte classique, jamais invité) ;
+    //   2) usage.getPlanForUser → plan attendu (gratuit / abonné).
+    runQuery: (() => {
+      const results: unknown[] = [false, plan];
+      return async () => results.shift();
+    })(),
     scheduler: { runAfter: async () => undefined },
   };
 }

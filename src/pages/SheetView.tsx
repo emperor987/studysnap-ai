@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { GuestGate } from "@/components/GuestGate";
 import { Markdown } from "@/components/markdown";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
@@ -22,6 +23,14 @@ import { buildPdf, downloadPdf, markdownToPlainText, type PdfBlock } from "@/lib
 import type { Id } from "@/convex/_generated/dataModel";
 
 export default function SheetView() {
+  return (
+    <GuestGate feature="Cette fiche de révision">
+      <SheetViewContent />
+    </GuestGate>
+  );
+}
+
+function SheetViewContent() {
   const { sheetId } = useParams<{ sheetId: string }>();
   const navigate = useNavigate();
   const sheet = useQuery(api.revisionSheets.getSheet, {

@@ -715,8 +715,15 @@ export default function Scanner() {
               Tu peux changer de mode à tout moment depuis le résultat.
             </p>
           </div>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {MODES.map((m, i) => (
+          <div
+            className={cn(
+              "mt-8 grid gap-4",
+              usage.isGuest ? "sm:grid-cols-2" : "sm:grid-cols-3",
+            )}
+          >
+            {/* Invité : seuls les modes 1 (Réponse rapide) et 2 (Explication)
+                sont proposés — la Révision (fiches/quiz) demande un compte. */}
+            {MODES.filter((m) => !usage.isGuest || m.id !== "revise").map((m, i) => (
               <motion.button
                 key={m.id}
                 type="button"

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { GuestGate } from "@/components/GuestGate";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { Camera, Search, Trash2 } from "lucide-react";
@@ -9,6 +10,14 @@ import { cn } from "@/lib/utils";
 import { formatDateTimeFr, modeLabel, subjectColor, subjectEmoji } from "@/lib/format";
 
 export default function History() {
+  return (
+    <GuestGate feature="Ton historique">
+      <HistoryContent />
+    </GuestGate>
+  );
+}
+
+function HistoryContent() {
   const scans = useQuery(api.scans.listMyScans);
   const deleteScan = useMutation(api.scans.deleteScan);
   const [subject, setSubject] = useState<string>("all");

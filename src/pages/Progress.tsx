@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { GuestGate } from "@/components/GuestGate";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import {
@@ -22,6 +23,14 @@ import { cn } from "@/lib/utils";
 import { subjectEmoji } from "@/lib/format";
 
 export default function Progress() {
+  return (
+    <GuestGate feature="Ta progression">
+      <ProgressContent />
+    </GuestGate>
+  );
+}
+
+function ProgressContent() {
   const stats = useQuery(api.usage.getMyStats);
 
   if (!stats) {

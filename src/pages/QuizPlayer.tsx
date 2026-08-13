@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { GuestGate } from "@/components/GuestGate";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
@@ -29,6 +30,14 @@ import type { Id } from "@/convex/_generated/dataModel";
 type Answer = { questionIndex: number; selected?: string; isCorrect: boolean };
 
 export default function QuizPlayer() {
+  return (
+    <GuestGate feature="Ce quiz">
+      <QuizPlayerContent />
+    </GuestGate>
+  );
+}
+
+function QuizPlayerContent() {
   const { quizId } = useParams<{ quizId: string }>();
   const quiz = useQuery(api.quizzes.getQuiz, {
     quizId: quizId as Id<"quizzes">,

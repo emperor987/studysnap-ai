@@ -905,6 +905,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   Continuer en invité (démo)
                 </Button>
               </div>
+              <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+                Mode démo : <strong className="text-foreground">1 scan</strong>{" "}
+                pour tester StudySnap, sans compte. Aucune donnée n'est
+                conservée — les fiches, quiz, historique et progression sont
+                réservés aux comptes.
+              </p>
             </div>
             <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
               <Lock className="mr-1 inline size-3" />

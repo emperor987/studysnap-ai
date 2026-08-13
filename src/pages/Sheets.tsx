@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { GuestGate } from "@/components/GuestGate";
 import { api } from "@/convex/_generated/api";
 import {
   useAction,
@@ -41,6 +42,14 @@ import { formatDateFr, levelLabel, subjectEmoji } from "@/lib/format";
 import type { ConvexError } from "convex/values";
 
 export default function Sheets() {
+  return (
+    <GuestGate feature="Tes fiches de révision">
+      <SheetsContent />
+    </GuestGate>
+  );
+}
+
+function SheetsContent() {
   const navigate = useNavigate();
   const sheets = useQuery(api.revisionSheets.listMySheets);
   const subjects = useQuery(api.subjects.listSubjects);

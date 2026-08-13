@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { GuestGate } from "@/components/GuestGate";
 import { api } from "@/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
@@ -69,6 +70,14 @@ const TYPES = [
 ];
 
 export default function Revision() {
+  return (
+    <GuestGate feature="Les quiz">
+      <RevisionContent />
+    </GuestGate>
+  );
+}
+
+function RevisionContent() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const quizzes = useQuery(api.quizzes.listMyQuizzes);

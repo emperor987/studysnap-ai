@@ -43,6 +43,11 @@ export default function Dashboard() {
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "Élève";
   const loading =
     scans === undefined || sheets === undefined || quizzes === undefined;
+  const empty =
+    !loading &&
+    (scans?.length ?? 0) === 0 &&
+    (sheets?.length ?? 0) === 0 &&
+    (quizzes?.length ?? 0) === 0;
   const isGuest = user?.isAnonymous === true;
 
   /* ---------- Dashboard invité (démo, sans compte) ---------- */

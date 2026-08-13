@@ -215,8 +215,20 @@ function makeActionCtx(db: ReturnType<typeof makeDb>) {
   const base = makeMutationCtx(db);
   return {
     ...base,
-    runQuery: async (_fn: unknown, args: unknown) =>
-      call(files.checkStorageOwnership, makeQueryCtx(db), args),
+    // Dispatch par la forme des arguments (les références internes Convex
+    // sont opaques ici) :
+    //  - { storageIds, userId } → le seul internalQuery du chemin testé :
+    //    checkStorageOwnership (propriété des fichiers) ;
+    //  - { userId } seul → les nouveaux internals du mode invité
+    //    (guest.isGuestById) : les comptes de ces tests sont CLASSIQUES
+    //    (jamais anonymes) → false, la limite invité ne s'applique pas.
+    runQuery: async (_fn: unknown, args: unknown) => {
+      const a = args as { storageIds?: unknown; userId?: string };
+      if (Array.isArray(a.storageIds)) {
+        return call(files.checkStorageOwnership, makeQueryCtx(db), args);
+      }
+      return false;
+    },
     // Les actions IA consomment la limite horaire (rateLimit:consume) avant
     // le traitement : on dispatche vers la vraie mutation pour que le seau
     // soit appliqué (et pour couvrir ce chemin dans les tests).

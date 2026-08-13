@@ -2,6 +2,7 @@ import { AppShell } from "@/components/app-shell";
 import { Markdown } from "@/components/markdown";
 import { api } from "@/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useAuth } from "@/hooks/use-auth";
 import {
   AlertTriangle,
   BookOpen,
@@ -120,6 +121,7 @@ export default function ScanResult() {
   const { scanId } = useParams<{ scanId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [mode, setMode] = useState<Mode>(
     (searchParams.get("mode") as Mode) || "explain",
   );
@@ -136,13 +138,21 @@ export default function ScanResult() {
   const [creatingSheet, setCreatingSheet] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const isPaid = useIsPaid();
+  const isGuest = user?.isAnonymous === true;
+
+  // Mode invité : seuls les modes 1 (Réponse rapide) et 2 (Explication)
+  // sont accessibles — la Révision (fiches/quiz) est réservée aux comptes.
+  const modeTabs = isGuest
+    ? MODE_TABS.filter((t) => t.id !== "revise")
+    : MODE_TABS;
+  const displayMode: Mode = isGuest && mode === "revise" ? "explain" : mode;
 
   useEffect(() => {
     const m = searchParams.get("mode") as Mode | null;
-    if (m && (m === "quick" || m === "explain" || m === "revise")) {
+    if (m && (m === "quick" || m === "explain" || (m === "revise" && !isGuest))) {
       setMode(m);
     }
-  }, [searchParams]);
+  }, [searchParams, isGuest]);
 
   const activeText = useMemo(() => {
     const r = scan?.result;
@@ -335,14 +345,14 @@ export default function ScanResult() {
 
       {/* Onglets de mode */}
       <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-        {MODE_TABS.map((t) => (
+        {modeTabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setSearchParams({ mode: t.id })}
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all",
-              mode === t.id
+              displayMode === t.id
                 ? "bg-primary text-white shadow-md shadow-primary/25"
                 : "glass-chip text-muted-foreground hover:text-foreground",
             )}
@@ -354,7 +364,7 @@ export default function ScanResult() {
 
       {/* Contenu */}
       <div className="mt-5 space-y-4">
-        {mode === "quick" && (
+        {displayMode === "quick" && (
           <>
             <Section icon={<Zap className="size-4" />} title="Réponse finale" tone="success">
               <p className="text-lg font-semibold leading-7">
@@ -439,7 +449,7 @@ export default function ScanResult() {
           </>
         )}
 
-        {mode === "explain" && (
+        {displayMode === "explain" && (
           <>
             <Section icon={<Sparkles className="size-4" />} title="Ce qu'on demande">
               <p className="text-sm leading-6">
@@ -489,7 +499,7 @@ export default function ScanResult() {
           </>
         )}
 
-        {mode === "revise" && (
+        {displayMode === "revise" && (
           <>
             <Section icon={<BookOpen className="size-4" />} title="Mini-leçon">
               <Markdown content={revise.lesson} />
@@ -599,20 +609,44 @@ export default function ScanResult() {
           <Save className="size-4" />
           {scan.saved ? "Sauvegardé" : "Sauvegarder"}
         </button>
-        <button
-          type="button"
-          onClick={handleAddToRevision}
-          disabled={creatingSheet}
-          className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-500/20 transition-all hover:brightness-110 disabled:opacity-60"
-        >
-          {creatingSheet ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <BookOpen className="size-4" />
-          )}
-          {creatingSheet ? "Création…" : "Ajouter aux révisions"}
-        </button>
+        {!isGuest && (
+          <button
+            type="button"
+            onClick={handleAddToRevision}
+            disabled={creatingSheet}
+            className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-500/20 transition-all hover:brightness-110 disabled:opacity-60"
+          >
+            {creatingSheet ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <BookOpen className="size-4" />
+            )}
+            {creatingSheet ? "Création…" : "Ajouter aux révisions"}
+          </button>
+        )}
       </div>
+
+      {/* Mode invité : fin du scan de démo — invitation claire à créer un
+          compte pour continuer à scanner gratuitement. */}
+      {isGuest && (
+        <div className="mt-4 flex flex-col items-start gap-3 rounded-2xl border border-primary/25 bg-primary/8 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold">C'est l'heure de créer ton compte 🚀</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Tu viens d'utiliser ton scan de démo. Crée ton compte pour
+              continuer à scanner gratuitement, garder ton historique et
+              accéder aux fiches de révision et aux quiz.
+            </p>
+          </div>
+          <Link
+            to="/auth?mode=signup&returnTo=/scanner"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+          >
+            <Sparkles className="size-4" />
+            Crée ton compte pour continuer
+          </Link>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-3 text-sm">
         <Link to="/exercises" className="font-semibold text-primary hover:underline">
