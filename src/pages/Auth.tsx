@@ -60,6 +60,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [tab, setTab] = useState<Tab>(() =>
     searchParams.get("mode") === "signup" ? "signUp" : "signIn",
   );
+  // mode=guest : entrée directe dans le mode démo (1 scan sans compte) depuis
+  // la landing — connexion anonyme automatique, aucun clic supplémentaire.
+  const autoGuest = searchParams.get("mode") === "guest";
+  const [guestBusy, setGuestBusy] = useState(false);
   const [method, setMethod] = useState<"password" | "emailCode">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -108,6 +112,34 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     }
   }, [authLoading, isAuthenticated, navigate, redirect, signupLoading]);
+
+  // Mode invité (mode=guest) : connexion anonyme automatique — jamais de
+  // navigation prématurée, un état de chargement dédié évite tout écran vide.
+  useEffect(() => {
+    if (!autoGuest || authLoading) return;
+    if (isAuthenticated) {
+      navigate(redirect);
+      return;
+    }
+    setGuestBusy(true);
+    let cancelled = false;
+    signIn("anonymous")
+      .then(() => {
+        if (!cancelled) navigate(redirect);
+      })
+      .catch((err: unknown) => {
+        console.error("Guest auto-login error:", err);
+        if (!cancelled) {
+          // Repli : on retombe sur l'écran de connexion classique, l'utilisateur
+          // peut réessayer via le bouton « Continuer en invité (démo) ».
+          setGuestBusy(false);
+          setError("Connexion invitée impossible, réessaie.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [autoGuest, authLoading, isAuthenticated, signIn, navigate, redirect]);
 
   const switchTab = (next: Tab) => {
     setTab(next);
@@ -366,6 +398,26 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setIsLoading(false);
     }
   };
+
+  /* ---------- Écran de chargement du mode invité (mode=guest) ---------- */
+
+  if (autoGuest && guestBusy && !isAuthenticated) {
+    return (
+      <AuthShell>
+        <div className="glass-panel flex flex-col items-center rounded-3xl p-9 text-center sm:p-11">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <h1 className="mt-5 text-xl font-extrabold tracking-tight">
+            Préparation du mode démo…
+          </h1>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+            1 scan gratuit pour tester StudySnap, sans compte. Aucune donnée
+            n'est conservée après ta visite.
+          </p>
+        </div>
+        <AuthFooter />
+      </AuthShell>
+    );
+  }
 
   /* ---------- Écran de chargement d'inscription (validation du code) ---------- */
 

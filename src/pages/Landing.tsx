@@ -1,18 +1,24 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  BookOpen,
   Camera,
   Check,
+  CheckCircle2,
   ChevronDown,
+  FileText,
   Flame,
   GraduationCap,
   History,
   ListChecks,
+  Lock,
   Play,
   ScanLine,
   Smartphone,
   Sparkles,
   Star,
+  Target,
+  UserRoundPlus,
   Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -495,6 +501,115 @@ function HowItWorks() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.text}</p>
           </motion.div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Mode démo — 1 scan gratuit, sans compte                             */
+/* ------------------------------------------------------------------ */
+
+const DEMO_INCLUDED = [
+  "1 scan d'exercice, depuis ta galerie",
+  "Mode 1 ⚡ réponse rapide ou Mode 2 👨\u200d🏫 explication détaillée",
+  "Matière, niveau et consigne détectés automatiquement",
+];
+
+const DEMO_ACCOUNT_ONLY = [
+  { icon: FileText, label: "Fiches de révision personnalisées" },
+  { icon: Target, label: "Quiz générés sur tes cours" },
+  { icon: History, label: "Historique de tes exercices" },
+  { icon: BookOpen, label: "Suivi de ta progression" },
+];
+
+function GuestDemo() {
+  return (
+    <section className="bg-white/5 py-20 sm:py-28">
+      <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
+        <SectionTitle
+          kicker="Mode démo · sans compte"
+          title={
+            <>
+              Teste StudySnap{" "}
+              <span className="text-brand-gradient">sans créer de compte</span>
+            </>
+          }
+          subtitle="1 scan gratuit pour voir l'IA en action. Aucun mot de passe, aucune donnée conservée après ta visite."
+        />
+        <div className="mx-auto mt-12 grid max-w-4xl gap-6 lg:grid-cols-2">
+          {/* Ce qui est inclus dans le scan de démo */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5 }}
+            className="glass-card flex flex-col rounded-3xl p-7 sm:p-8"
+          >
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-mint-500/15 text-mint-300">
+              <Sparkles className="size-6" />
+            </div>
+            <h3 className="mt-5 text-lg font-bold text-foreground">
+              Inclus dans ton scan de démo
+            </h3>
+            <ul className="mt-4 flex-1 space-y-3">
+              {DEMO_INCLUDED.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-start gap-2.5 text-sm leading-6 text-muted-foreground"
+                >
+                  <CheckCircle2 className="mt-1 size-4 shrink-0 text-mint-300" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Link
+              to="/auth?mode=guest&returnTo=%2Fscanner"
+              className="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+            >
+              <UserRoundPlus className="size-4" />
+              Essayer en mode démo
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </motion.div>
+
+          {/* Ce qui demande un compte */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ delay: 0.12, duration: 0.5 }}
+            className="glass-card flex flex-col rounded-3xl p-7 sm:p-8"
+          >
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Lock className="size-6" />
+            </div>
+            <h3 className="mt-5 text-lg font-bold text-foreground">
+              Réservé aux comptes
+            </h3>
+            <ul className="mt-4 flex-1 space-y-3">
+              {DEMO_ACCOUNT_ONLY.map(({ icon: Icon, label }) => (
+                <li
+                  key={label}
+                  className="flex items-start gap-2.5 text-sm leading-6 text-muted-foreground"
+                >
+                  <Icon className="mt-1 size-4 shrink-0 text-primary" />
+                  {label}
+                </li>
+              ))}
+            </ul>
+            <Link
+              to="/auth?mode=signup&returnTo=%2Fscanner"
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
+            >
+              Créer mon compte gratuitement
+            </Link>
+          </motion.div>
+        </div>
+        <p className="mt-8 text-center text-xs leading-5 text-muted-foreground">
+          Inscription en 10 secondes, juste ton email — aucun mot de passe à
+          retenir.
+        </p>
       </div>
     </section>
   );
@@ -1044,6 +1159,7 @@ export default function Landing() {
     >
       <Hero />
       <HowItWorks />
+      <GuestDemo />
       <Testimonials />
       <Modes />
       <SheetPreview />
