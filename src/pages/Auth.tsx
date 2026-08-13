@@ -49,7 +49,7 @@ interface AuthProps {
 type Tab = "signIn" | "signUp";
 
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
-  const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, signIn, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirect = resolveRedirectAfterAuth(
@@ -63,7 +63,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   // mode=guest : entrée directe dans le mode démo (1 scan sans compte) depuis
   // la landing — connexion anonyme automatique, aucun clic supplémentaire.
   const autoGuest = searchParams.get("mode") === "guest";
-  const [guestBusy, setGuestBusy] = useState(false);
+  // Démarre déjà « occupé » quand on arrive via mode=guest : l'écran
+  // « Préparation du mode démo… » s'affiche immédiatement, sans flash du
+  // formulaire de connexion pendant le chargement de la session.
+  const [guestBusy, setGuestBusy] = useState(() => autoGuest);
   const [method, setMethod] = useState<"password" | "emailCode">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -111,10 +114,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     // Pendant l'écran de chargement d'inscription, c'est cet écran qui
     // déclenche la navigation (après « Chargement terminé ! ») — on ne veut
     // pas qu'une navigation prématurée fasse sauter la transition.
-    if (!authLoading && isAuthenticated && !signupLoading) {
+    //
+    // Exception INVITÉ (compte anonyme) : un utilisateur en mode démo qui
+    // arrive sur /auth — par exemple en cliquant « Créer mon compte » après
+    // son scan de démo — ne doit JAMAIS être renvoyé automatiquement vers sa
+    // destination, sinon l'écran d'inscription ne s'affiche jamais et on
+    // boucle (scanner → /auth → scanner → …). C'est l'utilisateur qui décide
+    // de quitter le mode invité : tant qu'il est anonyme, on reste sur
+    // l'écran d'auth. Le mode=guest gère lui-même sa redirection une fois la
+    // connexion anonyme établie (effet dédié plus bas).
+    if (user === undefined) return;
+    if (!authLoading && isAuthenticated && !user?.isAnonymous && !signupLoading) {
       navigate(redirect);
     }
-  }, [authLoading, isAuthenticated, navigate, redirect, signupLoading]);
+  }, [authLoading, isAuthenticated, navigate, redirect, signupLoading, user]);
 
   // Mode invité (mode=guest) : connexion anonyme automatique — jamais de
   // navigation prématurée, un état de chargement dédié évite tout écran vide.
