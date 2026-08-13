@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { resolveRedirectAfterAuth } from "@/lib/redirect";
-import { useAction, useConvex, useQuery } from "convex/react";
+import { useAction, useConvex, useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -95,6 +95,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   // Consentement parental (mineurs < 15 ans)
   const submitParental = useAction(api.parentalConsent.submitParentalRequest);
   const resendParental = useAction(api.parentalConsent.resendParentalEmail);
+  // Unicité de l'adresse email (un email = un seul compte) — vérifiée côté
+  // serveur AVANT l'envoi du code de vérification ou la création du compte.
+  const assertEmailAvailable = useMutation(api.authUniqueness.assertEmailAvailable);
   const parentalStatus = useQuery(api.parentalConsentStatus.getMyParentalStatus);
   const [isMinor, setIsMinor] = useState<boolean | null>(null);
   const [parentEmail, setParentEmail] = useState("");
@@ -293,6 +296,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
     setIsLoading(true);
     try {
+      if (tab === "signUp") {
+        // Un email = un seul compte : vérification serveur en base AVANT la
+        // création du compte. Adresse déjà utilisée → EMAIL_TAKEN (message
+        // dédié dans le catch, aucun compte créé).
+        await assertEmailAvailable({ email: trimmedEmail });
+      }
       await signIn("password", {
         flow: tab === "signUp" ? "signUp" : "signIn",
         email: trimmedEmail,
@@ -346,6 +355,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         newAccount = false;
       }
       setOtpSignup(newAccount);
+      if (newAccount) {
+        // Inscription par code : vérification serveur en base AVANT l'envoi
+        // du code — une adresse déjà utilisée est refusée ici (aucun code
+        // envoyé, aucun doublon créé). EMAIL_TAKEN → message dédié.
+        await assertEmailAvailable({ email: trimmedEmail });
+      }
       await signIn("email-otp", { email: trimmedEmail });
       setOtpStep({ email: trimmedEmail });
       setIsLoading(false);
@@ -378,8 +393,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       }
       navigate(redirect);
     } catch (err) {
+      // Message fidèle à la cause réelle : code erroné/expiré, service
+      // indisponible ou erreur réseau — jamais de message générique trompeur.
       console.error("OTP verification error:", err);
-      setError("Le code de vérification est incorrect ou expiré.");
+      setError(getAuthErrorMessage(err));
       setIsLoading(false);
       setSignupLoading(false);
       setOtp("");

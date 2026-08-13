@@ -60,6 +60,49 @@ describe("getAuthErrorMessage — traduction des erreurs d'authentification", ()
     expect(getAuthErrorMessage(new Error("Code expired"))).toBe(
       "Le code est incorrect ou expiré. Redemande un code.",
     );
+    // Erreur réelle de la bibliothèque quand le code ne correspond pas.
+    expect(getAuthErrorMessage(new Error("Could not verify code"))).toBe(
+      "Le code est incorrect ou expiré. Redemande un code.",
+    );
+  });
+
+  test("EMAIL_TAKEN (serveur) → adresse déjà utilisée, connectez-vous", () => {
+    expect(
+      getAuthErrorMessage({
+        data: { code: "EMAIL_TAKEN", message: "Adresse email déjà utilisée, connectez-vous avec." },
+      }),
+    ).toBe("Adresse email déjà utilisée, connectez-vous avec.");
+    expect(getAuthErrorMessage(new Error("Email already used"))).toBe(
+      "Adresse email déjà utilisée, connectez-vous avec.",
+    );
+  });
+
+  test("SITE_URL manquante (bug bloquant) → erreur de configuration claire, pas générique", () => {
+    expect(
+      getAuthErrorMessage(new Error("Missing environment variable `SITE_URL`")),
+    ).toBe(
+      "Le service d'envoi de codes est mal configuré. Réessaie dans quelques minutes.",
+    );
+  });
+
+  test("clé d'envoi absente → message dédié (jamais « code incorrect »)", () => {
+    expect(getAuthErrorMessage(new Error("Le service d'envoi de codes n'est pas configuré."))).toBe(
+      "Le service d'envoi de codes n'est pas encore configuré. Réessaie dans quelques minutes.",
+    );
+  });
+
+  test("échec d'envoi du code → message dédié, pas confondu avec un code incorrect", () => {
+    expect(getAuthErrorMessage(new Error("Échec de l'envoi du code — réessaie dans un instant."))).toBe(
+      "L'envoi du code a échoué — réessaie dans un instant.",
+    );
+  });
+
+  test("trop de demandes de code par email → message dédié", () => {
+    expect(
+      getAuthErrorMessage(
+        new Error("Trop de demandes de code par email. Réessaie dans quelques minutes."),
+      ),
+    ).toBe("Trop de demandes de code par email. Réessaie dans quelques minutes.");
   });
 
   test("erreur inconnue → message générique", () => {

@@ -8,6 +8,10 @@
 const SERVICE_UNAVAILABLE =
   "Le service est momentanément indisponible. Réessaie dans quelques instants.";
 
+/** Adresse email déjà rattachée à un compte (un email = un seul compte). */
+const EMAIL_TAKEN =
+  "Adresse email déjà utilisée, connectez-vous avec.";
+
 export function getAuthErrorMessage(e: unknown): string {
   const any = e as {
     data?: { code?: unknown };
@@ -52,6 +56,44 @@ export function getAuthErrorMessage(e: unknown): string {
   ];
   if (NETWORK_HINTS.some((hint) => hay.includes(hint))) {
     return SERVICE_UNAVAILABLE;
+  }
+
+  // Adresse déjà rattachée à un compte — code dédié EMAIL_TAKEN levé par
+  // convex/authUniqueness (serveur), ou message du provider.
+  if (
+    hay.includes("email_taken") ||
+    hay.includes("déjà utilisée") ||
+    hay.includes("deja utilisee") ||
+    hay.includes("already used")
+  ) {
+    return EMAIL_TAKEN;
+  }
+
+  // Configuration serveur incomplète — la cause précise est journalisée côté
+  // serveur (dashboard Convex) : jamais de message générique trompeur.
+  if (hay.includes("missing environment variable") || hay.includes("missing env")) {
+    return "Le service d'envoi de codes est mal configuré. Réessaie dans quelques minutes.";
+  }
+  if (
+    hay.includes("n'est pas configuré") ||
+    hay.includes("n'est pas configure") ||
+    hay.includes("not configured")
+  ) {
+    return "Le service d'envoi de codes n'est pas encore configuré. Réessaie dans quelques minutes.";
+  }
+
+  // Rate limit d'envoi de codes (avant « code », sinon le mot « code » du
+  // message serait mal traduit en « code incorrect »).
+  if (hay.includes("trop de demandes") || hay.includes("too many requests")) {
+    return "Trop de demandes de code par email. Réessaie dans quelques minutes.";
+  }
+  if (
+    hay.includes("échec de l'envoi") ||
+    hay.includes("echec de l'envoi") ||
+    hay.includes("envoi du code") ||
+    hay.includes("failed to send")
+  ) {
+    return "L'envoi du code a échoué — réessaie dans un instant.";
   }
 
   // Mot de passe : à tester avant « invalid »/« credential », sinon

@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import * as ai from "@/convex/ai";
+import * as authUniqueness from "@/convex/authUniqueness";
 import * as rateLimit from "@/convex/rateLimit";
 import { emailOtp } from "@/convex/auth/emailOtp";
 
@@ -33,8 +34,18 @@ function consumeCtx(db: MemoryDb) {
   const base = makeMutationCtx(db);
   return {
     ...base,
-    runMutation: async (_fn: unknown, args: unknown) =>
-      call(rateLimit.consume, makeMutationCtx(db), args),
+    // Dispatch par FORME des arguments (les références `internal.*` sont des
+    // proxys, pas d'identité fiable) : les mutations internes consommées ici
+    // sont rateLimit.consume (anti-flood, args key/windowMs/max) et
+    // authUniqueness.assertEmailConflictFree (unicité de l'adresse avant
+    // l'envoi du code, args email).
+    runMutation: async (_fn: unknown, args: unknown) => {
+      const a = args as Record<string, unknown>;
+      if (typeof a?.key === "string" && typeof a?.max === "number") {
+        return call(rateLimit.consume, makeMutationCtx(db), args);
+      }
+      return call(authUniqueness.assertEmailConflictFree, makeMutationCtx(db), args);
+    },
     runQuery: async () => null,
     scheduler: { runAfter: async () => undefined },
   };

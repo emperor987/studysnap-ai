@@ -5,6 +5,21 @@ import { internal } from "../_generated/api";
 import { OTP_SEND_LIMITS } from "../rateLimit";
 
 /**
+ * BUG BLOQUANT CORRIGÉ : la bibliothèque @convex-dev/auth exige la variable
+ * `SITE_URL` pour TOUT envoi de code email (construction du lien magique,
+ * `redirectAbsoluteUrl` → `requireEnv("SITE_URL")`) — et ce AVANT même que
+ * notre `sendVerificationRequest` ne soit appelé. Si `SITE_URL` manque dans
+ * l'environnement backend, chaque demande de code échoue avec
+ * « Missing environment variable SITE_URL », que l'interface affiche comme
+ * erreur générique. La plateforme fournit `CONVEX_SITE_URL` : on bascule
+ * dessus en repli (la valeur ne sert qu'au lien du message, ignoré par notre
+ * envoi personnalisé).
+ */
+if (!process.env.SITE_URL && process.env.CONVEX_SITE_URL) {
+  process.env.SITE_URL = process.env.CONVEX_SITE_URL;
+}
+
+/**
  * Clés d'envoi d'OTP par email — FOURNIES PAR L'ENVIRONNEMENT (UI Keys de la
  * plateforme), jamais codées en dur dans le code source. Sans clé, l'envoi
  * échoue proprement (message générique, aucun secret dans l'erreur).
@@ -65,13 +80,27 @@ export const emailOtp = Email({
       }
     }
 
+    // Unicité de l'adresse (un email = un compte) — vérification en base AVANT
+    // l'envoi du code : si un utilisateur existe avec cet email mais aucun
+    // compte email-otp, l'adresse est déjà prise (compte mot de passe…) →
+    // inscription refusée, aucun code envoyé. Un compte email-otp existant
+    // reste une connexion normale.
+    if (ctx?.runMutation) {
+      await ctx.runMutation(internal.authUniqueness.assertEmailConflictFree, {
+        email,
+      });
+    }
+
     const apiKeys = [
       process.env.FREEBUFF_EMAIL_API_KEY,
       process.env.FREEBUFF_EMAIL_API_KEY_PREVIOUS,
     ].filter((k): k is string => Boolean(k?.trim()));
     if (apiKeys.length === 0) {
-      // Ne JAMAIS renvoyer le token ni la clé dans le message d'erreur :
-      // l'erreur peut être journalisée par Convex ou affichée au client.
+      // Cause réelle journalisée côté serveur (dashboard Convex) — jamais de
+      // clé ni de token dans le log ni dans le message d'erreur.
+      console.error(
+        "[emailOtp] Aucune clé d'envoi configurée (FREEBUFF_EMAIL_API_KEY) — vérifier l'onglet Keys.",
+      );
       throw new Error("Le service d'envoi de codes n'est pas configuré.");
     }
 
@@ -93,21 +122,38 @@ export const emailOtp = Email({
         if (res.status >= 200 && res.status < 300) return;
         // Clé refusée (401/403) → clé suivante (rotation en chevauchement).
         // Autre statut (4xx métier, 5xx) → inutile d'essayer une autre clé.
-        if (res.status !== 401 && res.status !== 403) break;
+        if (res.status !== 401 && res.status !== 403) {
+          console.error(
+            `[emailOtp] Envoi du code refusé par le service (HTTP ${res.status}).`,
+          );
+          break;
+        }
+        console.error(
+          `[emailOtp] Clé API refusée (HTTP ${res.status}) — tentative avec la clé de secours.`,
+        );
       } catch (e) {
         const status =
           (e as { response?: { status?: number } })?.response?.status ?? 0;
         // Réessayer avec la clé suivante UNIQUEMENT si la clé a été refusée
         // (401/403). Message générique : ne pas sérialiser l'erreur axios
         // (JSON.stringify d'une AxiosError expose la config de la requête —
-        // clé API + OTP).
+        // clé API + OTP). La cause réelle est journalisée côté serveur.
         if (status !== 401 && status !== 403) {
+          console.error(
+            `[emailOtp] Échec de l'envoi du code (HTTP ${status || "réseau"}) — cause : ${(e as Error)?.message ?? "inconnue"}`,
+          );
           throw new Error(
             "Échec de l'envoi du code — réessaie dans un instant.",
           );
         }
+        console.error(
+          `[emailOtp] Clé API refusée (HTTP ${status}) — tentative avec la clé de secours.`,
+        );
       }
     }
+    console.error(
+      "[emailOtp] Toutes les clés d'envoi ont échoué — vérifier FREEBUFF_EMAIL_API_KEY dans l'onglet Keys.",
+    );
     throw new Error("Échec de l'envoi du code — réessaie dans un instant.");
   },
 });
