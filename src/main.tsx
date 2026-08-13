@@ -2,6 +2,10 @@ import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
+import {
+  clearLegacyPersistentAuthTokens,
+  getVisitTokenStorage,
+} from "@/lib/visit-session";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
@@ -110,6 +114,25 @@ if (convexUrl) {
   }
 }
 
+// Session « par visite » : les jetons Convex Auth vivent dans sessionStorage
+// (et non localStorage) — fermer puis rouvrir l'app impose de se reconnecter
+// (pas de connexion silencieuse automatique).
+const visitTokenStorage = getVisitTokenStorage();
+
+// Nettoyage au démarrage : retire les jetons persistants écrits par les
+// versions précédentes de l'app, pour qu'aucune session ancienne ne puisse
+// reconnecter silencieusement (même si sessionStorage était indisponible).
+if (typeof window !== "undefined") {
+  try {
+    clearLegacyPersistentAuthTokens(window.localStorage);
+  } catch (error) {
+    console.warn(
+      "[Session] Nettoyage du stockage persistant impossible :",
+      error,
+    );
+  }
+}
+
 function MissingBackendNotice() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-6">
@@ -150,7 +173,7 @@ function RouteSyncer() {
 function App() {
   if (!convex) return <MissingBackendNotice />;
   return (
-    <ConvexAuthProvider client={convex}>
+    <ConvexAuthProvider client={convex} storage={visitTokenStorage}>
       <BrowserRouter>
         <RouteSyncer />
         <Suspense fallback={<RouteLoading />}>
