@@ -300,7 +300,8 @@ function Hero() {
           </AnimatePresence>
         </motion.p>
 
-        {/* CTA principal */}
+        {/* CTA principal — zéro friction d'abord (test immédiat sans compte),
+            puis inscription en 10 secondes quand l'utilisateur est convaincu. */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -308,7 +309,7 @@ function Hero() {
           className="mt-9 flex w-full flex-col items-center gap-4 sm:w-auto"
         >
           <Link
-            to="/auth?returnTo=%2Fscanner"
+            to="/auth?mode=guest&returnTo=%2Fscanner"
             className="group inline-flex max-w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-4 py-2.5 text-[13px] font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
           >
             <Camera className="size-4 shrink-0 sm:size-5" />
@@ -316,11 +317,32 @@ function Hero() {
             <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-1 sm:size-5" />
           </Link>
           <Link
+            to="/auth?mode=signup&returnTo=%2Fscanner"
+            className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-[13px] font-semibold text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/15 sm:px-6 sm:py-3 sm:text-sm"
+          >
+            <UserRoundPlus className="size-4 shrink-0" />
+            Créer mon compte gratuitement
+          </Link>
+          <Link
             to="/auth?returnTo=%2Fsheets"
             className="inline-flex items-center gap-2 text-sm font-medium text-white/85 transition-colors hover:text-white"
           >
             📚 Créer une fiche de révision
           </Link>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs font-medium text-white/75">
+            <span className="inline-flex items-center gap-1">
+              <Sparkles className="size-3 text-amber-300" />
+              Teste sans compte
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Check className="size-3 text-mint-300" />
+              4 scans gratuits / mois
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Lock className="size-3" />
+              Sans carte bancaire
+            </span>
+          </div>
         </motion.div>
       </div>
 
@@ -378,11 +400,19 @@ const MODES = [
 const FAQ_ITEMS = [
   {
     q: "Comment scanner un exercice ?",
-    a: "Depuis le tableau de bord, clique sur « Scanner un exercice », prends une photo de ton devoir (ou importe-la depuis ta galerie), puis valide. L'IA analyse la photo en 2 à 4 secondes et te propose ensuite le mode de réponse de ton choix.",
+    a: "Depuis le tableau de bord, clique sur « Scanner un exercice », importe une photo de ton devoir depuis ta galerie (ou glisse-dépose le fichier depuis ton ordinateur), puis valide. L'IA analyse la photo en quelques secondes et te propose ensuite le mode de réponse de ton choix.",
   },
   {
     q: "Comment fonctionnent les scans gratuits ?",
     a: "Le plan gratuit inclut 4 scans par mois, 3 fiches de révision et 3 quiz de 5 questions max. Aucune carte bancaire n'est demandée. Quand tu atteins la limite, tu peux passer à Student ou Student Pro — ou attendre le mois suivant.",
+  },
+  {
+    q: "Puis-je tester StudySnap sans créer de compte ?",
+    a: "Oui : le mode démo te donne 1 scan gratuit, sans compte ni mot de passe. Tu importes une photo, l'IA l'analyse, et tu découvres la réponse rapide ou l'explication détaillée. Aucune donnée n'est conservée après ta visite — et quand tu veux garder tes exercices et tes fiches, la création du compte ne prend que 10 secondes.",
+  },
+  {
+    q: "L'inscription est-elle vraiment gratuite et sans engagement ?",
+    a: "Oui. L'inscription ne demande que ton email et donne droit à 4 scans gratuits par mois, 3 fiches de révision et 3 quiz — sans carte bancaire. Les plans payants se résilient à tout moment depuis les Paramètres, et tu gardes l'accès jusqu'à la fin de la période déjà payée.",
   },
   {
     q: "Que faire si l'explication ne me convient pas ?",
@@ -1085,7 +1115,7 @@ function FinalCTA() {
         </p>
         <div className="relative mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            to="/auth?returnTo=%2Fscanner"
+            to="/auth?mode=signup&returnTo=%2Fscanner"
             className="group inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:brightness-110 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
           >
             <Camera className="size-4 sm:size-5" />
@@ -1100,6 +1130,15 @@ function FinalCTA() {
             Voir les prix
           </Link>
         </div>
+        <p className="relative mt-5 text-sm text-muted-foreground">
+          Pas envie de créer un compte tout de suite ?{" "}
+          <Link
+            to="/auth?mode=guest&returnTo=%2Fscanner"
+            className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:decoration-primary"
+          >
+            Teste StudySnap en 1 clic, sans compte →
+          </Link>
+        </p>
       </div>
     </section>
   );
@@ -1116,16 +1155,28 @@ function Footer() {
             </span>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <a href="#top" className="transition-colors hover:text-foreground">
+            <Link
+              to="/auth?returnTo=%2Fscanner"
+              className="transition-colors hover:text-foreground"
+            >
               Scanner un exercice
-            </a>
-            <a href="#pricing" className="transition-colors hover:text-foreground">
+            </Link>
+            <Link
+              to="/auth?returnTo=%2Fsheets"
+              className="transition-colors hover:text-foreground"
+            >
               Créer une fiche
-            </a>
-            <a href="#faq" className="transition-colors hover:text-foreground">
+            </Link>
+            <Link
+              to="/auth?returnTo=%2Frevision"
+              className="transition-colors hover:text-foreground"
+            >
               Réviser avant un contrôle
-            </a>
-            <Link to="/progress" className="transition-colors hover:text-foreground">
+            </Link>
+            <Link
+              to="/auth?returnTo=%2Fprogress"
+              className="transition-colors hover:text-foreground"
+            >
               Suivre sa progression
             </Link>
           </nav>
