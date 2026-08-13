@@ -14,6 +14,14 @@
  * (9,99/14,99 € mensuels) utilisent d'autres lookup_keys : les nouveaux
  * lookup_keys v2 forcent la création des prix aux nouveaux montants.
  * Si la config enregistrée date d'avant les prix annuels, on re-provisionne.
+ *
+ * MIGRATION DE COMPTE STRIPE : la config est empreintée par l'ID du compte
+ * associé à la clé (GET /v1/account → acct_...). Si l'ID change (nouvelle
+ * clé d'un AUTRE compte Stripe, même mode test/test ou live/live), tout est
+ * recréé sous le nouveau compte : produits, prix (lookup_keys propres au
+ * nouveau compte), endpoint webhook (même URL {SITE_URL}/stripe-webhook) et
+ * son secret de signature. Aucun price_id / whsec de l'ancien compte n'est
+ * réutilisé.
  */
 
 import { action } from "./_generated/server";
@@ -84,6 +92,7 @@ const WEBHOOK_EVENTS = [
   "checkout.session.completed",
   "customer.subscription.updated",
   "customer.subscription.deleted",
+  "invoice.payment_failed",
 ];
 
 export const provisionStripe = action({
@@ -98,15 +107,25 @@ export const provisionStripe = action({
     }
 
     // Les objets Stripe (produits, prix, webhook) sont propres à chaque
-    // environnement : une config enregistrée en test ne vaut pas en live.
+    // environnement ET à chaque compte : une config enregistrée en test ne
+    // vaut pas en live, et une config d'un AUTRE compte (migration) non plus.
     const mode: "test" | "live" = key.startsWith("sk_live_") ? "live" : "test";
 
+    // Empreinte du compte associé à la clé : détecte un changement de compte
+    // même dans le même mode (ex. ancien compte test → nouveau compte test).
+    const account = (await stripeGet("/account", key)) as { id?: string };
+    const accountId = String(account.id ?? "");
+    if (!accountId) {
+      throw new Error("Stripe : impossible de lire l'identifiant du compte.");
+    }
+
     const existing = await ctx.runQuery(internal.stripeConfig.getStripeConfig);
-    // Re-provisionne si la config est d'un autre environnement OU si elle
-    // date d'avant l'ajout des prix annuels (champs manquants).
+    // Re-provisionne si : autre environnement, AUTRE COMPTE (accountId
+    // différent), ou config datant d'avant les prix annuels (champs manquants).
     if (
       existing &&
       existing.mode === mode &&
+      existing.accountId === accountId &&
       existing.priceStudentAnnual &&
       existing.priceProAnnual
     ) {
@@ -204,6 +223,7 @@ export const provisionStripe = action({
     );
 
     const config = {
+      accountId,
       mode,
       priceStudent,
       pricePro,

@@ -238,6 +238,7 @@ const schema = defineSchema(
     // jamais exposée au client (accès via fonctions internes uniquement).
     stripe_config: defineTable({
       singleton: v.literal("default"),
+      accountId: v.optional(v.string()), // acct_... : empreinte du compte Stripe (migration = re-provisionnement)
       mode: v.string(), // "test" | "live" (environnement des objets créés)
       priceStudent: v.string(), // price_... plan Student mensuel (4,99 €/mois)
       pricePro: v.string(), // price_... plan Student Pro mensuel (6,99 €/mois)

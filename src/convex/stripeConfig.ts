@@ -10,6 +10,10 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 
 export type StripeConfig = {
+  /** Empreinte du compte Stripe (acct_...) : si elle change (migration de
+   *  compte, nouvelle clé), le provisionnement recrée tout sous le nouveau
+   *  compte — jamais de price_id / secret d'un ancien compte réutilisés. */
+  accountId: string;
   mode: "test" | "live";
   priceStudent: string;
   pricePro: string;
@@ -20,6 +24,10 @@ export type StripeConfig = {
 };
 
 const stripeConfigValidator = v.object({
+  // Optionnel pour rester compatible avec les configs enregistrées avant
+  // l'ajout du champ : elles sont re-provisionnées automatiquement (l'ID
+  // manquant ≠ ID du compte courant).
+  accountId: v.optional(v.string()),
   mode: v.union(v.literal("test"), v.literal("live")),
   priceStudent: v.string(),
   pricePro: v.string(),
@@ -38,8 +46,11 @@ export const getStripeConfig = internalQuery({
       .withIndex("by_singleton", (q) => q.eq("singleton", "default"))
       .first();
     if (!doc) return null;
-    // Anciennes configs (avant l'ajout du mode) : considérées comme du test.
+    // Anciennes configs (avant l'ajout du mode / du compte) : considérées
+    // comme du test, sans compte — le provisionnement les remplacera dès le
+    // prochain checkout (accountId manquant ≠ compte courant).
     return {
+      accountId: doc.accountId ?? "",
       mode: (doc.mode === "live" ? "live" : "test") as "test" | "live",
       priceStudent: doc.priceStudent,
       pricePro: doc.pricePro,

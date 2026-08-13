@@ -137,7 +137,7 @@ CI (les workflows ne passent pas `secrets.*` à `echo` ; vérifié par tests).
 |---|---|---|---|---|
 | `FREEBUFF_EMAIL_API_KEY` | Plateforme (compte de l'utilisateur) | Non — déclenchement manuel | ✅ `FREEBUFF_EMAIL_API_KEY_PREVIOUS` (repli sur 401/403) | 1. Saisir la nouvelle clé dans `FREEBUFF_EMAIL_API_KEY` ; 2. déplacer l'ancienne dans `FREEBUFF_EMAIL_API_KEY_PREVIOUS` ; 3. envoyer un OTP de test ; 4. retirer `*_PREVIOUS` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe (endpoint webhook) | Non | ✅ plusieurs secrets actifs (`_PREVIOUS`, config provisionnée) | 1. Ajouter le nouveau secret côté Stripe ; 2. le mettre dans `STRIPE_WEBHOOK_SECRET`, l'ancien dans `_PREVIOUS` ; 3. rejouer un événement de test ; 4. supprimer l'ancien côté Stripe puis en env |
-| `STRIPE_SECRET_KEY` | Stripe | Non | Non nécessaire (rotation immédiate + re-provisionnement) | Remplacer la clé dans l'UI Keys ; le provisionnement recrée la config au prochain checkout |
+| `STRIPE_SECRET_KEY` | Stripe | Non | Non nécessaire (rotation immédiate + re-provisionnement) | Remplacer la clé dans l'UI Keys ; le provisionnement recrée la config au prochain checkout. **Changement de compte** : la config est empreintée par l'ID du compte (`accountId`) — une clé d'un AUTRE compte déclenche un re-provisionnement complet (produits, prix, webhook, secret) sans toucher au code |
 | `AI_API_KEY` / `AI_API_KEY_FAST` | Fournisseur IA | Non | Non | Remplacer la clé (lue à chaque appel) |
 | `VLY_INTEGRATION_KEY` | Plateforme (SDK Vly) | Non | Non | Remplacer dans l'UI Keys ; le SDK relit l'env |
 | `SITE_URL`, `CONVEX_SITE_URL`, `VITE_CONVEX_URL` | Config (non secrets) | — | — | — |
@@ -149,6 +149,73 @@ nouvelle, puis est révoquée. Le code ne lit jamais une valeur « figée » à 
 toutes les clés sont relues à chaque appel.
 
 Preuve : `tests/security/secrets.test.ts`, `tests/security/secrets-rotation.test.ts`.
+
+## Migration de compte Stripe (runbook)
+
+Procédure pour passer StudySnap sur un **autre compte Stripe** (même compte
+marchand ou nouveau), sans casser le paiement ni la sécurité.
+
+> Le code ne contient **aucune clé, aucun price_id ni aucun secret** en dur :
+> tout est lu depuis l'UI Keys (`STRIPE_SECRET_KEY`, surcharges de prix
+> optionnelles) et la config auto-provisionnée en base (`stripe_config`, accès
+> interne uniquement). La migration est donc un changement de clé + une
+> vérification — pas une refonte.
+
+### 1. Remplacer la clé API
+
+1. Dans l'UI Keys de la plateforme, remplacer `STRIPE_SECRET_KEY` par la
+   nouvelle clé (`sk_test_...` ou `sk_live_...`) du nouveau compte Stripe.
+2. **Aucun changement de code nécessaire** : le provisionnement détecte le
+   changement de compte via `GET /v1/account` (`accountId` ≠ config
+   enregistrée) et recrée tout sous le nouveau compte au prochain checkout.
+
+### 2. Produits et prix (recréation automatique)
+
+Au premier checkout après le changement de clé, `provisionStripe` crée dans le
+nouveau compte :
+
+| Produit | Mensuel | Annuel | Lookup keys |
+|---|---|---|---|
+| Student | 4,99 € (`price_...`) | 49,99 € (`price_...`) | `studysnap_student_monthly_v2` / `studysnap_student_annual` |
+| Student Pro | 6,99 € (`price_...`) | 69,99 € (`price_...`) | `studysnap_pro_monthly_v2` / `studysnap_pro_annual` |
+
+Les nouveaux `price_id` remplacent automatiquement l'ancienne config en base
+(`stripe_config`) — Checkout utilise toujours les prix du bon compte.
+
+### 3. Webhook
+
+- L'endpoint `{SITE_URL}/stripe-webhook` est recréé dans le nouveau compte,
+  abonné aux mêmes événements : `checkout.session.completed`,
+  `customer.subscription.updated`, `customer.subscription.deleted`,
+  `invoice.payment_failed`.
+- Le **nouveau secret de signature** (renvoyé une seule fois par Stripe à la
+  création) est stocké automatiquement dans `stripe_config`. La validation
+  accepte déjà plusieurs candidats (`STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_WEBHOOK_SECRET_PREVIOUS`, config provisionnée) : pas de fenêtre de
+  rejet pendant la bascule, anti-rejeu conservé.
+- Optionnel : définir `STRIPE_WEBHOOK_SECRET` en env avec le nouveau secret
+  (le config en base suffit). Si l'ancien endpoint de l'ancien compte envoie
+  encore des événements (même URL), ils seront **rejetés** par la validation
+  de signature — laisser l'ancien compte en pause ou supprimer son endpoint.
+
+### 4. Vérifications (à faire après le changement de clé)
+
+1. `bunx convex dev --once && bun tsc -b --noEmit` puis `bun test` (suite
+   complète, dont `tests/unit/stripe-migration.test.ts`).
+2. Paiement test réussi (carte Stripe 4242...) sur Student ou Student Pro →
+   le webhook reçoit `checkout.session.completed`, le compte passe en plan
+   payant immédiatement (toast Settings + accès complet).
+3. Paiement échoué (carte refusée 4000...) → `invoice.payment_failed` passe
+   l'abonnement en `past_due` : l'accès payant est retiré (getMyPlan → free).
+4. Résiliation → `customer.subscription.deleted` → statut `canceled`.
+5. Dashboard Stripe du nouveau compte : produits/prices présents, endpoint
+   webhook actif, aucun événement d'échec de signature.
+6. Vérifier qu'aucune référence à l'ancien compte ne subsiste : la table
+   `stripe_config` porte le nouveau `accountId` ; aucun `sk_`/`whsec_`/`price_`
+   n'existe dans le code (testé par `tests/security/secrets.test.ts`).
+
+Preuve : `tests/unit/stripe-migration.test.ts` (re-provisionnement sur
+changement de compte, événements du webhook, montants, signature).
 
 ## Paywall serveur — documents complets (plans payants)
 

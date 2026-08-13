@@ -55,6 +55,36 @@ export const upsertSubscription = internalMutation({
   },
 });
 
+/**
+ * Interne (webhook Stripe) : synchronise le statut d'un abonnement depuis
+ * Stripe (customer.subscription.updated, invoice.payment_failed…). Un statut
+ * autre qu'actif/trial (past_due, unpaid…) retire automatiquement l'accès
+ * payant via getMyPlan — c'est la gestion d'échec de paiement côté app.
+ */
+export const syncSubscriptionStatus = internalMutation({
+  args: {
+    customerId: v.string(),
+    status: v.string(),
+    periodEnd: v.optional(v.number()),
+    subscriptionId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const sub = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_customer", (q) => q.eq("stripeCustomerId", args.customerId as never))
+      .first();
+    if (!sub) return null;
+    const patch: Record<string, unknown> = {
+      status: args.status,
+      updatedAt: Date.now(),
+    };
+    if (args.periodEnd !== undefined) patch.periodEnd = args.periodEnd;
+    if (args.subscriptionId) patch.stripeSubscriptionId = args.subscriptionId;
+    await ctx.db.patch(sub._id, patch);
+    return sub._id;
+  },
+});
+
 /** Interne (webhook Stripe) : passe l'abonnement à "canceled". */
 export const cancelSubscription = internalMutation({
   args: { customerId: v.string() },

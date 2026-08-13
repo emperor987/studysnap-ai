@@ -280,6 +280,32 @@ export const stripeWebhook = httpAction(async (ctx, request) => {
       }
       break;
     }
+    // Mise à jour du statut (actif, past_due, annulé, trialing…) : le statut
+    // local reste synchronisé — un statut autre qu'actif/trial dégrade
+    // l'accès payant via getMyPlan.
+    case "customer.subscription.updated": {
+      if (object.customer) {
+        await ctx.runMutation(internal.subscriptions.syncSubscriptionStatus, {
+          customerId: object.customer,
+          status: object.status ?? "past_due",
+          periodEnd: object.current_period_end,
+          subscriptionId: object.id,
+        });
+      }
+      break;
+    }
+    // Échec de paiement (carte refusée, échéance non honorée) : on passe
+    // l'abonnement en past_due — le compte perd l'accès payant jusqu'au
+    // paiement effectif (gestion d'échec côté app).
+    case "invoice.payment_failed": {
+      if (object.customer) {
+        await ctx.runMutation(internal.subscriptions.syncSubscriptionStatus, {
+          customerId: object.customer,
+          status: "past_due",
+        });
+      }
+      break;
+    }
     default:
       break;
   }
