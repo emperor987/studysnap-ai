@@ -30,8 +30,16 @@ export default function History() {
   }, [scans, subject, search]);
 
   const handleDelete = async (id: string) => {
-    await deleteScan({ scanId: id as never });
-    toast.success("Exercice supprimé");
+    try {
+      await deleteScan({ scanId: id as never });
+      toast.success("Exercice supprimé");
+    } catch (e) {
+      // La suppression peut échouer en course (exercice déjà supprimé dans un
+      // autre onglet, reconnexion…) : on l'affiche et on ne bloque jamais la
+      // liste — jamais de rejet non capté qui ferait planter l'app.
+      console.error("Suppression impossible :", e);
+      toast.error("Impossible de supprimer pour l'instant. Réessaie.");
+    }
   };
 
   return (

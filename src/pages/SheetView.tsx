@@ -39,9 +39,16 @@ export default function SheetView() {
   }
 
   const handleDelete = async () => {
-    await deleteSheet({ sheetId: sheet._id });
-    toast.success("Fiche supprimée");
-    navigate("/sheets");
+    try {
+      await deleteSheet({ sheetId: sheet._id });
+      toast.success("Fiche supprimée");
+      navigate("/sheets");
+    } catch (e) {
+      // Fiche déjà supprimée ailleurs, reconnexion… : on reste sur la page et
+      // on propose de réessayer — aucun rejet non capté.
+      console.error("Suppression impossible :", e);
+      toast.error("Impossible de supprimer pour l'instant. Réessaie.");
+    }
   };
 
   const c = sheet.content;

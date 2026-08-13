@@ -166,13 +166,49 @@ export default function ScanResult() {
   const handleFeedback = async (useful: boolean) => {
     if (!scan) return;
     setFeedbackSent(useful ? "yes" : "no");
-    await setFeedback({ scanId: scan._id, useful });
-    toast.success("Merci pour ton retour !");
+    try {
+      await setFeedback({ scanId: scan._id, useful });
+      toast.success("Merci pour ton retour !");
+    } catch (e) {
+      // Échec d'enregistrement du retour : on remet le bouton à zéro pour
+      // laisser réessayer — jamais de rejet non capté.
+      console.error("Enregistrement du retour impossible :", e);
+      setFeedbackSent(null);
+      toast.error("Impossible d'enregistrer ton retour pour l'instant.");
+    }
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(activeText);
-    toast.success("Copié dans le presse-papiers");
+    try {
+      await navigator.clipboard.writeText(activeText);
+      toast.success("Copié dans le presse-papiers");
+    } catch {
+      // L'API Clipboard peut être indisponible (iframe sandbox, contexte non
+      // sécurisé, permissions refusées) : repli sur une sélection de texte
+      // programmée. Si même le repli échoue, on guide l'utilisateur au lieu
+      // de laisser l'action planter.
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = activeText;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        if (ok) {
+          toast.success("Copié dans le presse-papiers");
+          return;
+        }
+        throw new Error("execCommand('copy') indisponible");
+      } catch (err) {
+        console.error("Copie impossible :", err);
+        toast.error(
+          "La copie automatique est bloquée par le navigateur — sélectionne le texte et copie-le manuellement (Ctrl+C / Cmd+C).",
+        );
+      }
+    }
   };
 
   const handleSpeak = () => {

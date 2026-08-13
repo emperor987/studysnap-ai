@@ -1,6 +1,7 @@
 import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
+import { AlertTriangle, Home, RotateCcw } from "lucide-react";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import {
   clearLegacyPersistentAuthTokens,
@@ -11,6 +12,8 @@ import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { toast } from "sonner";
+import { installGlobalErrorListeners } from "@/lib/global-errors";
 import "./index.css";
 
 // Lazy load route components for better code splitting
@@ -61,12 +64,17 @@ class ToolbarErrorBoundary extends React.Component<
   }
 }
 
-/** Hard guard so runtime errors never leave the preview as a blank page. */
+/**
+ * Garde-fou dur : une erreur de rendu ne laisse JAMAIS l'aperçu en page
+ * blanche. Écran de secours avec RÉCUPÉRATION : « Réessayer » remonte
+ * l'erreur (remount de l'arbre), « Revenir à l'accueil » recharge la page —
+ * l'utilisateur n'est plus jamais obligé de rafraîchir manuellement.
+ */
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; message: string; stack: string }
+  { hasError: boolean; message: string; stack: string; attempt: number }
 > {
-  state = { hasError: false, message: "", stack: "" };
+  state = { hasError: false, message: "", stack: "", attempt: 0 };
   static getDerivedStateFromError(error: Error) {
     return {
       hasError: true,
@@ -77,26 +85,88 @@ class RootErrorBoundary extends React.Component<
   componentDidCatch(err: Error) {
     console.error("[WebContainer preview] Root crash:", err);
   }
+  /** « Réessayer » : remonte l'arbre (l'état a pu être corrompu, on repart propre). */
+  retry = () => {
+    this.setState((s) => ({
+      hasError: false,
+      message: "",
+      stack: "",
+      attempt: s.attempt + 1,
+    }));
+  };
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
-          <div className="max-w-lg text-center">
-            <p className="text-sm font-semibold">Preview runtime error</p>
-            <p className="mt-2 text-xs text-muted-foreground break-words">
-              {this.state.message}
+        <div className="bg-glow flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+          <div className="glass-panel w-full max-w-md rounded-3xl p-8 text-center">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-400">
+              <AlertTriangle className="size-7" />
+            </div>
+            <h1 className="mt-4 text-xl font-extrabold tracking-tight">
+              Oups, un problème est survenu
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Une erreur inattendue a interrompu l&apos;affichage. Tes données
+              sont en sécurité — réessaie, ou reviens à l&apos;accueil.
             </p>
+            {this.state.message && (
+              <p className="mt-3 rounded-xl border border-border/60 bg-white/5 px-3 py-2 text-left text-[11px] leading-4 text-muted-foreground break-words">
+                {this.state.message}
+              </p>
+            )}
             {this.state.stack && (
-              <pre className="mt-3 text-left text-[10px] leading-4 text-muted-foreground/80 max-h-40 overflow-auto rounded border border-border/60 p-2">
+              <pre className="mt-2 max-h-32 overflow-auto rounded-xl border border-border/60 bg-white/5 p-3 text-left text-[10px] leading-4 text-muted-foreground/80">
                 {this.state.stack}
               </pre>
             )}
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={this.retry}
+                className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
+              >
+                <RotateCcw className="size-4" />
+                Réessayer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/";
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
+              >
+                <Home className="size-4" />
+                Revenir à l&apos;accueil
+              </button>
+            </div>
           </div>
         </div>
       );
     }
-    return this.props.children;
+    // key={attempt} : après un « Réessayer », les composants sont remontés
+    // à neuf (aucun état corrompu ne peut survivre au remount).
+    return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>;
   }
+}
+
+/**
+ * Erreurs isolées non captées (promesses rejetées, erreurs d'exécution) :
+ * journalisées et affichées en toast discret — jamais d'app figée, jamais de
+ * rafraîchissement imposé. Un incident isolé ne peut plus dégrader l'app.
+ */
+function GlobalErrorToaster() {
+  useEffect(() => {
+    return installGlobalErrorListeners((event) => {
+      if (event.kind === "rejection") {
+        toast.error(
+          `Une action n'a pas pu aboutir : ${event.message}. Réessaie.`,
+        );
+      }
+      // Les erreurs de rendu passent par le RootErrorBoundary (écran de
+      // secours avec bouton Réessayer) — rien à faire ici.
+    });
+  }, []);
+  return null;
 }
 
 // Création du client Convex protégée : si VITE_CONVEX_URL est manquante ou
@@ -174,6 +244,7 @@ function App() {
   if (!convex) return <MissingBackendNotice />;
   return (
     <ConvexAuthProvider client={convex} storage={visitTokenStorage}>
+      <GlobalErrorToaster />
       <BrowserRouter>
         <RouteSyncer />
         <Suspense fallback={<RouteLoading />}>

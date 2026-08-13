@@ -74,8 +74,15 @@ export default function Sheets() {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteSheet({ sheetId: id as never });
-    toast.success("Fiche supprimée");
+    try {
+      await deleteSheet({ sheetId: id as never });
+      toast.success("Fiche supprimée");
+    } catch (e) {
+      // Course possible (fiche déjà supprimée dans un autre onglet…) : on
+      // affiche l'échec sans jamais rejeter de promesse non captée.
+      console.error("Suppression impossible :", e);
+      toast.error("Impossible de supprimer pour l'instant. Réessaie.");
+    }
   };
 
   // Étapes affichées pendant la génération de la fiche (l'IA peut prendre
