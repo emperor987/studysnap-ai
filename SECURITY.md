@@ -4,7 +4,7 @@ Posture de sécurité du projet, procédures de signalement et guide de déploie
 
 ## Principes
 
-1. **Pas de secret côté client.** Toutes les clés (IA, Stripe, email, webhook) sont
+1. **Pas de secret côté client.** Toutes les clés (IA, Stripe, email, webhook, Supabase) sont
    injectées via `process.env` dans les fichiers « use node » Convex, alimentées par
    l'UI Keys de la plateforme. Le bundle frontend ne contient aucune clé.
 2. **Ownership systématique.** Chaque mutation/query filtre sur l'utilisateur connecté
@@ -139,6 +139,7 @@ CI (les workflows ne passent pas `secrets.*` à `echo` ; vérifié par tests).
 | `STRIPE_WEBHOOK_SECRET` | Stripe (endpoint webhook) | Non | ✅ plusieurs secrets actifs (`_PREVIOUS`, config provisionnée) | 1. Ajouter le nouveau secret côté Stripe ; 2. le mettre dans `STRIPE_WEBHOOK_SECRET`, l'ancien dans `_PREVIOUS` ; 3. rejouer un événement de test ; 4. supprimer l'ancien côté Stripe puis en env |
 | `STRIPE_SECRET_KEY` | Stripe | Non | Non nécessaire (rotation immédiate + re-provisionnement) | Remplacer la clé dans l'UI Keys ; le provisionnement recrée la config au prochain checkout. **Changement de compte** : la config est empreintée par l'ID du compte (`accountId`) — une clé d'un AUTRE compte déclenche un re-provisionnement complet (produits, prix, webhook, secret) sans toucher au code |
 | `AI_API_KEY` / `AI_API_KEY_FAST` | Fournisseur IA | Non | Non | Remplacer la clé (lue à chaque appel) |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | Supabase (Postgres analytics) | Non | Non | Remplacer les deux clés dans l'UI Keys (relues à chaque appel ; le client est mis en cache mais recrée après rotation). Le client utilise la **service-role key** (opérations admin) — jamais exposée côté client |
 | `SITE_URL`, `CONVEX_SITE_URL`, `VITE_CONVEX_URL` | Config (non secrets) | — | — | — |
 | JWT/session (signature) | Plateforme Convex (clé du déploiement) | Oui, par la plateforme | — | Via le dashboard Convex en cas de compromission |
 
