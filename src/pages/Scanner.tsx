@@ -3,7 +3,6 @@ import { api } from "@/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
-  ArrowRight,
   CheckCircle2,
   FileText,
   ImagePlus,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+// Note: motion is unused after removing mode selection — kept for future use.
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getAiErrorMessage } from "@/lib/ai-errors";
@@ -31,7 +31,7 @@ import { useDevice } from "@/hooks/use-device";
 import { downscaleImage } from "@/lib/image";
 import type { ConvexError } from "convex/values";
 
-type Step = "upload" | "analyzing" | "gated" | "mode";
+type Step = "upload" | "analyzing" | "gated";
 
 type GatedInfo = {
   category: string;
@@ -50,29 +50,7 @@ const GENERATE_STEPS = [
   "Préparation de tes explications…",
 ];
 
-const MODES = [
-  {
-    id: "quick" as const,
-    emoji: "⚡",
-    title: "Réponse rapide",
-    text: "La réponse finale + le calcul essentiel, en une phrase claire.",
-    tag: "2 s",
-  },
-  {
-    id: "explain" as const,
-    emoji: "👨‍🏫",
-    title: "Explication",
-    text: "Ce qu'on demande → méthode → étapes numérotées → erreur fréquente.",
-    tag: "Recommandé",
-  },
-  {
-    id: "revise" as const,
-    emoji: "📚",
-    title: "Révision",
-    text: "Mini-leçon, formules clés, 3 exercices similaires pour t'entraîner.",
-    tag: "Pour retenir",
-  },
-];
+
 
 function GuestLimitReached() {
   return (
@@ -290,7 +268,35 @@ export default function Scanner() {
       setFullText(ocr.fullText);
       setStorageIds(storageIds);
       setStorageTypes(preparedTypes);
-      setStep("mode");
+      // Auto-save et redirect : pas de sélection de mode, on va
+      // directement sur la page Résultats avec le mode "explain".
+      try {
+        const scanId = await recordScan({
+          storageIds,
+          contentTypes: preparedTypes,
+          analysis: result as never,
+          mode: "explain",
+          fullText: ocr.fullText || undefined,
+        });
+        navigate(`/scanner/result/${scanId}`);
+      } catch (saveErr) {
+        const code = (saveErr as ConvexError<{ code?: string }>)?.data?.code;
+        if (code === "GUEST_LIMIT_REACHED") {
+          toast.error("Crée ton compte pour continuer à scanner gratuitement.");
+        } else if (code === "LIMIT_REACHED") {
+          toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
+        } else if (code === "RATE_LIMITED") {
+          toast.error("Un petit instant entre deux scans…");
+        } else if (code === "PARENTAL_PENDING") {
+          toast.error(
+            "Ton compte est en attente de validation par un parent — accès limité jusqu'à sa confirmation.",
+          );
+        } else {
+          toast.error("Impossible d'enregistrer le scan.");
+          console.error(saveErr);
+        }
+        setStep("upload");
+      }
     } catch (e) {
       console.error(e);
       const aiMsg = getAiErrorMessage(e);
@@ -318,35 +324,7 @@ export default function Scanner() {
     }
   };
 
-  const handlePickMode = async (mode: "quick" | "explain" | "revise") => {
-    if (!analysis) return;
-    try {
-      const scanId = await recordScan({
-        storageIds,
-        contentTypes: storageTypes,
-        analysis: analysis as never,
-        mode,
-        fullText: fullText || undefined,
-      });
-      navigate(`/scanner/result/${scanId}?mode=${mode}`);
-    } catch (e) {
-      const code = (e as ConvexError<{ code?: string }>)?.data?.code;
-      if (code === "GUEST_LIMIT_REACHED") {
-        toast.error("Crée ton compte pour continuer à scanner gratuitement.");
-      } else if (code === "LIMIT_REACHED") {
-        toast.error("Limite gratuite atteinte — passe à Student pour continuer.");
-      } else if (code === "RATE_LIMITED") {
-        toast.error("Un petit instant entre deux scans…");
-      } else if (code === "PARENTAL_PENDING") {
-        toast.error(
-          "Ton compte est en attente de validation par un parent — accès limité jusqu'à sa confirmation.",
-        );
-      } else {
-        toast.error("Impossible d'enregistrer le scan.");
-        console.error(e);
-      }
-    }
-  };
+
 
   if (!usage) {
     return (
@@ -700,66 +678,7 @@ export default function Scanner() {
         </div>
       )}
 
-      {/* ---------- Étape choix du mode ---------- */}
-      {step === "mode" && (
-        <div className="mx-auto max-w-3xl">
-          <div className="text-center">
-            <span className="glass-chip inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-mint-300">
-              <CheckCircle2 className="size-3.5" />
-              Analyse terminée — ton exercice a bien été lu
-            </span>
-            <h2 className="mt-4 text-2xl font-extrabold tracking-tight">
-              Comment veux-tu la réponse ?
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Tu peux changer de mode à tout moment depuis le résultat.
-            </p>
-          </div>
-          <div
-            className={cn(
-              "mt-8 grid gap-4",
-              usage.isGuest ? "sm:grid-cols-2" : "sm:grid-cols-3",
-            )}
-          >
-            {/* Invité : seuls les modes 1 (Réponse rapide) et 2 (Explication)
-                sont proposés — la Révision (fiches/quiz) demande un compte. */}
-            {MODES.filter((m) => !usage.isGuest || m.id !== "revise").map((m, i) => (
-              <motion.button
-                key={m.id}
-                type="button"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }}
-                onClick={() => handlePickMode(m.id)}
-                className="glass-card group relative flex flex-col rounded-3xl p-6 text-left transition-all hover:-translate-y-1 hover:shadow-xl"
-              >
-                <span className="absolute right-4 top-4 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">
-                  {m.tag}
-                </span>
-                <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-2xl">
-                  {m.emoji}
-                </div>
-                <h3 className="mt-4 font-bold">{m.title}</h3>
-                <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
-                  {m.text}
-                </p>
-                <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-primary">
-                  Voir le résultat
-                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                </span>
-              </motion.button>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => setStep("upload")}
-            className="mx-auto mt-8 flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <RefreshCw className="size-4" />
-            Analyser une autre photo
-          </button>
-        </div>
-      )}
+
 
     </AppShell>
   );

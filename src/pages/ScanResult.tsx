@@ -22,7 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getAiErrorMessage } from "@/lib/ai-errors";
@@ -32,13 +32,142 @@ import { buildPdf, downloadPdf, markdownToPlainText, type PdfBlock } from "@/lib
 import type { GatedDocument } from "@/lib/document";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type Mode = "quick" | "explain" | "revise";
+type ViewMode = "answer" | "course";
 
-const MODE_TABS: { id: Mode; label: string; emoji: string }[] = [
-  { id: "quick", label: "Réponse rapide", emoji: "⚡" },
-  { id: "explain", label: "Explication", emoji: "👨‍🏫" },
-  { id: "revise", label: "Révision", emoji: "📚" },
-];
+/** Toggle « Réponse directe / Cours complet » pour un exercice. */
+function ExerciseToggle({
+  number,
+  question,
+  answer,
+  calculation,
+  explain,
+  defaultMode = "answer",
+}: {
+  number: number;
+  question: string;
+  answer: string;
+  calculation?: string;
+  explain: {
+    question: string;
+    importantInfo: string[];
+    method: string;
+    steps: string[];
+    result: string;
+    commonMistake: string;
+  };
+  defaultMode?: ViewMode;
+}) {
+  const [view, setView] = useState<ViewMode>(defaultMode);
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/6 p-5 sm:p-6">
+      {/* En-tête exercice */}
+      <div className="flex items-start gap-3">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+          {number}
+        </span>
+        <p className="min-w-0 flex-1 text-sm font-semibold leading-6">
+          <Markdown content={question} />
+        </p>
+      </div>
+
+      {/* Toggle */}
+      <div className="mt-4 ml-9 flex gap-1 rounded-xl bg-white/8 p-1">
+        <button
+          type="button"
+          onClick={() => setView("answer")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all",
+            view === "answer"
+              ? "bg-mint-500/15 text-mint-300 shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Zap className="size-3.5" />
+          Réponse directe
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("course")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all",
+            view === "course"
+              ? "bg-primary/15 text-primary shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <BookOpen className="size-3.5" />
+          Cours complet
+        </button>
+      </div>
+
+      {/* Contenu */}
+      <div className="mt-4 ml-9">
+        {view === "answer" ? (
+          <div className="space-y-3">
+            <div className="rounded-xl bg-mint-500/10 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-mint-300">
+                ✓ Réponse
+              </p>
+              <div className="mt-1 text-sm leading-6">
+                <Markdown content={answer} />
+              </div>
+            </div>
+            {calculation && (
+              <div className="rounded-xl bg-white/5 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Calcul essentiel
+                </p>
+                <p className="mt-1 text-sm leading-6">
+                  <Markdown content={calculation} />
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Section icon={<Lightbulb className="size-4" />} title="Infos importantes">
+              <ul className="list-disc space-y-1.5 pl-5 text-sm leading-6 text-muted-foreground">
+                {explain.importantInfo.map((info, i) => (
+                  <li key={i}>{info}</li>
+                ))}
+              </ul>
+            </Section>
+            <Section icon={<BookOpen className="size-4" />} title="Méthode">
+              <p className="text-sm leading-6">
+                <Markdown content={explain.method} />
+              </p>
+            </Section>
+            <Section icon={<ListOrdered className="size-4" />} title="Étapes">
+              <ol className="space-y-3">
+                {explain.steps.map((step, i) => (
+                  <li key={i} className="flex gap-3 text-sm leading-6">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {i + 1}
+                    </span>
+                    <span>
+                      <Markdown content={step} />
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+            <Section icon={<Check className="size-4" />} title="Résultat" tone="success">
+              <p className="text-lg font-bold">
+                <Markdown content={explain.result} />
+              </p>
+            </Section>
+            <Section icon={<AlertTriangle className="size-4" />} title="Erreur fréquente" tone="warn">
+              <p className="text-sm leading-6">
+                <Markdown content={explain.commonMistake} />
+              </p>
+            </Section>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function Section({
   icon,
@@ -119,13 +248,8 @@ function ExerciseCard({
 
 export default function ScanResult() {
   const { scanId } = useParams<{ scanId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [mode, setMode] = useState<Mode>(
-    (searchParams.get("mode") as Mode) || "explain",
-  );
-
   const scan = useQuery(api.scans.getScan, {
     scanId: scanId as Id<"scans">,
   });
@@ -140,38 +264,36 @@ export default function ScanResult() {
   const isPaid = useIsPaid();
   const isGuest = user?.isAnonymous === true;
 
-  // Mode invité : seuls les modes 1 (Réponse rapide) et 2 (Explication)
-  // sont accessibles — la Révision (fiches/quiz) est réservée aux comptes.
-  const modeTabs = isGuest
-    ? MODE_TABS.filter((t) => t.id !== "revise")
-    : MODE_TABS;
-  const displayMode: Mode = isGuest && mode === "revise" ? "explain" : mode;
-
-  useEffect(() => {
-    const m = searchParams.get("mode") as Mode | null;
-    if (m && (m === "quick" || m === "explain" || (m === "revise" && !isGuest))) {
-      setMode(m);
-    }
-  }, [searchParams, isGuest]);
-
   const activeText = useMemo(() => {
     const r = scan?.result;
     if (!r) return "";
-    if (mode === "quick") {
-      return `${r.quick.answer}\n\n${r.quick.calculation}\n\n${r.quick.keyPoint}`;
+    // Texte pour copie : on concatène toutes les réponses.
+    const parts: string[] = [];
+    const doc = r.document as GatedDocument | undefined;
+    if (doc?.exercises?.length) {
+      for (const ex of doc.exercises) {
+        parts.push(`Exercice ${ex.number} : ${ex.question}`);
+        parts.push(`Réponse : ${ex.answer}`);
+        if (ex.calculation) parts.push(`Calcul : ${ex.calculation}`);
+        parts.push("");
+      }
+    } else {
+      parts.push(r.quick.answer, r.quick.calculation);
     }
-    if (mode === "explain") {
-      return [
+    // Ajout de l'explication détaillée.
+    parts.push("--- EXPPLICATION ---");
+    parts.push(
+      [
         r.explain.question,
         ...r.explain.importantInfo,
         r.explain.method,
         ...r.explain.steps,
         r.explain.result,
         r.explain.commonMistake,
-      ].join("\n");
-    }
-    return [r.revise.lesson, ...r.revise.keyFormulas].join("\n");
-  }, [scan, mode]);
+      ].join("\n"),
+    );
+    return parts.join("\n");
+  }, [scan]);
 
   const handleFeedback = async (useful: boolean) => {
     if (!scan) return;
@@ -343,203 +465,73 @@ export default function ScanResult() {
         )}
       </div>
 
-      {/* Onglets de mode */}
-      <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-        {modeTabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setSearchParams({ mode: t.id })}
-            className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all",
-              displayMode === t.id
-                ? "bg-primary text-white shadow-md shadow-primary/25"
-                : "glass-chip text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.emoji} {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Contenu */}
+      {/* Contenu : un bloc par exercice avec toggle Réponse directe / Cours complet */}
       <div className="mt-5 space-y-4">
-        {displayMode === "quick" && (
+        {docExercises.length > 0 ? (
+          docExercises.map((ex) => (
+            <ExerciseToggle
+              key={ex.number}
+              number={ex.number}
+              question={ex.question}
+              answer={ex.answer}
+              calculation={ex.calculation}
+              explain={explain}
+              defaultMode="answer"
+            />
+          ))
+        ) : (
+          /* Pas de document structuré : fallback sur le mode explain global */
+          <ExerciseToggle
+            number={1}
+            question={explain.question}
+            answer={quick.answer}
+            calculation={quick.calculation}
+            explain={explain}
+            defaultMode="answer"
+          />
+        )}
+
+        {/* Paywall : exercices verrouillés */}
+        {docLocked && (
           <>
-            <Section icon={<Zap className="size-4" />} title="Réponse finale" tone="success">
-              <p className="text-lg font-semibold leading-7">
-                <Markdown content={quick.answer} />
-              </p>
-            </Section>
-            <Section icon={<ListOrdered className="size-4" />} title="Calcul essentiel">
-              <Markdown content={quick.calculation} />
-            </Section>
-            <Section icon={<Lightbulb className="size-4" />} title="À retenir">
-              <p className="text-sm leading-6 text-muted-foreground">
-                <Markdown content={quick.keyPoint} />
-              </p>
-            </Section>
-
-            {/* Document complet corrigé : un bloc par exercice de l'énoncé.
-                Paywall : les gratuits voient l'aperçu (premier exercice),
-                le reste est masqué côté serveur (getScan) — les payants ont
-                tout, plus l'export PDF. */}
-            {scan.result.document && scan.result.document.exercises.length > 0 && (
-              <Section icon={<FileText className="size-4" />} title="Document complet corrigé">
-                <div className="space-y-4">
-                  {scan.result.document.exercises.map((ex) => (
-                    <div
-                      key={ex.number}
-                      className="rounded-2xl border border-white/10 bg-white/6 p-5"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                          {ex.number}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold leading-6">
-                            <Markdown content={ex.question} />
-                          </p>
-                          <div className="mt-2 rounded-xl bg-mint-500/10 p-4">
-                            <p className="text-[11px] font-bold uppercase tracking-wide text-mint-300">
-                              ✓ Réponse
-                            </p>
-                            <div className="mt-1 text-sm leading-6">
-                              <Markdown content={ex.answer} />
-                            </div>
-                            {ex.calculation && (
-                              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                                <span className="font-semibold text-primary">
-                                  Calcul essentiel :{" "}
-                                </span>
-                                <Markdown content={ex.calculation} />
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {docLocked && (
-                    <>
-                      <MaskedBlock label="Exercices suivants — réponses masquées" />
-                      <UnlockCard
-                        title={`${totalExercises - docExercises.length} exercice${
-                          totalExercises - docExercises.length > 1 ? "s" : ""
-                        } restant${totalExercises - docExercises.length > 1 ? "s" : ""} à débloquer`}
-                        description="Passe à Student ou Student Pro pour voir toutes les réponses détaillées et exporter le document corrigé en PDF."
-                      />
-                    </>
-                  )}
-
-                  {!docLocked && (
-                    <button
-                      type="button"
-                      onClick={handleExportPdf}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 sm:w-auto"
-                    >
-                      <FileDown className="size-4" />
-                      Exporter le document en PDF
-                    </button>
-                  )}
-                </div>
-              </Section>
-            )}
+            <MaskedBlock label="Exercices suivants — réponses masquées" />
+            <UnlockCard
+              title={`${totalExercises - docExercises.length} exercice${
+                totalExercises - docExercises.length > 1 ? "s" : ""
+              } restant${totalExercises - docExercises.length > 1 ? "s" : ""} à débloquer`}
+              description="Passe à Student ou Student Pro pour voir toutes les réponses détaillées et exporter le document corrigé en PDF."
+            />
           </>
         )}
 
-        {displayMode === "explain" && (
-          <>
-            <Section icon={<Sparkles className="size-4" />} title="Ce qu'on demande">
-              <p className="text-sm leading-6">
-                <Markdown content={explain.question} />
-              </p>
-            </Section>
-            <Section icon={<Lightbulb className="size-4" />} title="Infos importantes">
-              <ul className="list-disc space-y-1.5 pl-5 text-sm leading-6 text-muted-foreground">
-                {explain.importantInfo.map((info, i) => (
-                  <li key={i}>{info}</li>
-                ))}
-              </ul>
-            </Section>
-            <Section icon={<BookOpen className="size-4" />} title="Méthode">
-              <p className="text-sm leading-6">
-                <Markdown content={explain.method} />
-              </p>
-            </Section>
-            <Section icon={<ListOrdered className="size-4" />} title="Étapes numérotées">
-              <ol className="space-y-3">
-                {explain.steps.map((step, i) => (
-                  <li key={i} className="flex gap-3 text-sm leading-6">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                      {i + 1}
-                    </span>
-                    <span>
-                      <Markdown content={step} />
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </Section>
-            <Section icon={<Check className="size-4" />} title="Résultat" tone="success">
-              <p className="text-lg font-bold">
-                <Markdown content={explain.result} />
-              </p>
-            </Section>
-            <Section
-              icon={<AlertTriangle className="size-4" />}
-              title="Erreur fréquente à éviter"
-              tone="warn"
-            >
-              <p className="text-sm leading-6">
-                <Markdown content={explain.commonMistake} />
-              </p>
-            </Section>
-          </>
+        {/* Export PDF — payants uniquement */}
+        {!docLocked && docExercises.length > 0 && (
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 sm:w-auto"
+          >
+            <FileDown className="size-4" />
+            Exporter le document en PDF
+          </button>
         )}
 
-        {displayMode === "revise" && (
-          <>
-            <Section icon={<BookOpen className="size-4" />} title="Mini-leçon">
-              <Markdown content={revise.lesson} />
-            </Section>
-            <Section icon={<Zap className="size-4" />} title="Formules clés">
-              <ul className="space-y-2">
-                {revise.keyFormulas.map((f, i) => (
-                  <li
-                    key={i}
-                    className="rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 font-mono text-sm"
-                  >
-                    <Markdown content={f} />
-                  </li>
-                ))}
-              </ul>
-            </Section>
-            <Section icon={<ListOrdered className="size-4" />} title="3 exercices similaires">
-              <div className="space-y-3">
-                {revise.exercises.map((ex, i) => (
-                  <ExerciseCard key={i} index={i} {...ex} />
-                ))}
-              </div>
-            </Section>
-            <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-bold">Prêt·e à vérifier que c'est acquis ?</p>
-                <p className="text-sm text-muted-foreground">
-                  Génère un mini quiz sur cette notion.
-                </p>
-              </div>
-              <Link
-                to={`/revision?subject=${encodeURIComponent(scan.subject)}&topic=${encodeURIComponent(scan.topic ?? "")}`}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/25 transition-all hover:brightness-110"
-              >
-                <Sparkles className="size-4" />
-                Créer un quiz
-              </Link>
-            </div>
-          </>
-        )}
+        {/* Mini quiz */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-bold">Prêt·e à vérifier que c'est acquis ?</p>
+            <p className="text-sm text-muted-foreground">
+              Génère un mini quiz sur cette notion.
+            </p>
+          </div>
+          <Link
+            to={`/revision?subject=${encodeURIComponent(scan.subject)}&topic=${encodeURIComponent(scan.topic ?? "")}`}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/25 transition-all hover:brightness-110"
+          >
+            <Sparkles className="size-4" />
+            Créer un quiz
+          </Link>
+        </div>
       </div>
 
       {/* Actions */}
