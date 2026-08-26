@@ -18,6 +18,7 @@ import {
   Sparkles,
   ThumbsDown,
   ThumbsUp,
+  UserRoundPlus,
   Volume2,
   Zap,
 } from "lucide-react";
@@ -618,25 +619,63 @@ export default function ScanResult() {
         )}
       </div>
 
-      {/* Mode invité : fin du scan de démo — invitation claire à créer un
-          compte pour continuer à scanner gratuitement. */}
+      {/* Mode invité : paywall après le scan de démo — bloc complet qui
+          explique que le scan gratuit est utilisé et pousse à la création
+          de compte pour obtenir plus de crédits. */}
       {isGuest && (
-        <div className="mt-4 flex flex-col items-start gap-3 rounded-2xl border border-primary/25 bg-primary/8 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-bold">C'est l'heure de créer ton compte 🚀</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Tu viens d'utiliser ton scan de démo. Crée ton compte pour
-              continuer à scanner gratuitement, garder ton historique et
-              accéder aux fiches de révision et aux quiz.
+        <div className="glass-panel mt-6 overflow-hidden rounded-3xl border border-primary/20">
+          {/* Bandeau gradient en haut */}
+          <div className="bg-brand-gradient px-6 py-4 text-center">
+            <p className="text-sm font-bold text-white">
+              ✨ Ton scan de démo est terminé
             </p>
           </div>
-          <Link
-            to="/auth?mode=signup&returnTo=/scanner"
-            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
-          >
-            <Sparkles className="size-4" />
-            Crée ton compte pour continuer
-          </Link>
+          <div className="p-6 text-center sm:p-8">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Sparkles className="size-7" />
+            </div>
+            <h3 className="mt-4 text-xl font-extrabold tracking-tight">
+              Tu as utilisé ton scan gratuit
+            </h3>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              Crée ton compte pour obtenir <strong className="text-foreground">4 scans gratuits par mois</strong>,
+              garder ton historique, créer des fiches de révision et faire des quiz.
+            </p>
+            <div className="mx-auto mt-5 grid max-w-sm grid-cols-2 gap-2">
+              {[
+                { emoji: "⚡", text: "4 scans / mois" },
+                { emoji: "📚", text: "Fiches de révision" },
+                { emoji: "🎯", text: "Quiz sur mesure" },
+                { emoji: "📊", text: "Suivi progression" },
+              ].map((perk) => (
+                <div
+                  key={perk.text}
+                  className="flex items-center gap-2 rounded-xl bg-white/8 px-3 py-2.5 text-xs font-medium text-muted-foreground"
+                >
+                  <span>{perk.emoji}</span>
+                  {perk.text}
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                to="/auth?mode=signup&returnTo=/scanner"
+                className="inline-flex items-center gap-2 rounded-full bg-brand-gradient px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:brightness-110"
+              >
+                <UserRoundPlus className="size-4" />
+                Créer mon compte — c'est gratuit
+              </Link>
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-5 py-3 text-sm font-semibold transition-colors hover:bg-white/15"
+              >
+                Revenir plus tard
+              </Link>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground/80">
+              Inscription en 10 secondes · Juste ton email · Aucune carte bancaire
+            </p>
+          </div>
         </div>
       )}
 

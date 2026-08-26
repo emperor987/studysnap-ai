@@ -313,7 +313,7 @@ function Hero() {
             className="group inline-flex max-w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-4 py-2.5 text-[13px] font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
           >
             <Camera className="size-4 shrink-0 sm:size-5" />
-            Scanner mon premier exercice
+            Créer un compte démo — scanner maintenant
             <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-1 sm:size-5" />
           </Link>
           <Link
@@ -332,7 +332,7 @@ function Hero() {
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs font-medium text-white/75">
             <span className="inline-flex items-center gap-1">
               <Sparkles className="size-3 text-amber-300" />
-              Teste sans compte
+              Compte démo en 1 clic
             </span>
             <span className="inline-flex items-center gap-1">
               <Check className="size-3 text-mint-300" />
@@ -598,7 +598,7 @@ function GuestDemo() {
               className="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
             >
               <UserRoundPlus className="size-4" />
-              Essayer en mode démo
+              Créer un compte démo — 1 scan gratuit
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </motion.div>
@@ -1131,12 +1131,12 @@ function FinalCTA() {
           </Link>
         </div>
         <p className="relative mt-5 text-sm text-muted-foreground">
-          Pas envie de créer un compte tout de suite ?{" "}
+          Pas envie de créer un compte complet ?{" "}
           <Link
             to="/auth?mode=guest&returnTo=%2Fscanner"
             className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:decoration-primary"
           >
-            Teste StudySnap en 1 clic, sans compte →
+            Crée un compte démo en 1 clic, 1 scan gratuit →
           </Link>
         </p>
       </div>
