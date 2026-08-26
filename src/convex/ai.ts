@@ -5,20 +5,18 @@
  *
  * Appels effectués uniquement côté serveur (actions Convex) : aucune clé
  * n'est jamais exposée au client. Compatible avec toute API compatible
- * OpenAI — dont NVIDIA NIM (integrate.api.nvidia.com), qui accepte le même
- * format de requête mais attend les images en data URI base64 (il ne peut
- * pas aller chercher une URL arbitraire).
+ * OpenAI — dont DeepSeek (api.deepseek.com), qui utilise le même format
+ * de requête OpenAI.
  *
  * Variables d'environnement (à renseigner dans l'UI Keys de la plateforme) :
- *   AI_API_KEY   — clé du fournisseur (ex: clé NVIDIA NIM de build.nvidia.com)
- *   AI_BASE_URL  — base de l'API (défaut https://api.openai.com/v1 ;
- *                  NVIDIA NIM : https://integrate.api.nvidia.com/v1)
- *   AI_MODEL     — modèle principal / raisonnement (défaut gpt-4.1-mini ;
- *                  NVIDIA NIM : nvidia/nemotron-3-nano-omni-30b-a3b-reasoning)
+ *   AI_API_KEY   — clé API du fournisseur (ex: clé DeepSeek)
+ *   AI_BASE_URL  — base de l'API (défaut https://api.deepseek.com/v1)
+ *   AI_MODEL     — modèle principal / raisonnement
+ *                  (défaut deepseek-v4-flash)
  *   AI_MODEL_FAST— modèle rapide dédié à l'OCR des photos, étape 1 du
- *                  pipeline (ex: nvidia/nemotron-nano-12b-v2-vl). Sans lui,
- *                  le comportement historique est conservé (appel vision
- *                  unique avec AI_MODEL).
+ *                  pipeline (défaut deepseek-v4-flash-vision-exp).
+ *                  Sans lui, le comportement historique est conservé
+ *                  (appel vision unique avec AI_MODEL).
  *   AI_MAX_TOKENS— limite de génération (défaut 4096)
  *
  * Sans clé configurée, l'app fonctionne en mode démo avec des contenus
@@ -59,7 +57,8 @@ import {
   type DemoSheet,
 } from "./demoData";
 
-export const AI_MODEL_DEFAULT = "gpt-4.1-mini";
+export const AI_MODEL_DEFAULT = "deepseek-v4-flash";
+export const AI_MODEL_FAST_DEFAULT = "deepseek-v4-flash-vision-exp";
 /** Message d'erreur propagé au client en cas de limite de débit du fournisseur. */
 export const AI_RATE_LIMITED_MESSAGE = "AI_RATE_LIMITED";
 /** Message d'erreur propagé au client quand l'analyse dépasse le temps imparti. */
@@ -89,7 +88,7 @@ function aiKey(): string | undefined {
 }
 
 function aiBaseUrl(): string {
-  const raw = process.env.AI_BASE_URL ?? "https://api.openai.com/v1";
+  const raw = process.env.AI_BASE_URL ?? "https://api.deepseek.com/v1";
   // Certaines saisies incluent déjà le chemin complet "/chat/completions"
   // (ex: https://integrate.api.nvidia.com/v1/chat/completions). On le
   // retire pour ne jamais concaténer le suffixe deux fois, puis on enlève
@@ -113,14 +112,15 @@ function aiFastModel(): string {
   const v = process.env.AI_MODEL_FAST?.trim();
   // Garde-fou : AI_MODEL_FAST doit contenir un NOM de modèle. Si la valeur
   // ressemble à une URL (confusion fréquente avec AI_BASE_URL), on retombe
-  // sur le modèle principal plutôt que d'envoyer une requête invalide.
-  if (!v || v.includes("://")) return aiModel();
+  // sur le modèle rapide par défaut (deepseek-v4-flash-vision-exp).
+  if (!v || v.includes("://")) return AI_MODEL_FAST_DEFAULT;
   return v;
 }
 
 function aiFastModelConfigured(): boolean {
-  const v = process.env.AI_MODEL_FAST?.trim();
-  return Boolean(v && !v.includes("://"));
+  // Par défaut on utilise le modèle vision expérimental DeepSeek
+  // (deepseek-v4-flash-vision-exp) qui est toujours configuré.
+  return true;
 }
 
 function aiMaxTokens(): number {
