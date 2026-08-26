@@ -1,13 +1,22 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 
-/**
- * Politique de suppression automatique des photos de devoirs :
- * IMAGE_RETENTION_DAYS (défaut 30) — les images plus anciennes sont purgées
- * chaque dimanche à 03h00 UTC. Les URLs d'images Convex étant signées et
- * temporaires, les liens expirés deviennent inaccessibles bien avant.
- */
 const crons = cronJobs();
+
+// ─── Monitoring du plan gratuit ─────────────────────────────────────────────
+
+/**
+ * Health check : toutes les 6 heures, compte les lignes de chaque table
+ * et enregistre un snapshot dans Convex.
+ * Les alertes (seuils warn/crit) sont loguées dans les logs Convex.
+ * Les alertes email et le backup Supabase sont gérés par des actions
+ * admin séparées (src/convex/alerting.ts, src/convex/backup.ts).
+ */
+crons.cron(
+  "convex health check",
+  "0 0,6,12,18 * * *",
+  internal.monitoring.recordHealthSnapshot,
+);
 
 crons.weekly(
   "cleanup expired exercise images",

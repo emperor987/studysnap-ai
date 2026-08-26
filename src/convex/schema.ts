@@ -287,6 +287,32 @@ const schema = defineSchema(
       .index("by_bucket", ["bucket"])
       .index("by_denied_at", ["deniedAt"]),
 
+    // Snapshots d'health (monitoring du plan gratuit).
+    // Un cron horaire compte les lignes de chaque table et enregistre un
+    // snapshot. Si les seuils sont franchis, une alerte email est envoyée.
+    // Rétention : 30 derniers snapshots (purge automatique).
+    health_snapshots: defineTable({
+      timestamp: v.number(),
+      totalRows: v.number(),
+      tableCounts: v.any(), // Record<string, number>
+      storageRefCount: v.number(),
+      estimatedDbBytes: v.number(),
+      rowsPercent: v.number(),
+      dbPercent: v.number(),
+      biggestTable: v.string(),
+      biggestCount: v.number(),
+      alertLevel: v.union(
+        v.literal("ok"),
+        v.literal("warn"),
+        v.literal("critical"),
+      ),
+    }).index("by_timestamp", ["timestamp"]),
+
+    // Backups Convex → Supabase (export périodique de toutes les tables).
+    // Un snapshot = un enregistrement dans `backup_snapshots` Supabase.
+    // Rétention : les 20 derniers backups sont conservés côté Supabase.
+    // (pas de table Convex — les backups vivent dans Supabase)
+
     // Compteurs mensuels (limites plan gratuit + stats)
     usage: defineTable({
       userId: v.id("users"),
