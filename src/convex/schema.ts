@@ -76,6 +76,9 @@ const schema = defineSchema(
       parentalConsentTokenExpiresAt: v.optional(v.number()),
       parentalConsentLastSentAt: v.optional(v.number()),
       parentalConsentReminderSentAt: v.optional(v.number()),
+
+      // --- Onboarding ---
+      hasSeenOnboarding: v.optional(v.boolean()), // true après avoir vu le tutoriel (1 fois)
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
       .index("by_parental_token", ["parentalConsentTokenHash"])

@@ -20,7 +20,8 @@ import {
   UserRoundPlus,
   Zap,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   formatDateTimeFr,
   levelLabel,
@@ -28,10 +29,15 @@ import {
   pluralFr,
   subjectEmoji,
 } from "@/lib/format";
+import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const markOnboardingSeen = useMutation(api.users.markOnboardingSeen);
+  const showOnboarding = searchParams.get("onboarding") === "1";
+  const [dismissedOnboarding, setDismissedOnboarding] = useState(false);
   const scans = useQuery(api.scans.listMyScans);
   const sheets = useQuery(api.revisionSheets.listMySheets);
   const quizzes = useQuery(api.quizzes.listMyQuizzes);
@@ -49,6 +55,25 @@ export default function Dashboard() {
     (sheets?.length ?? 0) === 0 &&
     (quizzes?.length ?? 0) === 0;
   const isGuest = user?.isAnonymous === true;
+
+  /* ---------- Tutoriel d'onboarding (après inscription) ---------- */
+  const shouldShowOnboarding =
+    showOnboarding &&
+    !dismissedOnboarding &&
+    !user?.hasSeenOnboarding &&
+    !isGuest;
+
+  if (shouldShowOnboarding) {
+    return (
+      <OnboardingTutorial
+        onDone={() => {
+          setDismissedOnboarding(true);
+          setSearchParams({}, { replace: true });
+        }}
+        markSeen={() => markOnboardingSeen()}
+      />
+    );
+  }
 
   /* ---------- Dashboard invité (démo, sans compte) ---------- */
   if (isGuest) {

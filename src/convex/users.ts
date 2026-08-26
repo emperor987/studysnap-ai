@@ -99,8 +99,7 @@ export const updateProfile = mutation({
     firstName: v.optional(v.string()),
     schoolLevel: v.optional(v.string()),
     favoriteSubjects: v.optional(v.array(v.string())),
-    language: v.optional(v.string()),
-    explanationLevel: v.optional(v.string()),
+    language: v.optional(v.string()),      explanationLevel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -116,5 +115,15 @@ export const updateProfile = mutation({
     if (args.explanationLevel !== undefined) patch.explanationLevel = args.explanationLevel;
     await ctx.db.patch(userId, patch);
     return await ctx.db.get(userId);
+  },
+});
+
+/** Marque le tutoriel d'onboarding comme vu (1 fois après inscription). */
+export const markOnboardingSeen = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return;
+    await ctx.db.patch(userId, { hasSeenOnboarding: true });
   },
 });

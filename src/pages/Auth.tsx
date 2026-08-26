@@ -455,7 +455,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     return (
       <SignupLoadingScreen
         authReady={isAuthReady({ authenticated: isAuthenticated, authLoading })}
-        onDone={() => navigate(redirect)}
+        onDone={() => navigate(redirect + (redirect.includes("?") ? "&" : "?") + "onboarding=1")}
       />
     );
   }
