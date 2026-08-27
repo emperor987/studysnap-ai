@@ -111,7 +111,7 @@ export default function Pricing() {
                 )}
                 <h2 className="text-lg font-bold">{pack.label}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {pack.credits} crédit{pack.credits !== 1 ? "s" : ""}
+                  {pack.credits} crédits
                 </p>
                 <p className="mt-5">
                   <span className="text-4xl font-black tracking-tight">{price}</span>
