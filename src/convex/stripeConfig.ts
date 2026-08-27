@@ -1,41 +1,21 @@
 /**
- * StudySnap — config Stripe auto-provisionnée (produits, prix, webhook).
+ * StudySnap — config Stripe auto-provisionnée (produits crédits, webhook).
  *
- * Fonctions internes uniquement (jamais appelables depuis le client) :
- * la table stripe_config contient les price_id et le secret du webhook,
- * qui ne doivent pas être exposés.
+ * Fonctions internes uniquement (jamais appelables depuis le client).
  */
 
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 
 export type StripeConfig = {
-  /** Empreinte du compte Stripe (acct_...) : si elle change (migration de
-   *  compte, nouvelle clé), le provisionnement recrée tout sous le nouveau
-   *  compte — jamais de price_id / secret d'un ancien compte réutilisés. */
   accountId: string;
   mode: "test" | "live";
-  priceStudent: string;
-  pricePro: string;
-  priceStudentAnnual?: string;
-  priceProAnnual?: string;
+  priceDecouverte: string;
+  priceStandard: string;
+  priceGrosBesoin: string;
   webhookId: string;
   webhookSecret: string;
 };
-
-const stripeConfigValidator = v.object({
-  // Optionnel pour rester compatible avec les configs enregistrées avant
-  // l'ajout du champ : elles sont re-provisionnées automatiquement (l'ID
-  // manquant ≠ ID du compte courant).
-  accountId: v.optional(v.string()),
-  mode: v.union(v.literal("test"), v.literal("live")),
-  priceStudent: v.string(),
-  pricePro: v.string(),
-  priceStudentAnnual: v.optional(v.string()),
-  priceProAnnual: v.optional(v.string()),
-  webhookId: v.string(),
-  webhookSecret: v.string(),
-});
 
 /** Config Stripe auto-provisionnée (lecture serveur uniquement). */
 export const getStripeConfig = internalQuery({
@@ -46,25 +26,29 @@ export const getStripeConfig = internalQuery({
       .withIndex("by_singleton", (q) => q.eq("singleton", "default"))
       .first();
     if (!doc) return null;
-    // Anciennes configs (avant l'ajout du mode / du compte) : considérées
-    // comme du test, sans compte — le provisionnement les remplacera dès le
-    // prochain checkout (accountId manquant ≠ compte courant).
     return {
       accountId: doc.accountId ?? "",
       mode: (doc.mode === "live" ? "live" : "test") as "test" | "live",
-      priceStudent: doc.priceStudent,
-      pricePro: doc.pricePro,
-      priceStudentAnnual: doc.priceStudentAnnual,
-      priceProAnnual: doc.priceProAnnual,
+      priceDecouverte: doc.priceDecouverte,
+      priceStandard: doc.priceStandard,
+      priceGrosBesoin: doc.priceGrosBesoin,
       webhookId: doc.webhookId,
       webhookSecret: doc.webhookSecret,
     };
   },
 });
 
-/** Écrit (ou met à jour) la config Stripe auto-provisionnée. */
+/** Écrit (ou met à jour) la config Stripe. */
 export const storeStripeConfig = internalMutation({
-  args: stripeConfigValidator,
+  args: {
+    accountId: v.optional(v.string()),
+    mode: v.union(v.literal("test"), v.literal("live")),
+    priceDecouverte: v.string(),
+    priceStandard: v.string(),
+    priceGrosBesoin: v.string(),
+    webhookId: v.string(),
+    webhookSecret: v.string(),
+  },
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("stripe_config")

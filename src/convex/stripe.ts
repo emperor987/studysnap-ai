@@ -1,37 +1,89 @@
 /**
- * StudySnap — paiements Stripe (abonnements Student / Pro).
+ * StudySnap — paiements Stripe (crédits à l'unité, paiements uniques).
  *
- * Toute la logique est côté serveur. Sans clé configurée (UI Keys), l'action
- * renvoie { available: false } et l'UI affiche un message « bientôt
- * disponible » — aucun impact sur le plan gratuit.
- *
- * Provisionnement automatique : dès que STRIPE_SECRET_KEY est présente, le
- * premier checkout déclenche l'action stripe:provisionStripe (module
- * provisionStripe.ts) qui crée les produits, les prix mensuels EUR et
- * l'endpoint webhook, puis mémorise la config dans stripe_config (accès
- * interne uniquement). Plus besoin de renseigner les price_… ni le whsec_….
- *
- * Variables d'environnement (toutes optionnelles, en surcharge de la config
- * auto-provisionnée) :
- *   STRIPE_SECRET_KEY            — clé secrète Stripe (requise pour provisionner)
- *   STRIPE_PRICE_STUDENT         — price_id Student mensuel (surcharge)
- *   STRIPE_PRICE_PRO             — price_id Pro mensuel (surcharge)
- *   STRIPE_PRICE_STUDENT_ANNUAL  — price_id Student annuel (surcharge)
- *   STRIPE_PRICE_PRO_ANNUAL      — price_id Pro annuel (surcharge)
- *   STRIPE_WEBHOOK_SECRET        — secret du webhook /stripe-webhook (surcharge)
- *   STRIPE_WEBHOOK_SECRET_PREVIOUS — ancien secret pendant une rotation en
- *                                    chevauchement (voir SECURITY.md)
+ * Chaque achat = une session Stripe Checkout en mode "payment" (pas d'abonnement).
+ * Sans clé configurée (UI Keys), l'action renvoie { available: false }.
  */
 
 import { v } from "convex/values";
-import { action, httpAction } from "./_generated/server";
+import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { resolveStripeOrigin } from "../lib/url";
+import { CREDIT_PACKS, type CreditPackId } from "./schema";
+import { stripeWebhook } from "./stripeWebhook";
+import type { Id } from "./_generated/dataModel";
+export { stripeWebhook };
+
+// ─── Signature verification (re-exported for tests) ───
+
+/** Vérifie la signature HMAC-SHA256 d'un webhook Stripe avec un seul secret. */
+export async function verifyStripeSignature(
+  body: string,
+  signature: string,
+  secret: string,
+): Promise<boolean> {
+  return verifyStripeSignatureAny(body, signature, [secret]);
+}
+
+/** Vérifie la signature avec une liste de secrets (rotation en chevauchement). */
+export async function verifyStripeSignatureAny(
+  body: string,
+  signature: string,
+  secrets: string[],
+): Promise<boolean> {
+  const tolerance = 300; // 5 min
+  const parsed = parseStripeSignature(signature);
+  if (!parsed || secrets.length === 0) return false;
+
+  const ageSec = Math.abs(Date.now() / 1000 - parsed.timestamp);
+  if (ageSec > tolerance) return false;
+
+  for (const secret of secrets) {
+    if (!secret) continue;
+    try {
+      const signed = `${parsed.timestamp}.${body}`;
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"],
+      );
+      const sigBytes = hexToBytes(parsed.v1) as BufferSource;
+      const valid = await crypto.subtle.verify("HMAC", key, sigBytes, new TextEncoder().encode(signed) as BufferSource);
+      if (valid) return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+}
+
+function parseStripeSignature(header: string): { timestamp: number; v1: string } | null {
+  const parts = header.split(",");
+  let timestamp = 0;
+  let v1 = "";
+  for (const part of parts) {
+    const [key, val] = part.split("=");
+    if (key === "t") timestamp = parseInt(val ?? "", 10);
+    if (key === "v1") v1 = val ?? "";
+  }
+  if (!timestamp || !v1) return null;
+  return { timestamp, v1 };
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
+}
 
 const STRIPE_API = "https://api.stripe.com/v1";
 
-/** POST form-urlencoded vers l'API Stripe (tableaux répétés, clés imbriquées). */
+/** POST form-urlencoded vers l'API Stripe. */
 async function stripeFetch(
   path: string,
   params: Record<string, string | string[]>,
@@ -63,16 +115,14 @@ async function stripeFetch(
   return data;
 }
 
-/**
- * Crée une session de checkout d'abonnement.
- * Retourne { available: false } si Stripe n'est pas configuré.
- * Si les price_id ne sont pas renseignés, provisionne automatiquement
- * (produits, prix, webhook) au premier checkout.
- */
-export const createCheckoutSession = action({
+/** Crée une session de checkout pour un pack de crédits (paiement unique). */
+export const createCreditCheckout = action({
   args: {
-    plan: v.union(v.literal("student"), v.literal("pro")),
-    billing: v.union(v.literal("monthly"), v.literal("annual")),
+    packId: v.union(
+      v.literal("decouverte"),
+      v.literal("standard"),
+      v.literal("grosBesoin"),
+    ),
     origin: v.string(),
   },
   handler: async (ctx, args) => {
@@ -81,233 +131,78 @@ export const createCheckoutSession = action({
 
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Vous devez être connecté·e.");
-    const user = await ctx.runQuery(api.users.currentUser);
 
-    const annual = args.billing === "annual";
-    const envVar = annual
-      ? args.plan === "student"
-        ? "STRIPE_PRICE_STUDENT_ANNUAL"
-        : "STRIPE_PRICE_PRO_ANNUAL"
-      : args.plan === "student"
-        ? "STRIPE_PRICE_STUDENT"
-        : "STRIPE_PRICE_PRO";
+    const pack = CREDIT_PACKS[args.packId];
+    if (!pack) throw new Error("Pack inconnu.");
 
-    let priceId = process.env[envVar];
+    const config = await ctx.runQuery(internal.credits.findStripeConfig);
+    let priceId: string | undefined;
+
+    if (config) {
+      const field = args.packId === "decouverte"
+        ? "priceDecouverte"
+        : args.packId === "standard"
+          ? "priceStandard"
+          : "priceGrosBesoin";
+      priceId = config[field as keyof typeof config] as string | undefined;
+    }
 
     if (!priceId) {
-      const provisioned = await ctx.runAction(api.provisionStripe.provisionStripe);
+      // Provisionne les produits/prix si pas encore fait
+      const provisioned = await ctx.runAction(api.provisionStripe.provisionCreditProducts);
       if (provisioned.provisioned) {
-        priceId = annual
-          ? args.plan === "student"
-            ? provisioned.config.priceStudentAnnual
-            : provisioned.config.priceProAnnual
-          : args.plan === "student"
-            ? provisioned.config.priceStudent
-            : provisioned.config.pricePro;
+        const newConfig = await ctx.runQuery(internal.credits.findStripeConfig);
+        if (newConfig) {
+          const field = args.packId === "decouverte"
+            ? "priceDecouverte"
+            : args.packId === "standard"
+              ? "priceStandard"
+              : "priceGrosBesoin";
+          priceId = newConfig[field as keyof typeof newConfig] as string | undefined;
+        }
       }
     }
 
-    // Annuel demandé mais prix annuel indisponible (config ancienne ou env
-    // partielle) : on ne facture jamais le mauvais tarif — l'UI bascule sur
-    // le mensuel avec un message clair.
-    if (!priceId && annual) {
-      return { available: false as const, reason: "annual_unavailable" as const };
-    }
+    if (!priceId) throw new Error("Impossible de trouver le prix du pack.");
 
-    if (!priceId) {
-      throw new Error(
-        `Impossible de créer le paiement (plan ${args.plan}). Configurez ${envVar} ou vérifiez STRIPE_SECRET_KEY.`,
-      );
-    }
+    const user = await ctx.runQuery(api.users.currentUser);
+    const email = user?.email ?? undefined;
 
-    // Idempotency key : même utilisateur + plan + période le même jour → la
-    // même session est renvoyée (jamais de doublon d'abonnement en cas de
-    // double-clic ou de retry). Stripe conserve le résultat 24 h.
-    const dayKey = new Date().toISOString().slice(0, 10);
-    const idempotencyKey = `checkout_${userId}_${args.plan}_${args.billing}_${dayKey}`;
+    const serverBase = process.env.SITE_URL ?? process.env.CONVEX_SITE_URL;
+    const origin = resolveStripeOrigin(args.origin, serverBase) ?? args.origin;
+    const successUrl = `${origin}/credits?success=1`;
+    const cancelUrl = `${origin}/credits?cancelled=1`;
 
-    // L'origine vient du client : on ne construit JAMAIS d'URL de
-    // redirection Stripe vers un domaine non validé (open redirect via
-    // Stripe / phishing après paiement).
-    const origin = resolveStripeOrigin(
-      args.origin,
-      process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
-    );
-    if (!origin) {
-      return { available: false as const, reason: "invalid_origin" as const };
-    }
-
-    const session = await stripeFetch(
-      "/checkout/sessions",
-      {
-        mode: "subscription",
-        "line_items[][price]": priceId,
-        "line_items[][quantity]": "1",
-        customer_email: user?.email ?? "",
-        success_url: `${origin}/settings?upgraded=1`,
-        cancel_url: `${origin}/pricing`,
-        "metadata[userId]": userId,
-        "metadata[plan]": args.plan,
-        "metadata[billing]": args.billing,
-      },
-      key,
-      idempotencyKey,
-    );
-    const url = session.url;
-    if (typeof url !== "string") throw new Error("Stripe : URL de checkout manquante.");
-    return { available: true as const, url };
-  },
-});
-
-type StripeEvent = {
-  type?: string;
-  data?: {
-    object?: {
-      id?: string;
-      customer?: string;
-      metadata?: Record<string, string>;
-      status?: string;
-      current_period_end?: number;
+    const params: Record<string, string | string[]> = {
+      "line_items[0][price]": priceId,
+      "line_items[0][quantity]": "1",
+      mode: "payment",
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      "metadata[userId]": userId as string,
+      "metadata[packId]": args.packId,
+      "metadata[credits]": String(pack.credits),
+      "metadata[amountEur]": String(pack.priceEur),
     };
-  };
-};
 
-/** Tolérance d'horloge pour le timestamp de la signature (anti-rejeu). */
-const SIGNATURE_MAX_AGE_MS = 5 * 60 * 1000;
-
-/**
- * Vérifie la signature HMAC-SHA256 Stripe (Web Crypto, aucun import Node).
- * Exportée pour les tests de sécurité. Le timestamp `t=` est contrôlé :
- * une signature valide mais REJOUÉE (timestamp trop ancien) est refusée
- * (anti-rejeu — ASVS 12.5.1).
- */
-export async function verifyStripeSignature(
-  raw: string,
-  signature: string,
-  secret: string,
-): Promise<boolean> {
-  const parts = signature.split(",").map((p) => p.trim());
-  const tsPart = parts.find((p) => p.startsWith("t="));
-  const sigPart = parts.find((p) => p.startsWith("v1="));
-  if (!tsPart || !sigPart) return false;
-  const timestamp = tsPart.slice(2);
-  const timestampMs = Number(timestamp) * 1000;
-  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return false;
-  // Anti-rejeu : la signature doit être récente (horloge ± 5 min).
-  if (Math.abs(Date.now() - timestampMs) > SIGNATURE_MAX_AGE_MS) return false;
-  const signed = `${timestamp}.${raw}`;
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(signed));
-  const expectedHex = [...new Uint8Array(sig)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  const received = sigPart.slice(3);
-  return expectedHex.length === received.length && expectedHex === received;
-}
-
-/**
- * Vérifie la signature contre une LISTE de secrets candidats : pendant une
- * rotation, Stripe peut signer avec l'ancien OU le nouveau secret du webhook
- * (les deux sont actifs en chevauchement). Chaque candidat est essayé —
- * accepter n'importe lequel, refuser si aucun ne valide (intégrité + anti-
- * rejeu conservés : verifyStripeSignature contrôle le timestamp).
- * Exportée pour les tests de sécurité.
- */
-export async function verifyStripeSignatureAny(
-  raw: string,
-  signature: string,
-  candidates: string[],
-): Promise<boolean> {
-  for (const secret of candidates) {
-    if (await verifyStripeSignature(raw, signature, secret)) return true;
-  }
-  return false;
-}
-
-/**
- * Webhook Stripe : met à jour l'abonnement local (session confirmée, résiliation…).
- */
-export const stripeWebhook = httpAction(async (ctx, request) => {
-  // Secrets candidats, dans l'ordre : env primaire → env précédente
-  // (chevauchement de rotation) → secret auto-provisionné.
-  const config = await ctx.runQuery(internal.stripeConfig.getStripeConfig);
-  const candidates = [
-    process.env.STRIPE_WEBHOOK_SECRET,
-    process.env.STRIPE_WEBHOOK_SECRET_PREVIOUS,
-    config?.webhookSecret,
-  ].filter((s): s is string => Boolean(s?.trim()));
-  if (candidates.length === 0) {
-    return new Response("Webhook non configuré", { status: 200 });
-  }
-  const signature = request.headers.get("stripe-signature") ?? "";
-  const raw = await request.text();
-
-  const ok = await verifyStripeSignatureAny(raw, signature, candidates);
-  if (!ok) return new Response("Signature invalide", { status: 400 });
-
-  const event = JSON.parse(raw) as StripeEvent;
-  const object = event.data?.object;
-  if (!object) return new Response("OK", { status: 200 });
-
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const plan = (object.metadata?.plan as "student" | "pro") ?? "student";
-      const metadataUserId = object.metadata?.userId;
-      if (metadataUserId) {
-        await ctx.runMutation(internal.subscriptions.upsertSubscription, {
-          userId: metadataUserId,
-          plan,
-          status: "active",
-          customerId: object.customer,
-          subscriptionId: object.id,
-          periodEnd: object.current_period_end,
-        });
-      }
-      break;
+    if (email) {
+      params["customer_email"] = email;
     }
-    case "customer.subscription.deleted": {
-      if (object.customer) {
-        await ctx.runMutation(internal.subscriptions.cancelSubscription, {
-          customerId: object.customer,
-        });
-      }
-      break;
-    }
-    // Mise à jour du statut (actif, past_due, annulé, trialing…) : le statut
-    // local reste synchronisé — un statut autre qu'actif/trial dégrade
-    // l'accès payant via getMyPlan.
-    case "customer.subscription.updated": {
-      if (object.customer) {
-        await ctx.runMutation(internal.subscriptions.syncSubscriptionStatus, {
-          customerId: object.customer,
-          status: object.status ?? "past_due",
-          periodEnd: object.current_period_end,
-          subscriptionId: object.id,
-        });
-      }
-      break;
-    }
-    // Échec de paiement (carte refusée, échéance non honorée) : on passe
-    // l'abonnement en past_due — le compte perd l'accès payant jusqu'au
-    // paiement effectif (gestion d'échec côté app).
-    case "invoice.payment_failed": {
-      if (object.customer) {
-        await ctx.runMutation(internal.subscriptions.syncSubscriptionStatus, {
-          customerId: object.customer,
-          status: "past_due",
-        });
-      }
-      break;
-    }
-    default:
-      break;
-  }
-  return new Response("OK", { status: 200 });
+
+    // Enregistrer l'achat en attente
+    await ctx.runMutation(internal.credits.recordPendingPurchase, {
+      userId: userId as Id<"users">,
+      packId: args.packId,
+      credits: pack.credits,
+      amountEur: pack.priceEur,
+      stripeSessionId: "pending",
+    });
+
+    const session = await stripeFetch("/checkout/sessions", params, key);
+
+    return {
+      available: true as const,
+      url: session.url as string,
+    };
+  },
 });

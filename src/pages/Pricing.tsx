@@ -1,59 +1,40 @@
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { BillingToggle } from "@/components/billing-toggle";
 import { useAction, useQuery } from "convex/react";
-import { ArrowLeft, Check, Loader2, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, Check, Coins, Loader2, Sparkles, Zap } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
-import {
-  PLANS,
-  PRICING,
-  annualMonthlyHint,
-  formatPrice,
-  priceNote,
-  type BillingPeriod,
-  type PlanId,
-} from "@/lib/plans";
+import { CREDIT_PACKS, type CreditPackId } from "@/convex/schema";
 
-const isPaidPlan = (id: PlanId): id is "student" | "pro" => id !== "free";
+const packs: { id: CreditPackId; highlight?: boolean }[] = [
+  { id: "decouverte" },
+  { id: "standard", highlight: true },
+  { id: "grosBesoin" },
+];
 
 export default function Pricing() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const createCheckout = useAction(api.stripe.createCheckoutSession);
-  const usage = useQuery(api.usage.getMyUsage);
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [billing, setBilling] = useState<BillingPeriod>("monthly");
+  const createCheckout = useAction(api.stripe.createCreditCheckout);
+  const creditInfo = useQuery(api.credits.getMyCreditInfo);
+  const [loadingPack, setLoadingPack] = useState<string | null>(null);
 
-  // Règle de séquencement : la bascule de facturation n'apparaît qu'une fois
-  // que l'utilisateur a réellement testé l'app (au moins un scan, une fiche
-  // ou un quiz). On ne pousse jamais un plan avant ce moment.
-  const hasTested = !!usage && usage.usage.scans + usage.usage.sheets + usage.usage.quizzes > 0;
-
-  const handleSubscribe = async (planId: "student" | "pro") => {
+  const handleBuy = async (packId: CreditPackId) => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      navigate(`/auth?returnTo=${encodeURIComponent("/pricing")}`);
+      navigate(`/auth?returnTo=${encodeURIComponent("/credits")}`);
       return;
     }
-    setLoadingPlan(planId);
+    setLoadingPack(packId);
     try {
       const result = await createCheckout({
-        plan: planId,
-        billing,
+        packId,
         origin: window.location.origin,
       });
       if (!result.available) {
-        if ("reason" in result && result.reason === "annual_unavailable") {
-          toast.error(
-            "L'abonnement annuel n'est pas encore disponible — le mensuel fonctionne, réessaie.",
-          );
-          setBilling("monthly");
-          return;
-        }
         toast.info(
-          "Le paiement en ligne arrive bientôt — en attendant, le plan gratuit te laisse tout tester.",
+          "Le paiement en ligne arrive bientôt — en attendant, l'app gratuite te laisse tout tester.",
         );
         return;
       }
@@ -65,7 +46,7 @@ export default function Pricing() {
       console.error(e);
       toast.error("Impossible de lancer le paiement pour l'instant.");
     } finally {
-      setLoadingPlan(null);
+      setLoadingPack(null);
     }
   };
 
@@ -83,108 +64,101 @@ export default function Pricing() {
           className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-          Retour à l&apos;accueil
+          Retour
         </Link>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-5 pb-24 pt-10 sm:px-8">
+      <main className="mx-auto w-full max-w-4xl px-5 pb-24 pt-10 sm:px-8">
         <div className="text-center">
           <span className="glass-chip inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-primary">
-            <Sparkles className="size-3.5" />
-            Pricing StudySnap
+            <Coins className="size-3.5" />
+            Crédits StudySnap
           </span>
           <h1 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl">
-            Commence gratuitement.{" "}
-            <span className="text-brand-gradient">Upgrade quand tu veux.</span>
+            Débloque plus de scans.{" "}
+            <span className="text-brand-gradient">Sans engagement.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-            Tu testes d&apos;abord l&apos;app avec 4 scans gratuits par mois,
-            sans carte bancaire. Les plans payants ne servent qu&apos;à débloquer
-            plus de capacité quand tu en as vraiment besoin.
+            Achète des crédits quand tu en as besoin. Chaque scan complet, fiche
+            ou quiz consomme 1 crédit. Le mode Réponse directe reste toujours gratuit.
           </p>
-        </div>
-
-        {/* Bascule Mensuel / Annuel — visible seulement après avoir testé l'app */}
-        <div className="mt-10 flex flex-col items-center gap-2">
-          {hasTested ? (
-            <BillingToggle value={billing} onChange={setBilling} />
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              🔎 Scanne ton premier exercice gratuitement pour découvrir les
-              tarifs annuels (2 mois offerts).
-            </p>
+          {creditInfo && (
+            <div className="mx-auto mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-white/5 px-5 py-2.5">
+              <Coins className="size-4 text-amber-400" />
+              <span className="text-sm font-semibold">
+                Solde actuel : {creditInfo.balance} crédit{creditInfo.balance !== 1 ? "s" : ""}
+              </span>
+            </div>
           )}
         </div>
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          {PLANS.map((plan) => {
-            const amount = isPaidPlan(plan.id) ? PRICING[plan.id][billing] : 0;
+        <div className="mt-12 grid gap-6 sm:grid-cols-3">
+          {packs.map(({ id, highlight }) => {
+            const pack = CREDIT_PACKS[id];
+            const price = (pack.priceEur / 100).toFixed(2).replace(".", ",") + " €";
+            const perCredit = (pack.priceEur / 100 / pack.credits).toFixed(2).replace(".", ",") + " €/crédit";
             return (
               <div
-                key={plan.id}
+                key={id}
                 className={`glass-card relative flex flex-col rounded-3xl p-7 ${
-                  plan.highlight ? "ring-2 ring-primary/50" : ""
+                  highlight ? "ring-2 ring-primary/50" : ""
                 }`}
               >
-                {plan.highlight && (
+                {highlight && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-gradient px-4 py-1 text-xs font-bold text-white shadow-lg">
-                    Le plus choisi
+                    Meilleur choix
                   </span>
                 )}
-                <h2 className="text-lg font-bold">{plan.name}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+                <h2 className="text-lg font-bold">{pack.label}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {pack.credits} crédit{pack.credits !== 1 ? "s" : ""}
+                </p>
                 <p className="mt-5">
-                  <span className="text-4xl font-black tracking-tight">
-                    {isPaidPlan(plan.id) ? formatPrice(amount) : "0 €"}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {isPaidPlan(plan.id) ? priceNote(billing) : " / mois"}
+                  <span className="text-4xl font-black tracking-tight">{price}</span>
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    — {perCredit}
                   </span>
                 </p>
-                {isPaidPlan(plan.id) && billing === "annual" && (
-                  <p className="mt-1.5 text-xs font-semibold text-mint-300">
-                    {annualMonthlyHint(PRICING[plan.id].annual)} · 2 mois offerts
-                  </p>
-                )}
                 <ul className="mt-6 flex-1 space-y-2.5">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm">
-                      <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
-                      {f}
-                    </li>
-                  ))}
+                  <li className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
+                    {pack.credits} scans complets
+                  </li>
+                  <li className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
+                    {pack.credits} fiches de révision
+                  </li>
+                  <li className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
+                    {pack.credits} quiz personnalisés
+                  </li>
+                  <li className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
+                    Réponse directe toujours gratuite
+                  </li>
                 </ul>
-                {plan.id === "free" ? (
-                  <Link
-                    to="/auth?returnTo=%2Fdashboard"
-                    className="mt-7 rounded-full bg-brand-gradient px-6 py-3 text-center text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
-                  >
-                    {plan.cta}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleSubscribe(plan.id as "student" | "pro")}
-                    disabled={loadingPlan !== null}
-                    className={`mt-7 flex items-center justify-center gap-2 rounded-full px-6 py-3 text-center text-sm font-semibold transition-all disabled:opacity-60 ${
-                      plan.highlight
-                        ? "bg-brand-gradient text-white shadow-lg shadow-indigo-500/25 hover:brightness-110"
-                        : "border border-border bg-white/8 text-foreground hover:bg-white/15"
-                    }`}
-                  >
-                    {loadingPlan === plan.id ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Redirection…
-                      </>
-                    ) : (
-                      <>
-                        {plan.id === "pro" && <Zap className="size-4" />}
-                        {plan.cta}
-                      </>
-                    )}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => handleBuy(id)}
+                  disabled={loadingPack !== null}
+                  className={`mt-7 flex items-center justify-center gap-2 rounded-full px-6 py-3 text-center text-sm font-semibold transition-all disabled:opacity-60 ${
+                    highlight
+                      ? "bg-brand-gradient text-white shadow-lg shadow-indigo-500/25 hover:brightness-110"
+                      : "border border-border bg-white/8 text-foreground hover:bg-white/15"
+                  }`}
+                >
+                  {loadingPack === id ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Redirection…
+                    </>
+                  ) : (
+                    <>
+                      {highlight && <Zap className="size-4" />}
+                      Acheter ce pack
+                    </>
+                  )}
+                </button>
               </div>
             );
           })}
@@ -192,9 +166,8 @@ export default function Pricing() {
 
         <div className="mt-12 flex flex-col items-center gap-3">
           <p className="text-center text-xs leading-5 text-muted-foreground">
-            Annulable à tout moment · Paiement sécurisé via Stripe · Les prix
-            incluent la TVA · Fair-use : une utilisation raisonnable, pour un
-            usage scolaire.
+            Paiement sécurisé via Stripe · Pas d&apos;abonnement, pas de récurrence
+            · Les crédits n&apos;expirent jamais · Les prix incluent la TVA
           </p>
           <Link
             to="/auth?returnTo=%2Fscanner"

@@ -16,6 +16,14 @@ export const roleValidator = v.union(
 );
 export type Role = Infer<typeof roleValidator>;
 
+export const CREDIT_PACKS = {
+  decouverte: { credits: 5, priceEur: 199, label: "Découverte" },
+  standard: { credits: 15, priceEur: 499, label: "Standard" },
+  grosBesoin: { credits: 40, priceEur: 999, label: "Gros besoin" },
+} as const;
+export type CreditPackId = keyof typeof CREDIT_PACKS;
+
+// DEPRECATED — conservé pour backward compat temporaire
 export const planValidator = v.union(
   v.literal("free"),
   v.literal("student"),
@@ -77,17 +85,30 @@ const schema = defineSchema(
       parentalConsentLastSentAt: v.optional(v.number()),
       parentalConsentReminderSentAt: v.optional(v.number()),
 
-      // --- Onboarding ---
+      // --- Crédits ---
+      creditBalance: v.number(),
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
       .index("by_parental_token", ["parentalConsentTokenHash"])
       .index("by_parental_pending", ["parentalConsentStatus"]),
 
-    // Abonnement / plan (Stripe)
+    // Historique des achats de crédits
+    credit_purchases: defineTable({
+      userId: v.id("users"),
+      packId: v.string(), // "decouverte" | "standard" | "grosBesoin"
+      credits: v.number(),
+      amountEur: v.number(), // en centimes (199 = 1,99 €)
+      stripeSessionId: v.optional(v.string()),
+      status: v.string(), // "pending" | "completed" | "failed"
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId", "createdAt"]),
+
+    // ─── DEPRECATED: ancien système d'abonnements, conservé temporairement ───
     subscriptions: defineTable({
       userId: v.id("users"),
       plan: planValidator,
-      status: v.string(), // "active" | "trialing" | "past_due" | "canceled" | "incomplete"
+      status: v.string(),
       stripeCustomerId: v.optional(v.string()),
       stripeSubscriptionId: v.optional(v.string()),
       periodEnd: v.optional(v.number()),
@@ -235,19 +256,16 @@ const schema = defineSchema(
       createdAt: v.number(),
     }).index("by_user", ["userId", "createdAt"]),
 
-    // Configuration Stripe auto-provisionnée (produits, prix, webhook).
-    // Ligne unique (singleton) écrite par l'action stripe:provisionStripe ;
-    // jamais exposée au client (accès via fonctions internes uniquement).
+    // Configuration Stripe auto-provisionnée (produits prix uniques, webhook).
     stripe_config: defineTable({
       singleton: v.literal("default"),
-      accountId: v.optional(v.string()), // acct_... : empreinte du compte Stripe (migration = re-provisionnement)
-      mode: v.string(), // "test" | "live" (environnement des objets créés)
-      priceStudent: v.string(), // price_... plan Student mensuel (4,99 €/mois)
-      pricePro: v.string(), // price_... plan Student Pro mensuel (6,99 €/mois)
-      priceStudentAnnual: v.optional(v.string()), // price_... Student annuel (49,99 €/an)
-      priceProAnnual: v.optional(v.string()), // price_... Student Pro annuel (69,99 €/an)
+      accountId: v.optional(v.string()),
+      mode: v.string(), // "test" | "live"
+      priceDecouverte: v.string(), // price_... pack Découverte (5 crédits, 1,99 €)
+      priceStandard: v.string(), // price_... pack Standard (15 crédits, 4,99 €)
+      priceGrosBesoin: v.string(), // price_... pack Gros besoin (40 crédits, 9,99 €)
       webhookId: v.string(),
-      webhookSecret: v.string(), // whsec_... (secret du endpoint créé)
+      webhookSecret: v.string(),
       updatedAt: v.number(),
     }).index("by_singleton", ["singleton"]),
 
