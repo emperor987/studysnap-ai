@@ -21,7 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   formatDateTimeFr,
   levelLabel,
@@ -29,23 +29,13 @@ import {
   pluralFr,
   subjectEmoji,
 } from "@/lib/format";
-import { OnboardingTutorial } from "@/components/OnboardingTutorial";
+
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const markOnboardingSeen = useMutation(api.users.markOnboardingSeen);
-  // Le flag onboarding peut venir de l'URL (?onboarding=1) OU de
-  // sessionStorage (persisté par Auth.tsx pour survivre aux flash-redirects
-  // de RequireAuth). On nettoie sessionStorage dès qu'on l'a lu.
-  const [sessionOnboarding] = useState(() => {
-    const flag = sessionStorage.getItem("ss_onboarding");
-    if (flag) sessionStorage.removeItem("ss_onboarding");
-    return flag === "1";
-  });
-  const showOnboarding = searchParams.get("onboarding") === "1" || sessionOnboarding;
-  const [dismissedOnboarding, setDismissedOnboarding] = useState(false);
+
+
   const scans = useQuery(api.scans.listMyScans);
   const sheets = useQuery(api.revisionSheets.listMySheets);
   const quizzes = useQuery(api.quizzes.listMyQuizzes);
@@ -64,24 +54,7 @@ export default function Dashboard() {
     (quizzes?.length ?? 0) === 0;
   const isGuest = user?.isAnonymous === true;
 
-  /* ---------- Tutoriel d'onboarding (après inscription) ---------- */
-  const shouldShowOnboarding =
-    showOnboarding &&
-    !dismissedOnboarding &&
-    !user?.hasSeenOnboarding &&
-    !isGuest;
 
-  if (shouldShowOnboarding) {
-    return (
-      <OnboardingTutorial
-        onDone={() => {
-          setDismissedOnboarding(true);
-          setSearchParams({}, { replace: true });
-        }}
-        markSeen={() => markOnboardingSeen()}
-      />
-    );
-  }
 
   /* ---------- Dashboard invité (démo, sans compte) ---------- */
   if (isGuest) {

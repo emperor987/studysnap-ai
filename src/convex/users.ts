@@ -118,12 +118,3 @@ export const updateProfile = mutation({
   },
 });
 
-/** Marque le tutoriel d'onboarding comme vu (1 fois après inscription). */
-export const markOnboardingSeen = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return;
-    await ctx.db.patch(userId, { hasSeenOnboarding: true });
-  },
-});

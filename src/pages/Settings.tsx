@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell";
-import { OnboardingTutorial } from "@/components/OnboardingTutorial";
+
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useConvex, useMutation, useQuery } from "convex/react";
@@ -9,7 +9,6 @@ import {
   Download,
   Loader2,
   Lock,
-  PlayCircle,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -61,7 +60,7 @@ export default function Settings() {
   const subjects = useQuery(api.subjects.listSubjects);
   const convex = useConvex();
   const updateProfile = useMutation(api.users.updateProfile);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+
   const deleteAccount = useMutation(api.account.deleteMyAccount);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -359,14 +358,7 @@ export default function Settings() {
             </ul>
 
             <div className="mt-5 space-y-2.5 border-t border-white/10 pt-4">
-              <Button
-                onClick={() => setShowOnboarding(true)}
-                variant="outline"
-                className="h-10 w-full justify-start gap-2 rounded-xl border-border bg-white/6 px-4 text-sm font-semibold hover:bg-white/15"
-              >
-                <PlayCircle className="size-4 text-primary" />
-                Revoir le tutoriel
-              </Button>
+
               <Button
                 onClick={handleExport}
                 disabled={exporting}
@@ -423,13 +415,7 @@ export default function Settings() {
         </section>
       </div>
 
-      {/* Tutoriel d'onboarding (replay depuis les paramètres) */}
-      {showOnboarding && (
-        <OnboardingTutorial
-          isReplay
-          onDone={() => setShowOnboarding(false)}
-        />
-      )}
+
     </AppShell>
   );
 }

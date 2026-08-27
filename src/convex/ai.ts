@@ -585,7 +585,7 @@ async function chatRaw(
         throw new Error(AI_TIMEOUT_MESSAGE);
       }
       lastError = e;
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 700));
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 200));
     }
   }
   throw lastError;
@@ -878,7 +878,7 @@ export const ocrPhotos = action({
 
     const controller = new AbortController();
     // La file du free tier peut ralentir l'OCR : marge confortable.
-    const timer = setTimeout(() => controller.abort(), 120000);
+    const timer = setTimeout(() => controller.abort(), 30000);
     try {
       const fullText = await ocrImageText(imageParts, controller.signal);
       console.log(
@@ -953,7 +953,7 @@ export const analyzeText = action({
     // Deux générations possibles (relance complétude) + file du free tier :
     // marge large pour ne pas couper la relance en plein milieu (jusqu'à
     // ~1-2 min par génération sur les jours chargés).
-    const timer = setTimeout(() => controller.abort(), 180000);
+    const timer = setTimeout(() => controller.abort(), 60000);
     try {
       // Fiche / cours complet : prompt dédié + texte condensé (début + fin)
       // pour que la génération reste rapide et concise. Exercice classique :
@@ -1001,12 +1001,11 @@ export const analyzeText = action({
       // Plafond de sortie réduit : le JSON normalisé fait ~2000-3000 tokens
       // pour un exercice — 4096 laisse une large marge sans forcer le modèle
       // à générer inutilement (plus c'est court, plus c'est rapide).
-      const parsed = await chatJsonComplete(
+      const parsed = await chatJson(
         [
           { role: "system", content: isFiche ? SYSTEM_PROMPT_DENSE : SYSTEM_PROMPT },
           { role: "user", content: [{ type: "text", text: body }] },
         ],
-        analysisComplete,
         controller.signal,
         4096,
       );
