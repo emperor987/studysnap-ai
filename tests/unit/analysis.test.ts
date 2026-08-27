@@ -87,7 +87,7 @@ describe("Le pipeline IA utilise bien la classification fiche", () => {
     expect(ai).toContain("isFiche ? SYSTEM_PROMPT_DENSE : SYSTEM_PROMPT");
   });
 
-  test("le plafond OCR est généreux pour les documents denses (≥ 4096 tokens)", () => {
-    expect(ai).toMatch(/maxTokens: 4096/);
+  test("le plafond OCR est optimisé pour la vitesse (≤ 2048 tokens)", () => {
+    expect(ai).toMatch(/maxTokens: 2048/);
   });
 });
