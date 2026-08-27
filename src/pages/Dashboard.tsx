@@ -36,7 +36,15 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const markOnboardingSeen = useMutation(api.users.markOnboardingSeen);
-  const showOnboarding = searchParams.get("onboarding") === "1";
+  // Le flag onboarding peut venir de l'URL (?onboarding=1) OU de
+  // sessionStorage (persisté par Auth.tsx pour survivre aux flash-redirects
+  // de RequireAuth). On nettoie sessionStorage dès qu'on l'a lu.
+  const [sessionOnboarding] = useState(() => {
+    const flag = sessionStorage.getItem("ss_onboarding");
+    if (flag) sessionStorage.removeItem("ss_onboarding");
+    return flag === "1";
+  });
+  const showOnboarding = searchParams.get("onboarding") === "1" || sessionOnboarding;
   const [dismissedOnboarding, setDismissedOnboarding] = useState(false);
   const scans = useQuery(api.scans.listMyScans);
   const sheets = useQuery(api.revisionSheets.listMySheets);

@@ -455,7 +455,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     return (
       <SignupLoadingScreen
         authReady={isAuthReady({ authenticated: isAuthenticated, authLoading })}
-        onDone={() => navigate(redirect + (redirect.includes("?") ? "&" : "?") + "onboarding=1")}
+        onDone={() => {
+          // Persiste le flag onboarding dans sessionStorage pour survivre
+          // à un éventuel flash-redirect via RequireAuth.
+          sessionStorage.setItem("ss_onboarding", "1");
+          navigate(redirect + (redirect.includes("?") ? "&" : "?") + "onboarding=1");
+        }}
       />
     );
   }
