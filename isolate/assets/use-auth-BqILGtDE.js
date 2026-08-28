@@ -1,1 +1,0 @@
-import{a as u}from"./api-CpTfnudu.js";import{f as e,d as r,g as a}from"./index-CokyuUqU.js";function A(){const{isLoading:t,isAuthenticated:i}=e(),s=r(u.users.currentUser),{signIn:n,signOut:o}=a();return{isLoading:t||s===void 0,isAuthenticated:i,user:s,signIn:n,signOut:o}}export{A as u};
