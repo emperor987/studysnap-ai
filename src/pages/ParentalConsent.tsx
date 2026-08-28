@@ -65,7 +65,7 @@ function ParentalConsent() {
   const isDone = result.status !== "loading";
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-5 text-foreground">
+    <div className="flex min-h-screen flex-col items-center justify-center px-5 text-foreground">
       <div className="w-full max-w-md">
         <Link to="/" className="mb-8 flex items-center justify-center gap-2">
           <span className="text-xl font-extrabold tracking-tight">

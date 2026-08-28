@@ -1067,7 +1067,7 @@ export default function Landing() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="min-h-screen overflow-x-clip bg-background text-foreground"
+      className="min-h-screen overflow-x-clip text-foreground"
       id="top"
     >
       <StickyHeader />

@@ -98,7 +98,7 @@ class RootErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+        <div className="flex min-h-screen items-center justify-center p-6 text-foreground">
           <div className="glass-panel w-full max-w-md rounded-3xl p-8 text-center">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-400">
               <AlertTriangle className="size-7" />
@@ -245,6 +245,17 @@ function App() {
   if (!convex) return <MissingBackendNotice />;
   return (
     <ConvexAuthProvider client={convex} storage={visitTokenStorage}>
+      {/* Aurora background — fixed behind all content, visible on every page & section */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            "radial-gradient(60rem 32rem at 12% -6%, rgba(79,79,229,0.22), transparent 60%), " +
+            "radial-gradient(48rem 28rem at 92% 4%, rgba(255,122,132,0.12), transparent 55%), " +
+            "radial-gradient(40rem 30rem at 50% 110%, rgba(30,233,129,0.08), transparent 60%)",
+        }}
+      />
       <GlobalErrorToaster />
       <BrowserRouter>
         <RouteSyncer />

@@ -153,13 +153,6 @@
     /* Empêche tout débordement horizontal (éléments décoratifs, boutons
        larges…) sur mobile : le contenu est coupé, jamais de scroll latéral. */
     overflow-x: clip;
-    /* Halo « aurora » continu — restant fixe pendant le scroll,
-       visible sur toutes les pages sans duplication. */
-    background-image:
-      radial-gradient(60rem 32rem at 12% -6%, rgba(79, 79, 229, 0.22), transparent 60%),
-      radial-gradient(48rem 28rem at 92% 4%, rgba(255, 122, 132, 0.12), transparent 55%),
-      radial-gradient(40rem 30rem at 50% 110%, rgba(30, 233, 129, 0.08), transparent 60%);
-    background-attachment: fixed;
   }
   #root {
     min-width: 0;
