@@ -333,6 +333,16 @@ const schema = defineSchema(
     // Rétention : les 20 derniers backups sont conservés côté Supabase.
     // (pas de table Convex — les backups vivent dans Supabase)
 
+    // Fallback OTP : stockage temporaire du code quand l'envoi email échoue.
+    // Le code est affiché à l'écran pour que l'utilisateur puisse continuer.
+    // Auto-purgé après 15 minutes par le cron hebdomadaire.
+    otp_fallback: defineTable({
+      email: v.string(),
+      token: v.string(),
+      createdAt: v.number(),
+    })
+      .index("by_email", ["email", "createdAt"]),
+
     // Compteurs mensuels (limites plan gratuit + stats)
     usage: defineTable({
       userId: v.id("users"),

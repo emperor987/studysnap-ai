@@ -156,7 +156,20 @@ export const emailOtp = Email({
         "[emailOtp] Envoi du code refusé par le service email :",
         res.error,
       );
-      throw new Error("Échec de l'envoi du code — réessaie dans un instant.");
+      // Fallback : stocker le code dans otp_fallback pour affichage à l'écran
+      // quand le service email est indisponible. Le frontend détecte cette
+      // erreur et récupère le code via la query getFallbackOtp.
+      if (ctx?.runMutation) {
+        try {
+          await ctx.runMutation(internal.otpFallback.storeFallbackOtp, {
+            email,
+            token,
+          });
+        } catch (fbErr) {
+          console.error("[emailOtp] Échec du stockage fallback OTP :", fbErr);
+        }
+      }
+      throw new Error("EMAIL_SEND_FAILED");
     }
   },
 });

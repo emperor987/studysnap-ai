@@ -76,6 +76,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [otpStep, setOtpStep] = useState<{ email: string } | null>(null);
   const [otp, setOtp] = useState("");
+  // Fallback OTP affiché à l'écran quand l'envoi email échoue
+  const [fallbackOtpCode, setFallbackOtpCode] = useState<string | null>(null);
 
   // Inscription par code email : le code par email crée le compte si aucune
   // adresse n'est associée à un compte existant (vérifié au moment de la
@@ -376,10 +378,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       }
       await signIn("email-otp", { email: trimmedEmail });
       setOtpStep({ email: trimmedEmail });
+      setFallbackOtpCode(null);
       setIsLoading(false);
     } catch (err) {
       console.error("Email code request error:", err);
-      setError(getAuthErrorMessage(err));
+      const msg = getAuthErrorMessage(err);
+      if (msg === "__EMAIL_SEND_FAILED__") {
+        // L'email a échoué mais le code est stocké en fallback : on le
+        // récupère pour l'afficher directement à l'écran.
+        try {
+          const fallback = await convex.query(api.otpFallback.getFallbackOtp, {
+            email: trimmedEmail,
+          });
+          if (fallback?.token) {
+            setFallbackOtpCode(fallback.token);
+            setOtpStep({ email: trimmedEmail });
+            setIsLoading(false);
+            return;
+          }
+        } catch (fbErr) {
+          console.error("Fallback OTP retrieval failed:", fbErr);
+        }
+      }
+      setError(
+        msg === "__EMAIL_SEND_FAILED__"
+          ? "L'envoi par email a échoué. Vérifie ta connexion et réessaie."
+          : msg,
+      );
       setIsLoading(false);
     }
   };
@@ -509,6 +534,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </span>
               . Il est valable 15 minutes.
             </p>
+            {fallbackOtpCode && (
+              <div className="mt-4 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 p-4 text-center">
+                <p className="text-xs font-semibold text-amber-300">
+                  ⚠️ L&apos;email n&apos;a pas pu être envoyé — voici ton code :
+                </p>
+                <p className="mt-2 font-mono text-3xl font-extrabold tracking-[0.4em] text-amber-200">
+                  {fallbackOtpCode}
+                </p>
+                <p className="mt-1.5 text-[11px] text-amber-300/70">
+                  Copie ce code et colle-le ci-dessous.
+                </p>
+              </div>
+            )}
           </div>
           <form onSubmit={handleOtpSubmit} className="mt-7">
             <div className="relative">

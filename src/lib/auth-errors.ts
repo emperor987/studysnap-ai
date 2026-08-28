@@ -87,6 +87,11 @@ export function getAuthErrorMessage(e: unknown): string {
   if (hay.includes("trop de demandes") || hay.includes("too many requests")) {
     return "Trop de demandes de code par email. Réessaie dans quelques minutes.";
   }
+  // EMAIL_SEND_FAILED : le code est stocké en fallback et sera affiché
+  // à l'écran par le frontend (token dans otp_fallback).
+  if (hay.includes("email_send_failed")) {
+    return "__EMAIL_SEND_FAILED__";
+  }
   if (
     hay.includes("échec de l'envoi") ||
     hay.includes("echec de l'envoi") ||
