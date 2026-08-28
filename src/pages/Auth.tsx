@@ -1244,7 +1244,7 @@ function SignupLoadingScreen({
   };
 
   return (
-    <div className="bg-glow relative flex min-h-screen flex-col overflow-hidden">
+    <div className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="pointer-events-none absolute -left-32 top-0 size-96 rounded-full bg-primary/15 blur-3xl" />
       <div className="pointer-events-none absolute -right-24 bottom-0 size-96 rounded-full bg-coral-500/10 blur-3xl" />
 
@@ -1522,7 +1522,7 @@ function ParentalPendingPanel({
 function AuthShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   return (
-    <div className="bg-glow relative flex min-h-screen flex-col overflow-hidden">
+    <div className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="pointer-events-none absolute -left-32 top-0 size-96 rounded-full bg-primary/15 blur-3xl" />
       <div className="pointer-events-none absolute -right-24 bottom-0 size-96 rounded-full bg-coral-500/10 blur-3xl" />
 

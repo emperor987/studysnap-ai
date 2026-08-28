@@ -98,7 +98,7 @@ class RootErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="bg-glow flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+        <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
           <div className="glass-panel w-full max-w-md rounded-3xl p-8 text-center">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-400">
               <AlertTriangle className="size-7" />

@@ -184,7 +184,7 @@ function Hero() {
   return (
     <section className="relative isolate min-h-[100svh] overflow-hidden pt-20">
       {/* Background glow */}
-      <div className="absolute inset-0 -z-10 bg-glow" />
+      
       <div className="absolute left-1/2 top-0 -z-10 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
 
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-20 pt-12 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:pt-20">
@@ -1067,7 +1067,7 @@ export default function Landing() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="bg-glow min-h-screen overflow-x-clip bg-background text-foreground"
+      className="min-h-screen overflow-x-clip bg-background text-foreground"
       id="top"
     >
       <StickyHeader />

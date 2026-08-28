@@ -20,7 +20,7 @@ export function LegalLayout({
   lastUpdated?: string;
 }) {
   return (
-    <div className="bg-glow min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex w-full max-w-4xl items-center justify-between px-5 py-5 sm:px-8">
         <Link to="/" className="flex items-center gap-2.5">
           <span className="text-lg font-extrabold tracking-tight">

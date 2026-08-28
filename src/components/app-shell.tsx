@@ -164,7 +164,7 @@ export function AppShell({
   };
 
   return (
-    <div className="bg-glow min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/* ---------- Sidebar desktop ---------- */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-border bg-[#1c1c22]/90 p-5 backdrop-blur-2xl lg:flex">
         <NavLink to="/dashboard" className="flex items-center gap-2.5 px-1">
