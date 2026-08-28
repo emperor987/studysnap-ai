@@ -1,0 +1,67 @@
+# StudySnap — robots.txt
+# https://studysnapfr.freebuff.app/
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /scanner
+Disallow: /sheets
+Disallow: /quiz
+Disallow: /revision
+Disallow: /progress
+Disallow: /profile
+Disallow: /pricing
+Disallow: /settings
+Disallow: /api/
+
+# Specific rules for AI crawlers (GEO optimization)
+User-agent: GPTBot
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /api/
+
+User-agent: cohere-ai
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /api/
+
+# Block bad bots
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# Sitemaps
+Sitemap: https://studysnapfr.freebuff.app/sitemap.xml

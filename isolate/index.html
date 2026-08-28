@@ -1,49 +1,304 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" dir="ltr">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta
-    name="description"
-    content="StudySnap — Scanne un exercice, comprends la méthode et transforme tes cours en fiches de révision personnalisées."
-  />
-  <!-- Le token de confirmation parentale transite dans l'URL : on ne laisse
-       aucun navigateur le renvoyer via l'en-tête Referer vers un tiers. -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       SEO PRIMARY — Title, Description, Keywords
+       Mots-clés ciblés :
+       - fiche de révision IA gratuit, scanner exercice IA, app devoirs lycée
+       - résoudre exercice photo, IA pour réviser, aide devoirs maths
+       - application fiche révision en ligne, scanner photo devoir
+       ═══════════════════════════════════════════════════════════════════ -->
+  <title>StudySnap — Scanner Exercice IA & Fiches de Révision Gratuites pour Lycée & Collège</title>
+  <meta name="description" content="StudySnap : scanne un exercice avec ton téléphone, obtiens la réponse instantanée avec explication détaillée, et crée des fiches de révision personnalisées grâce à l'IA. Gratuit pour les étudiants du collège au lycée." />
+  <meta name="keywords" content="fiche de révision IA gratuit, scanner exercice IA, app devoirs lycée collège, résoudre exercice photo, IA pour réviser, aide devoirs maths, application fiche révision en ligne, scanner photo devoir, résolution exercice par IA, fiche revision physique chimie,quiz IA gratuit, scanner contrôle maths, étudier avec l'IA, soutien scolaire gratuit application, photomath alternatif français, app resolution problemes maths" />
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://studysnapfr.freebuff.app/" />
+
+  <!-- Robots: index everything, follow all links -->
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1" />
+  <meta name="bingbot" content="index, follow" />
+
+  <!-- Security -->
   <meta name="referrer" content="no-referrer" />
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       GEO — Generative Engine Optimization
+       Balises spécifiques pour les moteurs de recherche IA
+       (Perplexity, ChatGPT Search, Google SGE/AI Overview, You.com)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <meta name="application-name" content="StudySnap" />
+  <meta name="author" content="StudySnap" />
+  <meta name="category" content="Éducation, Technologie, IA" />
+  <meta name="rating" content="general" />
+  <meta name="expires" content="never" />
+  <meta name="revisit-after" content="7 days" />
+  <meta name="language" content="Français" />
+  <meta name="geo.region" content="FR" />
+  <meta name="geo.placename" content="France" />
+  <meta name="target" content="Lycéens, Étudiants, Collégiens, France, Belgique, Suisse, Afrique francophone" />
+
+  <!-- IAB Tech Lab content taxonomy (aide les IA à catégoriser le contenu) -->
+  <meta name="iab-content-label" content="education" />
+  <meta name="iab-content-category" content="IAB19-18" />
+
+  <!-- Google verification (si applicable) -->
+  <!-- <meta name="google-site-verification" content="..." /> -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       OPEN GRAPH — Facebook, WhatsApp, LinkedIn, Discord, Telegram
+       ═══════════════════════════════════════════════════════════════════ -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="StudySnap" />
+  <meta property="og:title" content="StudySnap — Scanner Exercice IA & Fiches de Révision Gratuites" />
+  <meta property="og:description" content="Scanne un exercice avec ton téléphone, obtiens la réponse et l'explication détaillée grâce à l'IA. Crée des fiches de révision personnalisées. Gratuit pour les lycéens et collégiens." />
+  <meta property="og:url" content="https://studysnapfr.freebuff.app/" />
+  <meta property="og:image" content="https://studysnapfr.freebuff.app/og-image.svg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="StudySnap — Application IA pour scanner des exercices et créer des fiches de révision" />
+  <meta property="og:locale" content="fr_FR" />
+  <meta property="og:locale:alternate" content="fr_BE" />
+  <meta property="og:locale:alternate" content="fr_CA" />
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       TWITTER CARD
+       ═══════════════════════════════════════════════════════════════════ -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="StudySnap — Scanner Exercice IA & Fiches de Révision Gratuites" />
+  <meta name="twitter:description" content="Scanne un exercice, obtiens la réponse + explication détaillée. Crée des fiches de révision avec l'IA. Gratuit pour les lycéens et collégiens." />
+  <meta name="twitter:image" content="https://studysnapfr.freebuff.app/og-image.svg" />
+  <meta name="twitter:image:alt" content="StudySnap — IA d'aide aux devoirs pour étudiants" />
+  <meta name="twitter:site" content="@StudySnapFR" />
+  <meta name="twitter:creator" content="@StudySnapFR" />
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       THEME & FAVICON
+       ═══════════════════════════════════════════════════════════════════ -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#4F46E5" />
+  <meta name="msapplication-TileColor" content="#4F46E5" />
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       PERFORMANCE HINTS
+       ═══════════════════════════════════════════════════════════════════ -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://studysnapfr.freebuff.app" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
   <link
     href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap"
     rel="stylesheet"
   />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="theme-color" content="#4F46E5" />
 
-  <!-- Open Graph (WhatsApp, Facebook, LinkedIn, Discord, etc.) -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="StudySnap — Ton devoir. Ton IA. Ta méthode." />
-  <meta property="og:description" content="Scanne un exercice, comprends la méthode et transforme tes cours en fiches de révision personnalisées." />
-  <meta property="og:image" content="/og-image.svg" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:site_name" content="StudySnap" />
-  <meta property="og:locale" content="fr_FR" />
+  <!-- ═══════════════════════════════════════════════════════════════════
+       JSON-LD STRUCTURED DATA — Rich Snippets Google
+       1. WebApplication (app mobile)
+       2. FAQPage (FAQ de la landing)
+       3. Organization (marque StudySnap)
+       4. BreadcrumbList (navigation)
+       5. SoftwareApplication (app store listing)
+       ═══════════════════════════════════════════════════════════════════ -->
 
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="StudySnap — Ton devoir. Ton IA. Ta méthode." />
-  <meta name="twitter:description" content="Scanne un exercice, comprends la méthode et transforme tes cours en fiches de révision personnalisées." />
-  <meta name="twitter:image" content="/og-image.svg" />
+  <!-- 1. WebApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "StudySnap",
+    "alternateName": ["Study Snap", "StudySnap IA", "StudySnap exercices"],
+    "url": "https://studysnapfr.freebuff.app/",
+    "description": "Application web IA qui scanne des exercices scolaires depuis une photo et génère des réponses instantanées, des explications pédagogiques détaillées et des fiches de révision personnalisées. Gratuit pour les lycéens et collégiens.",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web, iOS, Android",
+    "inLanguage": ["fr", "fr-FR"],
+    "isAccessibleForFree": true,
+    "genre": "Éducation, Soutien scolaire, Révision",
+    "educationalLevel": ["Collège", "Lycée", "Terminale", "Seconde", "Première", "Brevet", "Baccalauréat"],
+    "learningResourceType": "Fiche de révision, Exercice corrigé, Quiz interactif",
+    "teaches": ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Histoire-Géographie", "Anglais"],
+    "featureList": [
+      "Scanner d'exercices par photo avec IA",
+      "Réponse rapide instantanée",
+      "Explication pédagogique détaillée étape par étape",
+      "Génération de fiches de révision personnalisées",
+      "Quiz interactifs générés par IA",
+      "Historique des scans et progression",
+      "Multi-matières : maths, physique-chimie, SVT, français"
+    ],
+    "screenshot": "https://studysnapfr.freebuff.app/og-image.svg",
+    "softwareHelp": {
+      "@type": "CreativeWork",
+      "url": "https://studysnapfr.freebuff.app/#faq"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR",
+      "description": "Plan gratuit disponible. Packs de crédits payants à partir de 1,99 €.",
+      "availability": "https://schema.org/OnlineOnly"
+    },
+    "creator": {
+      "@type": "Organization",
+      "name": "StudySnap",
+      "url": "https://studysnapfr.freebuff.app/"
+    }
+  }
+  </script>
 
-  <title>StudySnap — Ton devoir. Ton IA. Ta méthode.</title>
-  <script type="module" crossorigin src="/assets/index-eF-MIhIv.js"></script>
+  <!-- 2. FAQPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Comment scanner un exercice avec StudySnap ?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Prends en photo ton exercice avec l'appareil photo de ton téléphone, importe-la dans StudySnap, et l'IA analyse automatiquement le contenu. Tu reçois en quelques secondes la réponse, l'explication détaillée ou la fiche de révision selon le mode choisi."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "StudySnap est-il gratuit ?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Oui, StudySnap propose un mode démo avec 1 scan gratuit sans compte. La réponse rapide reste toujours gratuite. Les modes explication détaillée et génération de fiches de révision utilisent un système de crédits : des packs à partir de 1,99 € sont disponibles sans abonnement."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Quelles matières sont supportées par StudySnap ?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "StudySnap fonctionne avec toutes les matières scolaires du collège au lycée en France : Mathématiques, Physique-Chimie, SVT, Français, Histoire-Géographie, Anglais, et bien d'autres. L'IA détecte automatiquement la matière et le niveau."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Quelle est la différence entre les modes Réponse rapide, Explication et Révision ?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Réponse rapide : donne la réponse finale et l'essentiel en une ligne, gratuit. Explication : fournit une explication complète avec méthode, étapes numérotées, et erreurs fréquentes à éviter. Révision : génère une mini-leçon, des formules clés, des exercices similaires et un quiz personnalisé."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Que faire si l'explication ne me convient pas ?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Tu peux relancer l'analyse en changeant de mode (Réponse rapide → Explication → Révision). Si l'explication n'est toujours pas claire, ajuste le niveau de détail dans les paramètres de ton profil StudySnap."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Mes photos de devoirs sont-elles stockées ?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Les photos sont stockées temporairement sur des serveurs sécurisés pour permettre l'analyse IA. Elles sont automatiquement supprimées après un délai configurable. StudySnap respecte la vie privée des étudiants et ne partage jamais les images avec des tiers."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <!-- 3. Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "StudySnap",
+    "url": "https://studysnapfr.freebuff.app/",
+    "logo": "https://studysnapfr.freebuff.app/favicon.svg",
+    "description": "StudySnap est une application web mobile-first qui utilise l'intelligence artificielle pour aider les étudiants français du collège au lycée à scanner des exercices, comprendre les méthodes et créer des fiches de révision personnalisées.",
+    "sameAs": [],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "availableLanguage": ["French"],
+      "email": "support@studysnap.fr"
+    },
+    "areaServed": {
+      "@type": "GeoCircle",
+      "description": "France, Belgique, Suisse, Canada, Afrique francophone"
+    }
+  }
+  </script>
+
+  <!-- 4. BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Accueil",
+        "item": "https://studysnapfr.freebuff.app/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Application",
+        "item": "https://studysnapfr.freebuff.app/scanner"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "Tarifs",
+        "item": "https://studysnapfr.freebuff.app/pricing"
+      }
+    ]
+  }
+  </script>
+
+  <!-- 5. HowTo (Comment scanner un exercice) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Comment scanner un exercice scolaire avec StudySnap",
+    "description": "Guide étape par étape pour scanner un exercice de maths, physique-chimie ou autre matière avec l'application StudySnap",
+    "totalTime": "PT30S",
+    "step": [
+      {
+        "@type": "HowToStep",
+        "name": "Prendre en photo l'exercice",
+        "text": "Ouvre StudySnap et importe une photo de ton exercice depuis la galerie de ton téléphone. Assure-toi que le texte soit lisible.",
+        "image": "https://studysnapfr.freebuff.app/og-image.svg"
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Choisir le mode de réponse",
+        "text": "Sélectionne le mode adapté : Réponse rapide pour la solution instantanée, Explication pour la démarche détaillée, ou Révision pour une fiche complète.",
+        "image": "https://studysnapfr.freebuff.app/og-image.svg"
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Obtenir le résultat",
+        "text": "En quelques secondes, StudySnap analyse l'exercice et affiche la réponse complète avec explication. Tu peux basculer entre les modes à tout moment."
+      }
+    ]
+  }
+  </script>
+
+  <script type="module" crossorigin src="/assets/index-NlExM59V.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/react-vendor-B58RY5IH.js">
   <link rel="modulepreload" crossorigin href="/assets/framer-motion-YQy84H2g.js">
   <link rel="modulepreload" crossorigin href="/assets/radix-ui-Bihv5BoG.js">
   <link rel="stylesheet" crossorigin href="/assets/index-BSi6_261.css">
 </head>
-
 
 <body>
   <div id="root"></div>
