@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="50%" stop-color="#16213e"/>
+      <stop offset="100%" stop-color="#0f3460"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#FF6B4A"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.12)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.04)"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Glow orbs -->
+  <circle cx="200" cy="150" r="300" fill="#4F46E5" opacity="0.15"/>
+  <circle cx="1000" cy="500" r="250" fill="#FF6B4A" opacity="0.12"/>
+  <circle cx="600" cy="300" r="400" fill="#4F46E5" opacity="0.06"/>
+
+  <!-- Decorative grid dots -->
+  <g opacity="0.08" fill="white">
+    <circle cx="100" cy="100" r="2"/>
+    <circle cx="200" cy="100" r="2"/>
+    <circle cx="300" cy="100" r="2"/>
+    <circle cx="100" cy="200" r="2"/>
+    <circle cx="200" cy="200" r="2"/>
+    <circle cx="300" cy="200" r="2"/>
+    <circle cx="900" cy="400" r="2"/>
+    <circle cx="1000" cy="400" r="2"/>
+    <circle cx="1100" cy="400" r="2"/>
+    <circle cx="900" cy="500" r="2"/>
+    <circle cx="1000" cy="500" r="2"/>
+    <circle cx="1100" cy="500" r="2"/>
+  </g>
+
+  <!-- Left side: Phone mockup with app screen -->
+  <g transform="translate(80, 60)">
+    <!-- Phone frame -->
+    <rect x="0" y="0" width="260" height="510" rx="32" fill="#1e1e2e" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+    <!-- Screen -->
+    <rect x="10" y="10" width="240" height="490" rx="24" fill="#0d1117"/>
+    <!-- Status bar -->
+    <rect x="10" y="10" width="240" height="40" rx="24" fill="#161b22"/>
+    <!-- App header -->
+    <rect x="20" y="60" width="220" height="36" rx="8" fill="url(#accent)" opacity="0.9"/>
+    <text x="130" y="83" text-anchor="middle" fill="white" font-size="14" font-weight="800" font-family="system-ui,sans-serif">StudySnap</text>
+    <!-- Camera/scan area -->
+    <rect x="30" y="110" width="200" height="160" rx="16" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" stroke-dasharray="8 4"/>
+    <!-- Scan icon -->
+    <g transform="translate(100, 155)" opacity="0.6">
+      <rect x="0" y="0" width="60" height="50" rx="6" fill="none" stroke="url(#accent)" stroke-width="2.5"/>
+      <circle cx="30" cy="25" r="12" fill="none" stroke="url(#accent)" stroke-width="2"/>
+      <circle cx="30" cy="25" r="5" fill="url(#accent)" opacity="0.4"/>
+    </g>
+    <text x="130" y="245" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="11" font-family="system-ui,sans-serif">📷 Scanne un exercice</text>
+    <!-- Result cards -->
+    <rect x="30" y="290" width="200" height="40" rx="10" fill="rgba(79,70,229,0.15)" stroke="rgba(79,70,229,0.3)" stroke-width="1"/>
+    <text x="46" y="314" fill="#a5b4fc" font-size="11" font-weight="600" font-family="system-ui,sans-serif">⚡ Réponse rapide</text>
+    <rect x="30" y="340" width="200" height="40" rx="10" fill="rgba(255,107,74,0.15)" stroke="rgba(255,107,74,0.3)" stroke-width="1"/>
+    <text x="46" y="364" fill="#fca5a5" font-size="11" font-weight="600" font-family="system-ui,sans-serif">👨‍🏫 Explication</text>
+    <rect x="30" y="390" width="200" height="40" rx="10" fill="rgba(52,211,153,0.15)" stroke="rgba(52,211,153,0.3)" stroke-width="1"/>
+    <text x="46" y="414" fill="#6ee7b7" font-size="11" font-weight="600" font-family="system-ui,sans-serif">📚 Révision</text>
+    <!-- Bottom nav -->
+    <rect x="20" y="445" width="220" height="40" rx="12" fill="rgba(255,255,255,0.06)"/>
+    <text x="75" y="470" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10" font-family="system-ui,sans-serif">🏠 Accueil</text>
+    <text x="130" y="470" text-anchor="middle" fill="url(#accent)" font-size="10" font-weight="700" font-family="system-ui,sans-serif">📷 Scanner</text>
+    <text x="185" y="470" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10" font-family="system-ui,sans-serif">📚 Fiches</text>
+  </g>
+
+  <!-- Right side: Text content -->
+  <g transform="translate(440, 80)">
+    <!-- Brand name -->
+    <text x="0" y="50" fill="white" font-size="22" font-weight="400" font-family="system-ui,sans-serif" opacity="0.7">Study</text>
+    <text x="72" y="50" fill="url(#accent)" font-size="22" font-weight="400" font-family="system-ui,sans-serif" opacity="0.7">Snap</text>
+
+    <!-- Main title -->
+    <text x="0" y="120" fill="white" font-size="52" font-weight="900" font-family="system-ui,sans-serif">
+      <tspan>Ton devoir.</tspan>
+    </text>
+    <text x="0" y="180" fill="white" font-size="52" font-weight="900" font-family="system-ui,sans-serif">
+      <tspan>Ton IA.</tspan>
+    </text>
+    <text x="0" y="240" fill="url(#accent)" font-size="52" font-weight="900" font-family="system-ui,sans-serif">
+      <tspan>Ta méthode.</tspan>
+    </text>
+
+    <!-- Subtitle -->
+    <text x="0" y="290" fill="rgba(255,255,255,0.6)" font-size="18" font-weight="400" font-family="system-ui,sans-serif">
+      <tspan x="0">Scanne un exercice, comprends la méthode</tspan>
+    </text>
+    <text x="0" y="315" fill="rgba(255,255,255,0.6)" font-size="18" font-weight="400" font-family="system-ui,sans-serif">
+      <tspan x="0">et transforme tes cours en fiches de révision.</tspan>
+    </text>
+
+    <!-- URL badge -->
+    <rect x="0" y="360" width="340" height="48" rx="24" fill="url(#accent)" opacity="0.9"/>
+    <text x="170" y="390" text-anchor="middle" fill="white" font-size="16" font-weight="700" font-family="system-ui,sans-serif">studysnapfr.freebuff.app</text>
+  </g>
+
+  <!-- Corner accent lines -->
+  <line x1="0" y1="630" x2="300" y2="630" stroke="url(#accent)" stroke-width="4"/>
+  <line x1="900" y1="0" x2="1200" y2="0" stroke="url(#accent)" stroke-width="4"/>
+</svg>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+
+  <!-- Homepage -->
+  <url>
+    <loc>https://studysnapfr.freebuff.app/</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://studysnapfr.freebuff.app/" />
+    <xhtml:link rel="alternate" hreflang="fr-BE" href="https://studysnapfr.freebuff.app/" />
+    <xhtml:link rel="alternate" hreflang="fr-CH" href="https://studysnapfr.freebuff.app/" />
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://studysnapfr.freebuff.app/" />
+    <image:image>
+      <image:loc>https://studysnapfr.freebuff.app/og-image.svg</image:loc>
+      <image:title>StudySnap — Scanner Exercice IA &amp; Fiches de Révision Gratuites</image:title>
+    </image:image>
+  </url>
+
+  <!-- Pricing -->
+  <url>
+    <loc>https://studysnapfr.freebuff.app/pricing</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://studysnapfr.freebuff.app/pricing" />
+  </url>
+
+  <!-- Auth -->
+  <url>
+    <loc>https://studysnapfr.freebuff.app/auth</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://studysnapfr.freebuff.app/auth" />
+  </url>
+
+  <!-- Legal pages -->
+  <url>
+    <loc>https://studysnapfr.freebuff.app/legal/cgu</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://studysnapfr.freebuff.app/legal/cgu" />
+  </url>
+
+  <url>
+    <loc>https://studysnapfr.freebuff.app/legal/privacy</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://studysnapfr.freebuff.app/legal/privacy" />
+  </url>
+
+  <url>
+    <loc>https://studysnapfr.freebuff.app/legal/mentions-legales</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://studysnapfr.freebuff.app/legal/mentions-legales" />
+  </url>
+
+  <url>
+    <loc>https://studysnapfr.freebuff.app/legal/contact</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://studysnapfr.freebuff.app/legal/contact" />
+  </url>
+
+</urlset>
