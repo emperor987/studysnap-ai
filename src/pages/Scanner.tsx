@@ -44,10 +44,10 @@ const MAX_FILES = 6;
 const MAX_SIZE_MB = 10;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-const OCR_STEPS = ["Lecture de la photo…", "Extraction de l'énoncé…"];
-const GENERATE_STEPS = [
-  "Détection de la matière et du niveau…",
-  "Préparation de tes explications…",
+const ANALYSIS_STEPS = [
+  "Lecture de la photo…",
+  "Analyse de l'exercice…",
+  "Préparation de ta réponse…",
 ];
 
 
@@ -155,23 +155,20 @@ export default function Scanner() {
   const usage = useQuery(api.usage.getMyUsage);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const registerUpload = useMutation(api.files.registerUpload);
-  const ocrPhotos = useAction(api.ai.ocrPhotos);
-  const analyzeText = useAction(api.ai.analyzeText);
+  const scanAndAnalyze = useAction(api.ai.scanAndAnalyze);
   const recordScan = useMutation(api.scans.recordScan);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Pendant l'analyse, les étapes défilent selon la phase en cours
-  // (lecture de la photo → génération de la réponse).
+  // Pendant l'analyse, les étapes défilent automatiquement.
   useEffect(() => {
     if (step !== "analyzing") return;
-    const list = phase === "ocr" ? OCR_STEPS : GENERATE_STEPS;
     setAnalysisStep(0);
     const interval = setInterval(
-      () => setAnalysisStep((s) => Math.min(s + 1, list.length - 1)),
-      950,
+      () => setAnalysisStep((s) => Math.min(s + 1, ANALYSIS_STEPS.length - 1)),
+      1200,
     );
     return () => clearInterval(interval);
-  }, [phase, step]);
+  }, [step]);
 
   const addFiles = useCallback((list: FileList | File[]) => {
     const next = Array.from(list).filter((f) => {
@@ -231,52 +228,51 @@ export default function Scanner() {
         }),
       );
 
-      // ---- Étape 1 : lecture de la photo (OCR, modèle rapide) ----
-      const ocr = await ocrPhotos({ storageIds, contentTypes: preparedTypes });
-      if ("unreadable" in ocr) {
-        // Photo illisible : on n'appelle PAS l'étape 2, on demande une
-        // nouvelle photo plus lisible.
-        setError(ocr.note);
+      // ---- Appel combiné OCR + Analyse en UN SEUL appel serveur ----
+      // Élimine le aller-retour client→Convex→client entre les deux étapes.
+      const combinedResult = await scanAndAnalyze({
+        storageIds,
+        contentTypes: preparedTypes,
+        prompt: extraText.trim() || undefined,
+      });
+
+      // Photo illisible
+      if ("unreadable" in combinedResult) {
+        setError(combinedResult.note ?? "Photo illisible");
         setStep("upload");
         return;
       }
 
-      // ---- Étape 2 : génération de la réponse à partir du texte ----
-      // Fiches/cours complets et énoncés longs : on prévient l'utilisateur
-      // que l'analyse peut prendre 1 à 2 minutes.
-      const kind = documentKind(`${ocr.fullText}\n${extraText.trim()}`);
-      setDocKind(kind);
-      setWillBeLong(kind !== "exercise");
-      setPhase("generate");
-      const result = await analyzeText({
-        text: ocr.fullText,
-        prompt: extraText.trim() || undefined,
-      });
-      // Contenu avancé (philosophie, spécialité de lycée…) sur le plan
-      // Gratuit : l'analyse est bloquée côté serveur → panneau paywall.
-      if ("gated" in result) {
+      // Contenu avancé (paywall)
+      if ("gated" in combinedResult) {
         setGated({
-          category: result.category,
-          reason: result.reason,
-          subjectLabel: result.subjectLabel,
-          levelLabel: result.levelLabel,
+          category: combinedResult.category,
+          reason: combinedResult.reason,
+          subjectLabel: combinedResult.subjectLabel,
+          levelLabel: combinedResult.levelLabel,
         });
         setStep("gated");
         return;
       }
+
+      // Résultat normal
+      const result = combinedResult;
+      // Détection du type de document pour l'UI
+      const kind = documentKind(`${extraText.trim() || "exercice"}`);
+      setDocKind(kind);
+      setWillBeLong(kind !== "exercise");
       setAnalysis(result);
-      setFullText(ocr.fullText);
+      setFullText(extraText.trim() || "exercice");
       setStorageIds(storageIds);
       setStorageTypes(preparedTypes);
-      // Auto-save et redirect : pas de sélection de mode, on va
-      // directement sur la page Résultats avec le mode "explain".
+      // Auto-save et redirect
       try {
         const scanId = await recordScan({
           storageIds,
           contentTypes: preparedTypes,
           analysis: result as never,
           mode: "explain",
-          fullText: ocr.fullText || undefined,
+          fullText: extraText.trim() || undefined,
         });
         navigate(`/scanner/result/${scanId}`);
       } catch (saveErr) {
@@ -545,7 +541,7 @@ export default function Scanner() {
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {[
               { icon: Sparkles, text: "Matière, niveau, consigne détectés automatiquement" },
-              { icon: Zap, text: "Analyse en 2 à 4 secondes perçues" },
+              { icon: Zap, text: "Analyse rapide en quelques secondes" },
               { icon: CheckCircle2, text: "3 modes au choix après l'analyse" },
             ].map((b) => (
               <div
@@ -576,13 +572,11 @@ export default function Scanner() {
             className="mt-8 text-xl font-bold"
           >
             {phase === "ocr"
-              ? "Lecture de ton exercice…"
-              : "Génération de la réponse…"}
+              ? "Analyse en cours…"
+              : "Analyse en cours…"}
           </motion.h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {phase === "ocr"
-              ? OCR_STEPS[analysisStep]
-              : GENERATE_STEPS[analysisStep]}
+            {ANALYSIS_STEPS[analysisStep] ?? ANALYSIS_STEPS[ANALYSIS_STEPS.length - 1]}
           </p>
           <div className="mt-6 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/10">
             <motion.div
@@ -593,7 +587,7 @@ export default function Scanner() {
             />
           </div>
           <div className="mt-8 grid grid-cols-2 gap-2 text-left text-xs text-muted-foreground">
-            {(phase === "ocr" ? OCR_STEPS : GENERATE_STEPS).map((s, i) => (
+            {ANALYSIS_STEPS.map((s, i) => (
               <div
                 key={s}
                 className={cn(
