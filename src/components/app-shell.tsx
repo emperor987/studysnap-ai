@@ -7,6 +7,7 @@ import {
   BookOpen,
   Camera,
   FileText,
+  Gift,
   Home,
   History,
   LayoutGrid,
@@ -29,6 +30,7 @@ const NAV = [
   { to: "/revision", label: "Révision", icon: BookOpen },
   { to: "/exercises", label: "Mes exercices", icon: History },
   { to: "/progress", label: "Progression", icon: BarChart3 },
+  { to: "/referral", label: "Parrainage", icon: Gift, emoji: "🎁" },
   { to: "/settings", label: "Paramètres", icon: Settings },
 ];
 
@@ -212,7 +214,11 @@ export function AppShell({
                 )
               }
             >
-              <item.icon className="size-[18px]" />
+              {"emoji" in item && item.emoji ? (
+                <span className="size-[18px] flex items-center justify-center text-base">{item.emoji}</span>
+              ) : (
+                <item.icon className="size-[18px]" />
+              )}
               {item.label}
             </NavLink>
           ))}

@@ -20,8 +20,8 @@ import {
   UserRoundPlus,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   formatDateTimeFr,
   levelLabel,
@@ -43,6 +43,24 @@ export default function Dashboard() {
   const stats = useQuery(api.usage.getMyStats);
   const createDemoScan = useMutation(api.scans.createDemoScan);
   const createDemoSheet = useMutation(api.revisionSheets.createDemoSheet);
+  const applyReferralCode = useMutation(api.referral.applyReferralCode);
+  const [searchParams] = useSearchParams();
+
+  // Apply referral code from URL if present
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref && user && !user.isAnonymous) {
+      applyReferralCode({ code: ref }).then((result) => {
+        if (result?.applied) {
+          toast.success(`Parrainage actifié ! Bienvenue grâce à ${result.referrerName}`);
+        }
+      }).catch(() => {
+        // Silently fail - referral might already be applied or code invalid
+      });
+      // Clean up the URL param
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [searchParams, user, applyReferralCode]);
 
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "Élève";
   const loading =

@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useInView } from "framer-motion";
+import { HeroPhoneWidget, DemoPhoneWidget } from "@/components/PhoneFrame";
 import {
   ArrowRight,
   BookOpen,
@@ -173,148 +174,9 @@ function StickyHeader() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   PHONE MOCKUP — réutilisable dans Hero + Démo
-   ═══════════════════════════════════════════════════════════════════════ */
+/* PhoneMockup et HeroPhoneWidget importés depuis @/components/PhoneFrame */
 
-function PhoneMockup({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mx-auto w-[280px] sm:w-[300px]">
-      <div className="glass-panel rounded-[2.5rem] p-2 shadow-2xl shadow-black/40">
-        {/* Notch */}
-        <div className="mx-auto mb-1 flex justify-center">
-          <div className="h-5 w-24 rounded-full bg-black/80" />
-        </div>
-        <div className="overflow-hidden rounded-[2rem] bg-[#0d1117]">
-          {/* Status bar */}
-          <div className="flex items-center justify-between px-5 py-1.5">
-            <span className="text-[10px] font-semibold text-white/60">9:41</span>
-            <div className="flex items-center gap-1">
-              <div className="h-2.5 w-4 rounded-sm border border-white/30" />
-              <div className="h-2.5 w-3.5 rounded-sm border border-white/30" />
-            </div>
-          </div>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   2. HERO
-   ═══════════════════════════════════════════════════════════════════════ */
-
-const DEMO_MESSAGES = [
-  { text: "Résoudre : 3x² + 6x − 9 = 0", isUser: true },
-  {
-    isUser: false,
-    responses: [
-      { mode: "⚡ Réponse rapide", text: "x = 1 ou x = −3", delay: 0 },
-      { mode: "👨‍🏫 Explication", text: "Divise par 3 : x² + 2x − 3 = 0. Discriminant Δ = 4 + 12 = 16. x = (−2 ± 4) / 2 → x = 1 ou x = −3.", delay: 600 },
-      { mode: "📚 Révision", text: "Formule : x = (−b ± √Δ) / 2a avec Δ = b² − 4ac. 3 exercices similaires générés + quiz de 5 questions.", delay: 1200 },
-    ],
-  },
-];
-
-function HeroPhoneWidget() {
-  const [step, setStep] = useState(0);
-  const [typed, setTyped] = useState("");
-  const [showResponses, setShowResponses] = useState(false);
-
-  // Loop the demo
-  useEffect(() => {
-    const resetTimer = setTimeout(() => {
-      setStep(0);
-      setTyped("");
-      setShowResponses(false);
-    }, 8000);
-    return () => clearTimeout(resetTimer);
-  }, [step]);
-
-  // Typing effect for user message
-  useEffect(() => {
-    if (step !== 0) return;
-    const msg = DEMO_MESSAGES[0]?.text ?? "";
-    let i = 0;
-    const iv = setInterval(() => {
-      i++;
-      setTyped(msg.slice(0, i));
-      if (i >= msg.length) {
-        clearInterval(iv);
-        setTimeout(() => setStep(1), 400);
-      }
-    }, 40);
-    return () => clearInterval(iv);
-  }, [step]);
-
-  // Show responses after step 1
-  useEffect(() => {
-    if (step === 1) {
-      const t = setTimeout(() => setShowResponses(true), 200);
-      return () => clearTimeout(t);
-    }
-  }, [step]);
-
-  return (
-    <PhoneMockup>
-      <div className="flex h-[380px] flex-col px-3 pb-3">
-        {/* App header */}
-        <div className="mb-2 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#FF6B4A] px-3 py-2 text-center text-[11px] font-extrabold text-white">
-          StudySnap
-        </div>
-
-        {/* Chat area */}
-        <div className="flex flex-1 flex-col justify-end gap-2">
-          {/* User message */}
-          {step >= 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              className="self-end rounded-2xl rounded-br-md bg-primary px-3 py-2 text-[11px] font-medium text-white"
-            >
-              {typed}
-              {step === 0 && typed.length < (DEMO_MESSAGES[0]?.text?.length ?? 0) && (
-                <span className="ml-0.5 inline-block h-3 w-0.5 animate-pulse bg-white" />
-              )}
-            </motion.div>
-          )}
-
-          {/* AI responses */}
-          <AnimatePresence>
-            {showResponses && step >= 1 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col gap-2"
-              >
-                {(DEMO_MESSAGES[1]?.responses ?? []).map((r, i) => (
-                  <motion.div
-                    key={r.mode}
-                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ delay: r.delay / 1000, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                    className="rounded-2xl rounded-bl-md border border-white/8 bg-white/5 px-3 py-2"
-                  >
-                    <span className="text-[9px] font-bold text-primary">{r.mode}</span>
-                    <p className="mt-0.5 text-[10px] leading-4 text-white/80">{r.text}</p>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Bottom nav */}
-        <div className="mt-2 flex items-center justify-around rounded-xl border border-white/8 bg-white/5 py-2">
-          <span className="text-[9px] text-white/40">🏠 Accueil</span>
-          <span className="text-[9px] font-bold text-primary">📷 Scanner</span>
-          <span className="text-[9px] text-white/40">📚 Fiches</span>
-        </div>
-      </div>
-    </PhoneMockup>
-  );
-}
+/* HeroPhoneWidget importé depuis @/components/PhoneFrame */
 
 function Hero() {
   const { count, bump } = useSocialCounter();
@@ -546,44 +408,17 @@ function LiveDemo() {
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-2">
           {/* Phone */}
           <Reveal delay={0.1} className="hidden lg:block">
-            <PhoneMockup>
-              <div className="flex h-[380px] flex-col px-3 pb-3">
-                <div className="mb-2 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#FF6B4A] px-3 py-2 text-center text-[11px] font-extrabold text-white">
-                  StudySnap
-                </div>
-                <div className="flex flex-1 flex-col justify-end gap-2">
-                  {/* Exercise shown */}
-                  <div className="self-start rounded-2xl rounded-bl-md border border-white/8 bg-white/5 px-3 py-2 text-[10px] text-white/70">
-                    Résoudre : 2x² + 3x − 7 = 0
-                  </div>
-
-                  {/* Result with crossfade */}
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={mode}
-                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                      className={`self-end rounded-2xl rounded-br-md border bg-gradient-to-br px-3 py-2.5 ${DEMO_CONTENT[mode].color}`}
-                    >
-                      <span className="text-[9px] font-bold text-primary">
-                        {DEMO_CONTENT[mode].emoji} {DEMO_CONTENT[mode].label}
-                      </span>
-                      <p className="mt-1 whitespace-pre-line text-[10px] leading-4 text-white/80">
-                        {DEMO_CONTENT[mode].content.slice(0, 140)}
-                        {DEMO_CONTENT[mode].content.length > 140 && "..."}
-                      </p>
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-                <div className="mt-2 flex items-center justify-around rounded-xl border border-white/8 bg-white/5 py-2">
-                  <span className="text-[9px] text-white/40">🏠 Accueil</span>
-                  <span className="text-[9px] font-bold text-primary">📷 Scanner</span>
-                  <span className="text-[9px] text-white/40">📚 Fiches</span>
-                </div>
-              </div>
-            </PhoneMockup>
+            <DemoPhoneWidget
+              mode={mode}
+              exercise="Résoudre : 2x² + 3x − 7 = 0"
+              content={
+                mode === "quick"
+                  ? { emoji: "⚡", label: "Réponse rapide", labelColor: "text-orange-400", text: DEMO_CONTENT[mode].content }
+                  : mode === "explain"
+                    ? { emoji: "👨‍🏫", label: "Explication", labelColor: "text-blue-400", text: DEMO_CONTENT[mode].content }
+                    : { emoji: "📚", label: "Fiche de révision", labelColor: "text-emerald-400", text: DEMO_CONTENT[mode].content }
+              }
+            />
           </Reveal>
 
           {/* Mode selector + full content */}

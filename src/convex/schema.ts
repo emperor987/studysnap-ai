@@ -87,8 +87,14 @@ const schema = defineSchema(
 
       // --- Crédits ---
       creditBalance: v.number(),
+
+      // --- Parrainage ---
+      referralCode: v.optional(v.string()),
+      referredBy: v.optional(v.id("users")),
+      referralPremiumGrantedDays: v.optional(v.number()),
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
+      .index("by_referral_code", ["referralCode"])
       .index("by_parental_token", ["parentalConsentTokenHash"])
       .index("by_parental_pending", ["parentalConsentStatus"]),
 
@@ -103,6 +109,17 @@ const schema = defineSchema(
       createdAt: v.number(),
     })
       .index("by_user", ["userId", "createdAt"]),
+
+    // Suivi des parrainages : un filleul = une ligne
+    referrals: defineTable({
+      referrerId: v.id("users"), // le parrain
+      referredId: v.id("users"), // le filleul
+      becamePremium: v.optional(v.boolean()), // true si le filleul a pris un pack payant
+      premiumGrantedDays: v.optional(v.number()), // jours offerts au parrain
+      createdAt: v.number(),
+    })
+      .index("by_referrer", ["referrerId", "createdAt"])
+      .index("by_referred", ["referredId"]),
 
     // ─── DEPRECATED: ancien système d'abonnements, conservé temporairement ───
     subscriptions: defineTable({

@@ -51,6 +51,15 @@ export const stripeWebhook = httpAction(async (ctx, request) => {
         amountEur,
         stripeSessionId: sessionId,
       });
+
+      // Accorder le bonus parrainage (+7 jours) si cet utilisateur est un filleul
+      try {
+        await ctx.runMutation(internal.referral.grantReferralBonus, {
+          referredUserId: userId as any,
+        });
+      } catch {
+        // Le bonus parrainage est best-effort : en cas d'erreur, on continue.
+      }
     }
   }
 

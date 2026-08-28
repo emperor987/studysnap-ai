@@ -36,6 +36,7 @@ const LegalMentions = lazy(() => import("./pages/LegalMentions.tsx"));
 const LegalContact = lazy(() => import("./pages/LegalContact.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const ParentalConsentPage = lazy(() => import("./pages/ParentalConsent.tsx"));
+const ReferralPage = lazy(() => import("./pages/Referral.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -329,6 +330,14 @@ function App() {
               element={
                 <RequireAuth>
                   <Progress />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/referral"
+              element={
+                <RequireAuth>
+                  <ReferralPage />
                 </RequireAuth>
               }
             />
