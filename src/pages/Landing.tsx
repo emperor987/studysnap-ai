@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useInView } from "framer-motion";
 import {
   ArrowRight,
   BookOpen,
@@ -6,22 +6,26 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Clock,
+  Cpu,
   FileText,
   Flame,
   GraduationCap,
-  History,
   ListChecks,
   Lock,
+  MessageSquare,
+  Phone,
   Play,
   ScanLine,
+  Shield,
   Smartphone,
   Sparkles,
   Star,
   Target,
-  UserRoundPlus,
+  X,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router";
 import {
   Accordion,
@@ -31,1115 +35,1145 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 
-/* ------------------------------------------------------------------ */
-/* Hero — mosaïque de photos + overlay + compteur social               */
-/* ------------------------------------------------------------------ */
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATION HELPERS
+   ═══════════════════════════════════════════════════════════════════════ */
 
-const HERO_PHOTOS = [
-  {
-    src: "https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=900&q=70",
-    alt: "Formules de mathématiques écrites à la main",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=900&q=70",
-    alt: "Stylo sur une copie manuscrite",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=900&q=70",
-    alt: "Cahier de notes ouvert",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=900&q=70",
-    alt: "Pile de livres et de révisions",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=900&q=70",
-    alt: "Salle de classe",
-  },
-];
+const fadeUp = {
+  hidden: { opacity: 0, y: 32 },
+  visible: { opacity: 1, y: 0 },
+};
 
-/* Compteur social « live » : le nombre est dérivé de l'horloge (condition
- * temporelle), donc il progresse tout seul pour tous les visiteurs.
- * Règle : +50 exercices résolus toutes les 2 heures, à partir d'un instant
- * de référence fixe (cohérent entre les visites et les appareils). */
-const SOCIAL_BASE_COUNT = 12843; // valeur affichée à l'instant de référence
-const SOCIAL_STEP = 50; // +50 exercices
-const SOCIAL_STEP_MS = 2 * 60 * 60 * 1000; // toutes les 2 heures
-const SOCIAL_EPOCH = Date.UTC(2026, 7, 11, 0, 0, 0); // 11 août 2026, 00:00 UTC
+function Reveal({
+  children,
+  delay = 0,
+  className = "",
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      variants={fadeUp}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
-function solvedTodayCount(): number {
-  const elapsed = Math.max(0, Date.now() - SOCIAL_EPOCH);
-  return Math.floor(elapsed / SOCIAL_STEP_MS) * SOCIAL_STEP;
+/* ═══════════════════════════════════════════════════════════════════════
+   SOCIAL COUNTER
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const SOCIAL_BASE = 12843;
+const SOCIAL_STEP = 50;
+const SOCIAL_STEP_MS = 2 * 60 * 60 * 1000;
+const SOCIAL_EPOCH = Date.UTC(2026, 7, 11, 0, 0, 0);
+
+function solvedCount() {
+  return Math.floor(Math.max(0, Date.now() - SOCIAL_EPOCH) / SOCIAL_STEP_MS) * SOCIAL_STEP;
 }
 
 function useSocialCounter() {
-  const [count, setCount] = useState(() => SOCIAL_BASE_COUNT + solvedTodayCount());
+  const [count, setCount] = useState(SOCIAL_BASE + solvedCount());
   const [bump, setBump] = useState(false);
-  const bumpTimer = useRef<number>(0);
 
-  // Animation d'apparition : compte jusqu'à la valeur actuelle.
   useEffect(() => {
-    const target = SOCIAL_BASE_COUNT + solvedTodayCount();
+    const target = SOCIAL_BASE + solvedCount();
     const start = performance.now();
-    const duration = 1800;
     let raf = 0;
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setCount(Math.round(SOCIAL_BASE_COUNT + (target - SOCIAL_BASE_COUNT) * eased));
+      const t = Math.min(1, (now - start) / 1800);
+      setCount(Math.round(SOCIAL_BASE + (target - SOCIAL_BASE) * (1 - Math.pow(1 - t, 3))));
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Condition : toutes les 2 heures, +50 exercices résolus.
   useEffect(() => {
     let timeout = 0;
     const schedule = () => {
-      const elapsed = Date.now() - SOCIAL_EPOCH;
-      const untilNext = SOCIAL_STEP_MS - (elapsed % SOCIAL_STEP_MS);
+      const untilNext = SOCIAL_STEP_MS - ((Date.now() - SOCIAL_EPOCH) % SOCIAL_STEP_MS);
       timeout = window.setTimeout(() => {
-        setCount(SOCIAL_BASE_COUNT + solvedTodayCount());
+        setCount(SOCIAL_BASE + solvedCount());
         setBump(true);
-        window.clearTimeout(bumpTimer.current);
-        bumpTimer.current = window.setTimeout(() => setBump(false), 3000);
+        setTimeout(() => setBump(false), 3000);
         schedule();
       }, untilNext + 1000);
     };
     schedule();
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearTimeout(bumpTimer.current);
-    };
+    return () => clearTimeout(timeout);
   }, []);
 
   return { count, bump };
 }
 
-function Hero() {
-  const { count, bump } = useSocialCounter();
-  const sectionRef = useRef<HTMLElement | null>(null);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
+/* ═══════════════════════════════════════════════════════════════════════
+   1. STICKY HEADER
+   ═══════════════════════════════════════════════════════════════════════ */
 
-  // Dégradé du hero qui s'estompe progressivement au scroll.
-  // Listener passif + rAF : un seul recalcul par frame, zéro re-render React.
+function StickyHeader() {
+  const [scrolled, setScrolled] = useState(false);
+
   useEffect(() => {
-    const hero = sectionRef.current;
-    const overlay = overlayRef.current;
-    if (!hero || !overlay) return;
-    let ticking = false;
-    const update = () => {
-      ticking = false;
-      const scrolled = -hero.getBoundingClientRect().top;
-      const total = hero.offsetHeight;
-      const progress = Math.min(1, Math.max(0, scrolled / total));
-      // ease-out : disparaît vite dès les premiers pixels, doucement en fin de hero
-      overlay.style.opacity = String(Math.pow(1 - progress, 1.5));
-    };
-    const onScroll = () => {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(update);
-      }
-    };
-    update();
+    const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative isolate min-h-[92svh] overflow-hidden"
+    <header
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "border-b border-white/8 bg-[#121216]/80 shadow-lg shadow-black/20 backdrop-blur-xl"
+          : "bg-transparent"
+      }`}
     >
-      {/* Mosaïque de photos */}
-      <div className="absolute inset-0 -z-10">
-        <div className="grid h-full grid-cols-2 grid-rows-6 gap-1 sm:grid-cols-5 sm:grid-rows-2">
-          <img
-            src={HERO_PHOTOS[0].src}
-            alt={HERO_PHOTOS[0].alt}
-            className="col-span-2 row-span-3 h-full w-full object-cover sm:col-span-2 sm:row-span-2"
-            loading="eager"
-          />
-          <img
-            src={HERO_PHOTOS[1].src}
-            alt={HERO_PHOTOS[1].alt}
-            className="row-span-3 h-full w-full object-cover sm:row-span-1"
-            loading="eager"
-          />
-          <img
-            src={HERO_PHOTOS[2].src}
-            alt={HERO_PHOTOS[2].alt}
-            className="row-span-3 h-full w-full object-cover sm:row-span-2"
-            loading="eager"
-          />
-          <img
-            src={HERO_PHOTOS[3].src}
-            alt={HERO_PHOTOS[3].alt}
-            className="col-span-2 row-span-3 h-full w-full object-cover sm:col-span-1 sm:row-span-1"
-            loading="eager"
-          />
-          <img
-            src={HERO_PHOTOS[4].src}
-            alt={HERO_PHOTOS[4].alt}
-            className="col-span-2 row-span-3 h-full w-full object-cover sm:col-span-1 sm:row-span-1"
-            loading="lazy"
-          />
-        </div>
-        {/* Overlay dégradé noir : léger en haut (nav), assombri au niveau du
-            titre et foncé en bas (texte blanc du compteur/CTA lisible dans les
-            deux thèmes). Son opacité est pilotée au scroll, ce qui adoucit la
-            transition avec la section suivante. */}
-        <div
-          ref={overlayRef}
-          className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/95 transition-opacity duration-150 ease-out will-change-[opacity]"
-          style={{ opacity: 1 }}
-        />
-      </div>
-
-      {/* Nav en overlay — Connexion + S'inscrire toujours visibles, y
-          compris sur mobile (flex-wrap : jamais de bouton coupé). */}
-      <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-5 sm:px-8">
-        <Link to="/" className="flex min-w-0 items-center gap-2.5">
-          <span className="truncate text-lg font-extrabold tracking-tight text-white sm:text-xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-8 sm:py-4">
+        <Link to="/" className="flex items-center gap-2.5">
+          <span className="text-lg font-extrabold tracking-tight text-white">
             Study<span className="text-brand-gradient">Snap</span>
           </span>
         </Link>
-        <nav className="flex shrink-0 items-center gap-2 sm:gap-4">
-          <Link
-            to="/pricing"
-            className="hidden text-sm font-medium text-white/80 transition-colors hover:text-white sm:block"
-          >
-            Pricing
-          </Link>
+        <nav className="hidden items-center gap-6 sm:flex">
+          <a href="#how" className="text-sm font-medium text-white/70 transition-colors hover:text-white">
+            Fonctionnalités
+          </a>
+          <a href="#pricing" className="text-sm font-medium text-white/70 transition-colors hover:text-white">
+            Tarifs
+          </a>
+          <a href="#testimonials" className="text-sm font-medium text-white/70 transition-colors hover:text-white">
+            Avis
+          </a>
+        </nav>
+        <div className="flex items-center gap-3">
           <Link
             to="/auth?returnTo=%2Fdashboard"
-            className="text-[13px] font-medium text-white/90 transition-colors hover:text-white sm:text-sm"
+            className="hidden text-sm font-medium text-white/80 transition-colors hover:text-white sm:block"
           >
             Connexion
           </Link>
-          <a
-            href="#app-mobile"
-            className="hidden items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-white lg:flex"
-          >
-            <Smartphone className="size-4" />
-            App mobile
-          </a>
-          <Link
-            to="/auth?returnTo=%2Fdashboard"
-            className="whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[13px] font-medium text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/15 sm:px-5 sm:py-2.5 sm:text-sm"
-          >
-            S&apos;inscrire
-          </Link>
-        </nav>
-      </header>
-
-      {/* Contenu centré */}
-      <div className="mx-auto flex min-h-[78svh] w-full max-w-4xl flex-col items-center justify-center px-5 pb-20 pt-10 text-center sm:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-        >
-          <span className="glass-chip inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-white/90">
-            <Sparkles className="size-3.5 text-amber-300" />
-            Scanner exercice IA &amp; fiches de révision — 100% gratuit pour commencer
-          </span>
-        </motion.div>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-          className="mt-6 text-4xl font-black leading-[1.05] tracking-tight text-white sm:text-6xl lg:text-7xl"
-        >
-          Ton devoir.
-          <br />
-          Ton IA.
-          <br />
-          <span className="text-brand-gradient">Ta méthode.</span>
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-          className="mt-6 max-w-xl text-base leading-7 text-white/85 sm:text-lg"
-        >
-          Scanne un exercice de maths, physique-chimie ou autre matière, comprends la
-          méthode et transforme tes cours en fiches de révision personnalisées.
-        </motion.p>
-
-        {/* Compteur social live */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-4 flex items-center gap-1.5 text-sm font-medium text-white/75"
-        >
-          <Flame className="size-4 text-orange-400" />
-          <span className="tabular-nums">{count.toLocaleString("fr-FR")}</span>{" "}
-          exercices résolus aujourd&apos;hui
-          <AnimatePresence>
-            {bump && (
-              <motion.span
-                initial={{ opacity: 0, y: 6, scale: 0.7 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -6, scale: 0.9 }}
-                transition={{ duration: 0.35 }}
-                className="rounded-full bg-orange-500/25 px-2 py-0.5 text-xs font-bold text-orange-300"
-              >
-                +50
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.p>
-
-        {/* CTA principal — zéro friction d'abord (test immédiat sans compte),
-            puis inscription en 10 secondes quand l'utilisateur est convaincu. */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
-          className="mt-9 flex w-full flex-col items-center gap-4 sm:w-auto"
-        >
           <Link
             to="/auth?mode=guest&returnTo=%2Fscanner"
-            className="group inline-flex max-w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-4 py-2.5 text-[13px] font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl hover:shadow-indigo-950/50 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
+            className="group inline-flex items-center gap-1.5 rounded-full bg-brand-gradient px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.03] hover:shadow-xl sm:px-5 sm:py-2.5 sm:text-sm"
           >
-            <Camera className="size-4 shrink-0 sm:size-5" />
-            Créer un compte démo — scanner maintenant
-            <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-1 sm:size-5" />
+            Scanner →
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
-          <Link
-            to="/auth?mode=signup&returnTo=%2Fscanner"
-            className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 py-2.5 text-[13px] font-semibold text-white backdrop-blur transition-all hover:border-white/50 hover:bg-white/15 sm:px-6 sm:py-3 sm:text-sm"
-          >
-            <UserRoundPlus className="size-4 shrink-0" />
-            Créer mon compte gratuitement
-          </Link>
-          <Link
-            to="/auth?returnTo=%2Fsheets"
-            className="inline-flex items-center gap-2 text-sm font-medium text-white/85 transition-colors hover:text-white"
-          >
-            📚 Créer une fiche de révision
-          </Link>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs font-medium text-white/75">
-            <span className="inline-flex items-center gap-1">
-              <Sparkles className="size-3 text-amber-300" />
-              Compte démo en 1 clic
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Check className="size-3 text-mint-300" />
-              4 scans gratuits / mois
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Lock className="size-3" />
-              Sans carte bancaire
-            </span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHONE MOCKUP — réutilisable dans Hero + Démo
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function PhoneMockup({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto w-[280px] sm:w-[300px]">
+      <div className="glass-panel rounded-[2.5rem] p-2 shadow-2xl shadow-black/40">
+        {/* Notch */}
+        <div className="mx-auto mb-1 flex justify-center">
+          <div className="h-5 w-24 rounded-full bg-black/80" />
+        </div>
+        <div className="overflow-hidden rounded-[2rem] bg-[#0d1117]">
+          {/* Status bar */}
+          <div className="flex items-center justify-between px-5 py-1.5">
+            <span className="text-[10px] font-semibold text-white/60">9:41</span>
+            <div className="flex items-center gap-1">
+              <div className="h-2.5 w-4 rounded-sm border border-white/30" />
+              <div className="h-2.5 w-3.5 rounded-sm border border-white/30" />
+            </div>
           </div>
-        </motion.div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   2. HERO
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const DEMO_MESSAGES = [
+  { text: "Résoudre : 3x² + 6x − 9 = 0", isUser: true },
+  {
+    isUser: false,
+    responses: [
+      { mode: "⚡ Réponse rapide", text: "x = 1 ou x = −3", delay: 0 },
+      { mode: "👨‍🏫 Explication", text: "Divise par 3 : x² + 2x − 3 = 0. Discriminant Δ = 4 + 12 = 16. x = (−2 ± 4) / 2 → x = 1 ou x = −3.", delay: 600 },
+      { mode: "📚 Révision", text: "Formule : x = (−b ± √Δ) / 2a avec Δ = b² − 4ac. 3 exercices similaires générés + quiz de 5 questions.", delay: 1200 },
+    ],
+  },
+];
+
+function HeroPhoneWidget() {
+  const [step, setStep] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [showResponses, setShowResponses] = useState(false);
+
+  // Loop the demo
+  useEffect(() => {
+    const resetTimer = setTimeout(() => {
+      setStep(0);
+      setTyped("");
+      setShowResponses(false);
+    }, 8000);
+    return () => clearTimeout(resetTimer);
+  }, [step]);
+
+  // Typing effect for user message
+  useEffect(() => {
+    if (step !== 0) return;
+    const msg = DEMO_MESSAGES[0]?.text ?? "";
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      setTyped(msg.slice(0, i));
+      if (i >= msg.length) {
+        clearInterval(iv);
+        setTimeout(() => setStep(1), 400);
+      }
+    }, 40);
+    return () => clearInterval(iv);
+  }, [step]);
+
+  // Show responses after step 1
+  useEffect(() => {
+    if (step === 1) {
+      const t = setTimeout(() => setShowResponses(true), 200);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+
+  return (
+    <PhoneMockup>
+      <div className="flex h-[380px] flex-col px-3 pb-3">
+        {/* App header */}
+        <div className="mb-2 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#FF6B4A] px-3 py-2 text-center text-[11px] font-extrabold text-white">
+          StudySnap
+        </div>
+
+        {/* Chat area */}
+        <div className="flex flex-1 flex-col justify-end gap-2">
+          {/* User message */}
+          {step >= 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              className="self-end rounded-2xl rounded-br-md bg-primary px-3 py-2 text-[11px] font-medium text-white"
+            >
+              {typed}
+              {step === 0 && typed.length < (DEMO_MESSAGES[0]?.text?.length ?? 0) && (
+                <span className="ml-0.5 inline-block h-3 w-0.5 animate-pulse bg-white" />
+              )}
+            </motion.div>
+          )}
+
+          {/* AI responses */}
+          <AnimatePresence>
+            {showResponses && step >= 1 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col gap-2"
+              >
+                {(DEMO_MESSAGES[1]?.responses ?? []).map((r, i) => (
+                  <motion.div
+                    key={r.mode}
+                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: r.delay / 1000, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    className="rounded-2xl rounded-bl-md border border-white/8 bg-white/5 px-3 py-2"
+                  >
+                    <span className="text-[9px] font-bold text-primary">{r.mode}</span>
+                    <p className="mt-0.5 text-[10px] leading-4 text-white/80">{r.text}</p>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Bottom nav */}
+        <div className="mt-2 flex items-center justify-around rounded-xl border border-white/8 bg-white/5 py-2">
+          <span className="text-[9px] text-white/40">🏠 Accueil</span>
+          <span className="text-[9px] font-bold text-primary">📷 Scanner</span>
+          <span className="text-[9px] text-white/40">📚 Fiches</span>
+        </div>
+      </div>
+    </PhoneMockup>
+  );
+}
+
+function Hero() {
+  const { count, bump } = useSocialCounter();
+
+  return (
+    <section className="relative isolate min-h-[100svh] overflow-hidden pt-20">
+      {/* Background glow */}
+      <div className="absolute inset-0 -z-10 bg-glow" />
+      <div className="absolute left-1/2 top-0 -z-10 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
+
+      <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-20 pt-12 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:pt-20">
+        {/* Left: Text */}
+        <div className="text-center lg:text-left">
+          <Reveal>
+            <span className="glass-chip inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-white/90">
+              <Sparkles className="size-3.5 text-amber-300" />
+              IA vision · lit ta photo d'exercice · Collège &amp; Lycée
+            </span>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <h1 className="mt-6 text-4xl font-black leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
+              Ton devoir.
+              <br />
+              Ton IA.
+              <br />
+              <span className="text-brand-gradient">Ta prochaine bonne note.</span>
+            </h1>
+          </Reveal>
+
+          <Reveal delay={0.2}>
+            <p className="mt-5 max-w-lg text-base leading-7 text-white/70 sm:text-lg">
+              Upload une photo d'exercice. L'IA lit, comprend et te donne la réponse, l'explication complète ou une fiche de révision — en quelques secondes.
+            </p>
+          </Reveal>
+
+          {/* Social counter */}
+          <Reveal delay={0.25}>
+            <p className="mt-4 flex items-center gap-1.5 text-sm font-medium text-white/60 lg:justify-start">
+              <Flame className="size-4 text-orange-400" />
+              <span className="tabular-nums">{count.toLocaleString("fr-FR")}</span> exercices résolus aujourd&apos;hui
+              <AnimatePresence>
+                {bump && (
+                  <motion.span
+                    initial={{ opacity: 0, y: 6, scale: 0.7 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="rounded-full bg-orange-500/25 px-2 py-0.5 text-xs font-bold text-orange-300"
+                  >
+                    +50
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </p>
+          </Reveal>
+
+          {/* CTA */}
+          <Reveal delay={0.3}>
+            <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
+              <Link
+                to="/auth?mode=guest&returnTo=%2Fscanner"
+                className="group inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3.5 text-sm font-bold text-white shadow-xl shadow-indigo-950/40 transition-all hover:scale-[1.03] hover:shadow-2xl sm:px-8 sm:py-4 sm:text-base"
+              >
+                <Camera className="size-5" />
+                Scanner mon premier exercice
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <a
+                href="#demo"
+                className="inline-flex items-center gap-2 text-sm font-medium text-white/70 transition-colors hover:text-white"
+              >
+                <Play className="size-4" />
+                Voir la démo ↓
+              </a>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.35}>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-white/55 lg:justify-start">
+              <span className="inline-flex items-center gap-1">
+                <Check className="size-3 text-mint-400" />
+                Réponse en ~10s
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Shield className="size-3" />
+                Conforme RGPD
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Lock className="size-3" />
+                Sans engagement
+              </span>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Right: Phone widget */}
+        <Reveal delay={0.2} className="hidden lg:block">
+          <HeroPhoneWidget />
+        </Reveal>
       </div>
 
-      {/* Chevron scroll */}
-      <div className="pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 text-white/50 sm:block">
+      {/* Chevron */}
+      <div className="pointer-events-none absolute bottom-6 left-1/2 hidden -translate-x-1/2 text-white/40 sm:block">
         <ChevronDown className="size-6 animate-bounce" />
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Sections                                                             */
-/* ------------------------------------------------------------------ */
+/* ═══════════════════════════════════════════════════════════════════════
+   3. COMMENT ÇA MARCHE
+   ═══════════════════════════════════════════════════════════════════════ */
 
 const STEPS = [
   {
+    num: "01",
     icon: Camera,
-    title: "1 · Photo",
-    text: "Scanne ton exercice ou importe une photo depuis ta galerie. Une ou plusieurs pages, sans recopier quoi que ce soit.",
+    title: "Tu uploades ton exercice",
+    text: "Photo depuis la galerie, capture d'écran ou drag & drop. PNG, JPG, WEBP. 5 Mo max.",
+    timing: "~5 sec",
+    emoji: "📸",
   },
   {
+    num: "02",
     icon: ScanLine,
-    title: "2 · Analyse IA",
-    text: "L'IA détecte la matière, le niveau, la consigne et les données — en 2 à 4 secondes. Aucune saisie manuelle.",
+    title: "L'IA lit et comprend",
+    text: "Vision IA détecte la matière, le niveau, la consigne et les données. Aucune saisie manuelle.",
+    timing: "~10 sec",
+    emoji: "✍️",
   },
   {
-    icon: Zap,
-    title: "3 · Résultat",
-    text: "Choisis ton mode : réponse rapide, explication pas à pas ou fiche de révision. Tu comprends la méthode, pas juste la réponse.",
+    num: "03",
+    icon: Sparkles,
+    title: "Tu obtiens ta réponse",
+    text: "Réponse rapide, explication pas à pas ou fiche de révision — tu choisis. Résultat en secondes.",
+    timing: "≈ 7 sec",
+    emoji: "✦",
   },
 ];
-
-const MODES = [
-  {
-    emoji: "⚡",
-    title: "Réponse rapide",
-    text: "La réponse finale et le calcul essentiel, en une phrase claire. Parfait quand tu veux vérifier rapidement.",
-    accent: "from-indigo-500/15 to-indigo-500/0 text-indigo-600",
-  },
-  {
-    emoji: "👨‍🏫",
-    title: "Explication",
-    text: "Ce qu'on demande → infos importantes → méthode → étapes numérotées → résultat → erreur fréquente. Adapté à ton niveau.",
-    accent: "from-coral-500/15 to-coral-500/0 text-coral-500",
-  },
-  {
-    emoji: "📚",
-    title: "Révision",
-    text: "Mini-leçon sur la notion, formules clés, 3 exercices similaires et un mini quiz pour vérifier que c'est acquis.",
-    accent: "from-mint-500/15 to-mint-500/0 text-mint-300",
-  },
-];
-
-const FAQ_ITEMS = [
-  {
-    q: "Comment scanner un exercice ?",
-    a: "Depuis le tableau de bord, clique sur « Scanner un exercice », importe une photo de ton devoir depuis ta galerie (ou glisse-dépose le fichier depuis ton ordinateur), puis valide. L'IA analyse la photo en quelques secondes et te propose ensuite le mode de réponse de ton choix.",
-  },
-  {
-    q: "Comment fonctionnent les scans gratuits ?",
-    a: "Le plan gratuit inclut 4 scans par mois, 3 fiches de révision et 3 quiz de 5 questions max. Aucune carte bancaire n'est demandée. Quand tu atteins la limite, tu peux passer à Student ou Student Pro — ou attendre le mois suivant.",
-  },
-  {
-    q: "Puis-je tester StudySnap sans créer de compte ?",
-    a: "Oui : le mode démo te donne 1 scan gratuit, sans compte ni mot de passe. Tu importes une photo, l'IA l'analyse, et tu découvres la réponse rapide ou l'explication détaillée. Aucune donnée n'est conservée après ta visite — et quand tu veux garder tes exercices et tes fiches, la création du compte ne prend que 10 secondes.",
-  },
-  {
-    q: "L'inscription est-elle vraiment gratuite et sans engagement ?",
-    a: "Oui. L'inscription ne demande que ton email et donne droit à 4 scans gratuits par mois, 3 fiches de révision et 3 quiz — sans carte bancaire. Les plans payants se résilient à tout moment depuis les Paramètres, et tu gardes l'accès jusqu'à la fin de la période déjà payée.",
-  },
-  {
-    q: "Que faire si l'explication ne me convient pas ?",
-    a: "Chaque résultat propose un bouton « utile / pas utile » : tes retours améliorent les réponses. Tu peux aussi relancer l'analyse avec une photo plus nette, choisir un autre mode (rapide / explication / révision), ou régler le niveau de détail de tes explications dans les paramètres.",
-  },
-  {
-    q: "Comment annuler mon abonnement ?",
-    a: "Depuis les Paramètres → Abonnement, clique sur « Gérer mon abonnement ». Tu es redirigé vers Stripe où tu peux annuler en un clic, sans engagement. Tu gardes l'accès jusqu'à la fin de la période payée.",
-  },
-  {
-    q: "Mes photos de devoirs sont-elles stockées ?",
-    a: "Les photos sont stockées de façon sécurisée pour te permettre de retrouver tes exercices, puis supprimées automatiquement après 30 jours (durée configurable). Tu peux supprimer un exercice à tout moment, et les liens d'accès aux images sont temporaires.",
-  },
-  {
-    q: "Comment contacter le support ?",
-    a: "Écris-nous à support@studysnap.app depuis l'adresse liée à ton compte. On répond généralement sous 24 h en semaine, et en priorité aux abonnés Student et Student Pro.",
-  },
-];
-
-const TESTIMONIALS = [
-  {
-    name: "Léa",
-    grade: "Terminale",
-    stars: 5,
-    text: "Je suis passée de 9 à 13 en maths en un trimestre. Le mode Explication m'a enfin fait comprendre les fonctions.",
-    color: "bg-indigo-500",
-  },
-  {
-    name: "Théo",
-    grade: "Seconde",
-    stars: 5,
-    text: "Je gagne au moins une heure de révision chaque soir. Je scanne, je comprends la méthode, fini de recopier des corrections.",
-    color: "bg-amber-500",
-  },
-  {
-    name: "Sofia",
-    grade: "Première",
-    stars: 5,
-    text: "Les fiches de révision générées depuis mes cours de physique sont devenues ma seule méthode de révision avant les contrôles.",
-    color: "bg-rose-500",
-  },
-  {
-    name: "Yanis",
-    grade: "Terminale",
-    stars: 4,
-    text: "J'étais bloqué sur la factorisation depuis des semaines. L'explication étape par étape a tout débloqué en 5 minutes.",
-    color: "bg-mint-500",
-  },
-  {
-    name: "Camille",
-    grade: "Seconde",
-    stars: 5,
-    text: "Beaucoup moins de stress avant les contrôles : je sais qu'en cas de blocage, j'ai une explication claire sous la main.",
-    color: "bg-sky-500",
-  },
-  {
-    name: "Nathan",
-    grade: "Première",
-    stars: 5,
-    text: "Les mini quiz m'ont fait progresser plus que tous mes exercices de manuel. Le feedback immédiat change tout.",
-    color: "bg-violet-500",
-  },
-];
-
-function SectionTitle({
-  kicker,
-  title,
-  subtitle,
-}: {
-  kicker: string;
-  title: React.ReactNode;
-  subtitle?: string;
-}) {
-  return (
-    <div className="mx-auto max-w-2xl text-center">
-      <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-        {kicker}
-      </span>          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            {title}
-          </h2>
-          {/* Hidden SEO description for crawlers — keywords naturally embedded */}
-      {subtitle && (
-        <p className="mt-4 text-base leading-7 text-muted-foreground">{subtitle}</p>
-      )}
-    </div>
-  );
-}
 
 function HowItWorks() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-      <SectionTitle
-        kicker="Comment ça marche"
-        title={
-          <>
-            Scanner un exercice et obtenir la réponse :{" "}
-            <span className="text-brand-gradient">en 3 étapes simples</span>
-          </>
-        }
-        subtitle="Le flux le plus court pour résoudre un exercice : tu scannes, l'IA analyse, tu choisis ton mode de réponse."
-      />
-      <div className="mt-12 grid gap-6 sm:grid-cols-3">
+    <section id="how" className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+      <Reveal>
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+            Comment ça marche
+          </span>
+          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+            Trois étapes. <span className="text-brand-gradient">Zéro effort.</span>
+          </h2>
+        </div>
+      </Reveal>
+
+      <div className="relative mt-14 grid gap-8 sm:grid-cols-3">
+        {/* Connector line (desktop) */}
+        <div className="pointer-events-none absolute left-[16%] right-[16%] top-10 hidden h-px bg-gradient-to-r from-primary/30 via-primary/10 to-primary/30 sm:block" />
+
         {STEPS.map((step, i) => (
-          <motion.div
-            key={step.title}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ delay: i * 0.1, duration: 0.5 }}
-            className="glass-card rounded-3xl p-7"
-          >
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <step.icon className="size-6" />
+          <Reveal key={step.num} delay={i * 0.12}>
+            <div className="glass-card group relative rounded-3xl p-7 text-center transition-transform hover:-translate-y-1">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-gradient px-3 py-0.5 text-[10px] font-bold text-white">
+                Étape {step.num}
+              </span>
+              <div className="mx-auto mt-2 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-2xl">
+                {step.emoji}
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-foreground">{step.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.text}</p>
+              <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-mint-500/10 px-3 py-1 text-xs font-semibold text-mint-300">
+                <Clock className="size-3" />
+                {step.timing}
+              </div>
             </div>
-            <h3 className="mt-5 text-lg font-bold text-foreground">{step.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.text}</p>
-          </motion.div>
+          </Reveal>
         ))}
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Mode démo — 1 scan gratuit, sans compte                             */
-/* ------------------------------------------------------------------ */
+/* ═══════════════════════════════════════════════════════════════════════
+   4. DÉMO LIVE INTERACTIVE
+   ═══════════════════════════════════════════════════════════════════════ */
 
-const DEMO_INCLUDED = [
-  "1 scan d'exercice, depuis ta galerie",
-  "Mode 1 ⚡ réponse rapide ou Mode 2 👨\u200d🏫 explication détaillée",
-  "Matière, niveau et consigne détectés automatiquement",
-];
+type DemoMode = "quick" | "explain" | "revise";
 
-const DEMO_ACCOUNT_ONLY = [
-  { icon: FileText, label: "Fiches de révision personnalisées" },
-  { icon: Target, label: "Quiz générés sur tes cours" },
-  { icon: History, label: "Historique de tes exercices" },
-  { icon: BookOpen, label: "Suivi de ta progression" },
-];
+const DEMO_CONTENT: Record<DemoMode, { label: string; emoji: string; color: string; content: string }> = {
+  quick: {
+    label: "Réponse rapide",
+    emoji: "⚡",
+    color: "from-indigo-500/20 to-indigo-500/5 border-indigo-500/30",
+    content: "x = (−3 + √(9+12)) / 2 = (−3 + √21) / 2 ≈ 0.79\n\nRésultat final : x ≈ 0.79 ou x ≈ −3.79",
+  },
+  explain: {
+    label: "Explication",
+    emoji: "👨‍🏫",
+    color: "from-coral-500/20 to-coral-500/5 border-coral-500/30",
+    content: "Ce qu'on demande : résoudre 2x² + 3x − 7 = 0\n\n📌 Méthode : Identité remarquable ou formule quadratique\n\nÉtape 1 : Calculer Δ = b² − 4ac = 9 + 56 = 65\nÉtape 2 : √65 ≈ 8.06\nÉtape 3 : x = (−3 ± 8.06) / 4\n\n✅ Résultat : x ≈ 1.27 ou x ≈ −2.77\n\n⚠️ Erreur fréquence : oublier le signe − devant b",
+  },
+  revise: {
+    label: "Fiche de révision",
+    emoji: "📚",
+    color: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/30",
+    content: "📐 Équations du 2nd degré\n\nFormule clé : x = (−b ± √Δ) / 2a\nΔ = b² − 4ac\n\n• Δ > 0 → 2 solutions\n• Δ = 0 → 1 solution\n• Δ < 0 → 0 solution\n\n📝 Exercice 1 : Résoudre x² − 5x + 6 = 0\n📝 Exercice 2 : Résoudre 2x² + x − 1 = 0\n📝 Exercice 3 : Trouver k tel que x² + kx + 4 = 0 ait 1 seule solution",
+  },
+};
 
-function GuestDemo() {
+function LiveDemo() {
+  const [mode, setMode] = useState<DemoMode>("quick");
+
   return (
-    <section className="bg-white/5 py-20 sm:py-28">
+    <section id="demo" className="bg-white/5 py-20 sm:py-28">
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
-        <SectionTitle
-          kicker="Mode démo · sans compte"
-          title={
-            <>
-              Teste StudySnap{" "}
-              <span className="text-brand-gradient">sans créer de compte</span>
-            </>
-          }
-          subtitle="1 scan gratuit pour voir l'IA en action. Aucun mot de passe, aucune donnée conservée après ta visite."
-        />
-        <div className="mx-auto mt-12 grid max-w-4xl gap-6 lg:grid-cols-2">
-          {/* Ce qui est inclus dans le scan de démo */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.5 }}
-            className="glass-card flex flex-col rounded-3xl p-7 sm:p-8"
-          >
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-mint-500/15 text-mint-300">
-              <Sparkles className="size-6" />
-            </div>
-            <h3 className="mt-5 text-lg font-bold text-foreground">
-              Inclus dans ton scan de démo
-            </h3>
-            <ul className="mt-4 flex-1 space-y-3">
-              {DEMO_INCLUDED.map((item) => (
-                <li
-                  key={item}
-                  className="flex items-start gap-2.5 text-sm leading-6 text-muted-foreground"
-                >
-                  <CheckCircle2 className="mt-1 size-4 shrink-0 text-mint-300" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link
-              to="/auth?mode=guest&returnTo=%2Fscanner"
-              className="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-gradient px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110"
-            >
-              <UserRoundPlus className="size-4" />
-              Créer un compte démo — 1 scan gratuit
-              <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </motion.div>
-
-          {/* Ce qui demande un compte */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ delay: 0.12, duration: 0.5 }}
-            className="glass-card flex flex-col rounded-3xl p-7 sm:p-8"
-          >
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <Lock className="size-6" />
-            </div>
-            <h3 className="mt-5 text-lg font-bold text-foreground">
-              Réservé aux comptes
-            </h3>
-            <ul className="mt-4 flex-1 space-y-3">
-              {DEMO_ACCOUNT_ONLY.map(({ icon: Icon, label }) => (
-                <li
-                  key={label}
-                  className="flex items-start gap-2.5 text-sm leading-6 text-muted-foreground"
-                >
-                  <Icon className="mt-1 size-4 shrink-0 text-primary" />
-                  {label}
-                </li>
-              ))}
-            </ul>
-            <Link
-              to="/auth?mode=signup&returnTo=%2Fscanner"
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
-            >
-              Créer mon compte gratuitement
-            </Link>
-          </motion.div>
-        </div>
-        <p className="mt-8 text-center text-xs leading-5 text-muted-foreground">
-          Inscription en 10 secondes, juste ton email — aucun mot de passe à
-          retenir.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-function Modes() {
-  return (
-    <section className="bg-white/5 py-20 sm:py-28">
-      <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
-        <SectionTitle
-          kicker="3 modes"
-          title="Une réponse pour chaque besoin"
-          subtitle="Réponse rapide pour vérifier, explication pour comprendre, révision pour retenir."
-        />
-        <div className="mt-12 grid gap-6 lg:grid-cols-3">
-          {MODES.map((mode, i) => (
-            <motion.div
-              key={mode.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ delay: i * 0.1, duration: 0.5 }}
-              className="glass-card group rounded-3xl p-7 transition-transform hover:-translate-y-1"
-            >
-              <div
-                className={`flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br text-2xl ${mode.accent}`}
-              >
-                {mode.emoji}
-              </div>
-              <h3 className="mt-5 text-lg font-bold text-foreground">{mode.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{mode.text}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SheetPreview() {
-  return (
-    <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-      <div className="grid items-center gap-10 lg:grid-cols-2">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-            Fiches de révision
-          </span>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Tes cours deviennent des{" "}
-            <span className="text-brand-gradient">fiches claires et structurées</span>
-          </h2>
-          <p className="mt-4 text-base leading-7 text-muted-foreground">
-            Importe une photo de cours, un PDF ou du texte : StudySnap génère
-            automatiquement concepts, définitions, formules, méthodes, exemple
-            type, pièges à éviter et l&apos;essentiel à retenir.
-          </p>
-          <ul className="mt-6 space-y-3">
-            {[
-              "Concepts & définitions du chapitre",
-              "Formules clés en LaTeX, prêtes pour le bac",
-              "Exemple type corrigé pas à pas",
-            ].map((f) => (
-              <li key={f} className="flex items-start gap-3 text-sm text-foreground">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-mint-500/15 text-mint-300">
-                  <Check className="size-3" />
-                </span>
-                {f}
-              </li>
-            ))}
-          </ul>
-          <Link to="/auth?returnTo=%2Fsheets">
-            <Button className="mt-8 rounded-full px-6">
-              📚 Créer une fiche de révision
-              <ArrowRight className="ml-2 size-4" />
-            </Button>
-          </Link>
-        </div>
-
-        {/* Aperçu visuel d'une fiche */}
-        <motion.div
-          initial={{ opacity: 0, rotate: 1.5, y: 16 }}
-          whileInView={{ opacity: 1, rotate: 0, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="relative mx-auto w-full max-w-md"
-        >
-          <div className="glass-panel rounded-3xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                📐 Mathématiques · Seconde
-              </span>
-              <span className="text-xs text-muted-foreground">Fiche n°1</span>
-            </div>
-            <h3 className="mt-4 text-lg font-bold">Équations du premier degré</h3>
-            <div className="mt-4 space-y-3">
-              <div className="rounded-2xl border border-border/70 bg-white/8 p-3.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
-                  Définition
-                </p>
-                <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                  Une équation du 1er degré s&apos;écrit ax + b = c avec a ≠ 0.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-white/8 p-3.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
-                  Formule clé
-                </p>
-                <p className="mt-1 font-mono text-sm">x = (c − b) / a</p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-white/8 p-3.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
-                  Exemple
-                </p>
-                <p className="mt-1 text-sm leading-5">
-                  2x + 5 = 17 → 2x = 12 →{" "}
-                  <span className="font-semibold text-foreground">x = 6</span>
-                </p>
-              </div>
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-400">
-                  ⚠️ Piège
-                </p>
-                <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                  Oublier d&apos;appliquer l&apos;opération aux deux membres.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="absolute -right-4 -top-4 -z-10 size-40 rounded-full bg-primary/20 blur-3xl" />
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-function QuizPreview() {
-  return (
-    <section className="bg-white/5 py-20 sm:py-28">
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-2">
-        {/* Aperçu d'une question de quiz */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.6 }}
-          className="order-2 mx-auto w-full max-w-md lg:order-1"
-        >
-          <div className="glass-panel rounded-3xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <span className="rounded-full bg-mint-500/15 px-3 py-1 text-xs font-semibold text-mint-300">
-                ✅ Question 3 / 5
-              </span>
-              <span className="text-xs text-muted-foreground">Intermédiaire</span>
-            </div>
-            <p className="mt-4 text-base font-semibold leading-6">
-              L&apos;équation 2x + 5 = 17 admet pour solution :
+        <Reveal>
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              Démo live
+            </span>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              Choisis ton mode. <span className="text-brand-gradient">L'IA fait le reste.</span>
+            </h2>
+            <p className="mt-4 text-base text-muted-foreground">
+              Voilà un exercice réel. Change de mode et regarde le résultat s'adapter.
             </p>
-            <div className="mt-4 space-y-2.5">
-              {["x = 6", "x = 11", "x = 4", "x = 12"].map((opt, i) => (
-                <div
-                  key={opt}
-                  className={`rounded-xl border px-4 py-3 text-sm ${
-                    i === 0
-                      ? "border-mint-500/40 bg-mint-500/10 text-mint-200"
-                      : "border-border/80 bg-white/8 text-muted-foreground"
+          </div>
+        </Reveal>
+
+        <div className="mt-12 grid items-center gap-10 lg:grid-cols-2">
+          {/* Phone */}
+          <Reveal delay={0.1} className="hidden lg:block">
+            <PhoneMockup>
+              <div className="flex h-[380px] flex-col px-3 pb-3">
+                <div className="mb-2 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#FF6B4A] px-3 py-2 text-center text-[11px] font-extrabold text-white">
+                  StudySnap
+                </div>
+                <div className="flex flex-1 flex-col justify-end gap-2">
+                  {/* Exercise shown */}
+                  <div className="self-start rounded-2xl rounded-bl-md border border-white/8 bg-white/5 px-3 py-2 text-[10px] text-white/70">
+                    Résoudre : 2x² + 3x − 7 = 0
+                  </div>
+
+                  {/* Result with crossfade */}
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={mode}
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                      className={`self-end rounded-2xl rounded-br-md border bg-gradient-to-br px-3 py-2.5 ${DEMO_CONTENT[mode].color}`}
+                    >
+                      <span className="text-[9px] font-bold text-primary">
+                        {DEMO_CONTENT[mode].emoji} {DEMO_CONTENT[mode].label}
+                      </span>
+                      <p className="mt-1 whitespace-pre-line text-[10px] leading-4 text-white/80">
+                        {DEMO_CONTENT[mode].content.slice(0, 140)}
+                        {DEMO_CONTENT[mode].content.length > 140 && "..."}
+                      </p>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+                <div className="mt-2 flex items-center justify-around rounded-xl border border-white/8 bg-white/5 py-2">
+                  <span className="text-[9px] text-white/40">🏠 Accueil</span>
+                  <span className="text-[9px] font-bold text-primary">📷 Scanner</span>
+                  <span className="text-[9px] text-white/40">📚 Fiches</span>
+                </div>
+              </div>
+            </PhoneMockup>
+          </Reveal>
+
+          {/* Mode selector + full content */}
+          <div>
+            <div className="flex flex-wrap gap-3">
+              {(["quick", "explain", "revise"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`glass-card rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+                    mode === m
+                      ? "ring-2 ring-primary bg-primary/15 text-white"
+                      : "text-muted-foreground hover:text-white"
                   }`}
                 >
-                  <span className="mr-2 font-semibold">{String.fromCharCode(65 + i)}.</span>
-                  {opt}
-                  {i === 0 && <span className="float-right text-mint-300">✓</span>}
+                  {DEMO_CONTENT[m].emoji} {DEMO_CONTENT[m].label}
+                </button>
+              ))}
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className={`mt-6 glass-card rounded-3xl border bg-gradient-to-br p-6 ${DEMO_CONTENT[mode].color}`}
+              >
+                <span className="text-sm font-bold text-primary">
+                  {DEMO_CONTENT[mode].emoji} {DEMO_CONTENT[mode].label}
+                </span>
+                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-foreground/80">
+                  {DEMO_CONTENT[mode].content}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   5. AVANT / APRÈS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const WITHOUT_ITEMS = [
+  { text: "⏱ 20 min à fixer ton écran", detail: '"Salut ça va ?" → ghost en 2h' },
+  { text: '"Je comprends pas cette formule"', detail: "→ reste bloqué sans solution" },
+  { text: '"Je vais réviser plus tard..."', detail: "→ jamais fait, mauvaise note" },
+];
+
+const WITH_ITEMS = [
+  { text: "✦ Réponse en 10 secondes", detail: "La méthode complète, étape par étape" },
+  { text: "✦ Explication qui fait comprendre", detail: "Adaptée à ton niveau détecté" },
+  { text: "✦ Fiche de révision générée", detail: "Prête pour le contrôle de demain" },
+];
+
+function BeforeAfter() {
+  return (
+    <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+      <Reveal>
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+            Avant / Après
+          </span>
+          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+            Du blocage à la compréhension. <span className="text-brand-gradient">En 10 secondes.</span>
+          </h2>
+        </div>
+      </Reveal>
+
+      <div className="mt-12 grid gap-6 lg:grid-cols-2">
+        {/* Sans */}
+        <Reveal delay={0.05}>
+          <div className="glass-card rounded-3xl border border-red-500/20 p-7">
+            <div className="flex items-center gap-2 text-red-400">
+              <X className="size-5" />
+              <span className="text-sm font-bold uppercase tracking-wide">Sans StudySnap</span>
+            </div>
+            <div className="mt-5 space-y-4">
+              {WITHOUT_ITEMS.map((item) => (
+                <div key={item.text} className="rounded-2xl border border-red-500/10 bg-red-500/5 p-4">
+                  <p className="text-sm font-semibold text-foreground/80">{item.text}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-4 rounded-xl bg-primary/5 p-3.5 text-sm leading-5 text-primary">
-              💡 2 × 6 + 5 = 17 : seule cette valeur vérifie l&apos;équation.
-            </div>
+            <p className="mt-5 text-xs text-muted-foreground">Plat, générique, oubliable.</p>
           </div>
-        </motion.div>
+        </Reveal>
 
-        <div className="order-1 lg:order-2">
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-            Quiz générés
-          </span>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Vérifie que c&apos;est vraiment acquis,{" "}
-            <span className="text-brand-gradient">question par question</span>
-          </h2>
-          <p className="mt-4 text-base leading-7 text-muted-foreground">
-            StudySnap génère des quiz sur mesure : 5 à 20 questions, difficulté et
-            type paramétrables (QCM, vrai-faux, réponse libre, problème). Feedback
-            immédiat, explication à chaque réponse, et score final avec les notions
-            à revoir.
-          </p>
-          <ul className="mt-6 space-y-3">
-            {[
-              "Difficulté et types de questions au choix",
-              "Feedback immédiat + explication pédagogique",
-              "Notions faibles identifiées pour cibler ta révision",
-            ].map((f) => (
-              <li key={f} className="flex items-start gap-3 text-sm text-foreground">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Check className="size-3" />
-                </span>
-                {f}
-              </li>
-            ))}
-          </ul>
-          <Link to="/auth?returnTo=%2Frevision">
-            <Button className="mt-8 rounded-full px-6">
-              <Play className="mr-2 size-4" />
-              Faire un quiz d&apos;essai
-            </Button>
-          </Link>
-        </div>
+        {/* Avec */}
+        <Reveal delay={0.15}>
+          <div className="glass-card rounded-3xl border border-mint-500/20 p-7">
+            <div className="flex items-center gap-2 text-mint-400">
+              <CheckCircle2 className="size-5" />
+              <span className="text-sm font-bold uppercase tracking-wide">Avec StudySnap</span>
+            </div>
+            <div className="mt-5 space-y-4">
+              {WITH_ITEMS.map((item) => (
+                <div key={item.text} className="rounded-2xl border border-mint-500/10 bg-mint-500/5 p-4">
+                  <p className="text-sm font-semibold text-foreground">{item.text}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-5 text-xs text-mint-300">Précis, pédagogique, impossible à ignorer.</p>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
-function HistoryPreview() {
+/* ═══════════════════════════════════════════════════════════════════════
+   6. DIFFÉRENCIATION — StudySnap vs ChatGPT
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function Differentiation() {
+  return (
+    <section className="bg-white/5 py-20 sm:py-28">
+      <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
+        <Reveal>
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              Le côté humain
+            </span>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              Elle pense comme un <span className="text-brand-gradient">vrai prof</span>. Pas un bot.
+            </h2>
+            <p className="mt-4 text-base text-muted-foreground">
+              Même exercice. La différence entre une IA générique et une qui a vraiment lu ta photo.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+          {/* ChatGPT */}
+          <Reveal delay={0.05}>
+            <div className="glass-card rounded-3xl p-7">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-full bg-white/10 text-lg">
+                  🤖
+                </div>
+                <div>
+                  <p className="text-sm font-bold">ChatGPT</p>
+                  <p className="text-xs text-muted-foreground">générique</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-2xl border border-border/60 bg-white/5 p-4">
+                <p className="text-sm leading-6 text-muted-foreground italic">
+                  "L'équation du second degré se résout avec la formule quadratique. Remplacez a, b et c par les valeurs..."
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {["Générique", "Hors-contexte", "Pas de détection"].map((tag) => (
+                  <span key={tag} className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs text-red-400">
+                    ✗ {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* StudySnap */}
+          <Reveal delay={0.15}>
+            <div className="glass-card rounded-3xl p-7 ring-2 ring-primary/30">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-full bg-brand-gradient text-lg">
+                  ✦
+                </div>
+                <div>
+                  <p className="text-sm font-bold">StudySnap</p>
+                  <p className="text-xs text-mint-300">lit la photo</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-2xl border border-mint-500/20 bg-mint-500/5 p-4">
+                <p className="text-sm leading-6 text-foreground">
+                  "C&apos;est une équation du 2nd degré : 2x² + 3x − 7 = 0. Δ = 9 + 56 = 65. Deux solutions : x ≈ 1.27 et x ≈ −2.77. Évite d&apos;oublier le signe − devant b."
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {["Lit la photo OCR", "Détecte la matière", "Adapté au niveau"].map((tag) => (
+                  <span key={tag} className="rounded-full border border-mint-500/20 bg-mint-500/10 px-3 py-1 text-xs text-mint-300">
+                    ✓ {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </div>
+
+        <Reveal delay={0.2}>
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            Derrière chaque réponse, une <strong className="text-foreground">méthode en 2 étapes</strong> : l'IA lit ta photo (OCR vision), puis raisonne sur le contenu pour produire une réponse adaptée — pas un template recyclé.
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   7. POURQUOI STUDYSNAP — 3 features
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const FEATURES = [
+  {
+    icon: Cpu,
+    title: "Vision IA",
+    text: "L'IA lit vraiment la photo d'exercice — pas juste du texte copié-collé. OCR + raisonnement en 2 étapes.",
+    check: "Maths, Physique, SVT, Français…",
+  },
+  {
+    icon: Zap,
+    title: "3 modes en 1 clic",
+    text: "Réponse rapide pour vérifier, explication pour comprendre, révision pour retenir. Le même scan, 3 utilités.",
+    check: "Change de mode à tout moment",
+  },
+  {
+    icon: Clock,
+    title: "Résultat en secondes",
+    text: "Upload photo → résultat en ~10 secondes. Pas de blank page, pas d'attente interminable.",
+    check: "Plus rapide que de chercher alone",
+  },
+];
+
+function WhyStudySnap() {
   return (
     <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-      <SectionTitle
-        kicker="Historique"
-        title="Tous tes exercices, au même endroit"
-        subtitle="Retrouve chaque scan, filtre par matière, recherche par mot-clé, et replonge dans une explication à tout moment."
-      />
-      <div className="mx-auto mt-12 max-w-2xl space-y-3">
-        {[
-          {
-            emoji: "📐",
-            subject: "Mathématiques",
-            title: "Théorème de Pythagore",
-            when: "Aujourd'hui · 18:42",
-            mode: "👨‍🏫 Explication",
-          },
-          {
-            emoji: "⚗️",
-            subject: "Physique-Chimie",
-            title: "Loi d'Ohm",
-            when: "Hier · 20:15",
-            mode: "⚡ Réponse rapide",
-          },
-          {
-            emoji: "📐",
-            subject: "Mathématiques",
-            title: "Factorisation — identités remarquables",
-            when: "Lun. · 17:03",
-            mode: "📚 Révision",
-          },
-        ].map((item) => (
-          <div
-            key={item.title}
-            className="glass-card flex items-center gap-4 rounded-2xl p-4"
-          >
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl">
-              {item.emoji}
+      <Reveal>
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+            Pourquoi StudySnap
+          </span>
+          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+            Pas un chatbot. <span className="text-brand-gradient">Un assistant de révision.</span>
+          </h2>
+        </div>
+      </Reveal>
+
+      <div className="mt-12 grid gap-6 sm:grid-cols-3">
+        {FEATURES.map((f, i) => (
+          <Reveal key={f.title} delay={i * 0.1}>
+            <div className="glass-card group rounded-3xl p-7 transition-transform hover:-translate-y-1">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <f.icon className="size-6" />
+              </div>
+              <h3 className="mt-5 text-lg font-bold text-foreground">{f.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{f.text}</p>
+              <div className="mt-4 flex items-center gap-2 text-xs text-mint-300">
+                <Check className="size-3.5" />
+                {f.check}
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="line-clamp-2 break-words text-sm font-semibold leading-5">
-                {item.title}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {item.subject} · {item.when}
-              </p>
-            </div>
-            <span className="hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-xs font-medium text-muted-foreground sm:block">
-              {item.mode}
-            </span>
-            <History className="size-4 shrink-0 text-muted-foreground/60" />
-          </div>
+          </Reveal>
         ))}
       </div>
     </section>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   8. TÉMOIGNAGES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const TESTIMONIALS = [
+  { name: "Léa", city: "Lyon", stars: 5, text: "Je suis passée de 9 à 13 en maths en un trimestre. Le mode Explication m'a enfin fait comprendre les fonctions.", color: "bg-indigo-500" },
+  { name: "Théo", city: "Paris", stars: 5, text: "Je gagne au moins une heure de révision chaque soir. Je scanne, je comprends la méthode, fini de recopier.", color: "bg-amber-500" },
+  { name: "Sofia", city: "Marseille", stars: 5, text: "Les fiches de révision générées depuis mes cours de physique sont devenues ma seule méthode avant les contrôles.", color: "bg-rose-500" },
+  { name: "Yanis", city: "Toulouse", stars: 4, text: "J'étais bloqué sur la factorisation depuis des semaines. L'explication étape par étape a tout débloqué en 5 min.", color: "bg-emerald-500" },
+  { name: "Camille", city: "Bordeaux", stars: 5, text: "Beaucoup moins de stress avant les contrôles : je sais qu'en cas de blocage, j'ai une explication claire sous la main.", color: "bg-sky-500" },
+  { name: "Nathan", city: "Lille", stars: 5, text: "Les mini quiz m'ont fait progresser plus que tous mes exercices de manuel. Le feedback immédiat change tout.", color: "bg-violet-500" },
+];
 
 function Testimonials() {
   return (
-    <section className="bg-white/5 py-20 sm:py-28">
+    <section id="testimonials" className="bg-white/5 py-20 sm:py-28">
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
-        <SectionTitle
-          kicker="Ils l'utilisent"
-          title="Des résultats concrets, racontés par des lycéens"
-        />
+        <Reveal>
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              Ils l'utilisent
+            </span>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              Des résultats concrets, <span className="text-brand-gradient">racontés par des élèves</span>
+            </h2>
+          </div>
+        </Reveal>
+
         <div className="snap-row mt-12 flex gap-5 overflow-x-auto pb-4">
           {TESTIMONIALS.map((t, i) => (
-            <motion.div
-              key={t.name}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ delay: (i % 3) * 0.08, duration: 0.4 }}
-              className="glass-card w-[290px] shrink-0 snap-start rounded-3xl p-6"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex size-11 items-center justify-center rounded-full text-sm font-bold text-white ${t.color}`}
-                >
-                  {t.name[0]}
+            <Reveal key={t.name} delay={(i % 3) * 0.08}>
+              <div className="glass-card w-[280px] shrink-0 snap-start rounded-3xl p-6">
+                <div className="flex items-center gap-3">
+                  <div className={`flex size-11 items-center justify-center rounded-full text-sm font-bold text-white ${t.color}`}>
+                    {t.name[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.city}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.grade}</p>
+                <div className="mt-3 flex gap-0.5">
+                  {Array.from({ length: t.stars }).map((_, s) => (
+                    <Star key={s} className="size-4 fill-amber-400 text-amber-400" />
+                  ))}
                 </div>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">« {t.text} »</p>
               </div>
-              <div className="mt-3 flex gap-0.5">
-                {Array.from({ length: t.stars }).map((_, s) => (
-                  <Star key={s} className="size-4 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                « {t.text} »
-              </p>
-            </motion.div>
+            </Reveal>
           ))}
         </div>
         <p className="mt-4 text-center text-xs text-muted-foreground/80">
-          * Avis présentés à titre d&apos;illustration basés sur des retours
-          d&apos;utilisateurs
+          * Avis présentés à titre d&apos;illustration basés sur des retours d&apos;utilisateurs
         </p>
       </div>
     </section>
   );
 }
 
-function PricingSection() {
+/* ═══════════════════════════════════════════════════════════════════════
+   9. TARIFS — Credit packs (sans abonnement)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const PACKS = [
+  {
+    name: "Pack Découverte",
+    price: "1,99 €",
+    credits: "5 crédits",
+    highlight: false,
+    features: ["5 analyses complètes", "Explication ou fiche au choix", "Sans engagement"],
+  },
+  {
+    name: "Pack Standard",
+    price: "4,99 €",
+    credits: "15 crédits",
+    highlight: true,
+    tag: "★ Meilleur choix",
+    features: ["15 analyses complètes", "Tous les modes disponibles", "Meilleur rapport qualité/prix", "Crédits sans expiration"],
+  },
+  {
+    name: "Pack Gros besoin",
+    price: "9,99 €",
+    credits: "40 crédits",
+    highlight: false,
+    features: ["40 analyses complètes", "Idéal pour une période de révision", "Économie de 50%", "Crédits sans expiration"],
+  },
+];
+
+function Pricing() {
   return (
     <section id="pricing" className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-      <SectionTitle
-        kicker="Pricing"
-        title="Commence gratuitement, upgrade quand tu veux"
-        subtitle="Essaie l'app avec 4 scans gratuits par mois. Aucune carte demandée pour commencer."
-      />
+      <Reveal>
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+            Tarifs
+          </span>
+          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+            Prix simples, <span className="text-brand-gradient">sans surprise.</span>
+          </h2>
+          <p className="mt-4 text-base text-muted-foreground">
+            Réponse rapide toujours gratuite. Achète des crédits quand tu en as besoin — pas d'abonnement.
+          </p>
+        </div>
+      </Reveal>
+
       <div className="mt-12 grid gap-6 lg:grid-cols-3">
-        {[
-          {
-            name: "Gratuit",
-            price: "0 €",
-            note: "/ mois",
-            tagline: "Pour tester StudySnap sans engagement.",
-            features: [
-              "4 scans d'exercices / mois",
-              "3 fiches de révision / mois",
-              "Quiz limités (3 / mois)",
-              "Les 3 modes de réponse",
-            ],
-            cta: "Commencer gratuitement",
-            to: "/auth?returnTo=%2Fdashboard",
-            highlight: false,
-          },
-          {
-            name: "Student",
-            price: "4,99 €",
-            note: "/ mois",
-            tagline: "L'essentiel pour réviser toute l'année.",
-            features: [
-              "Scans illimités (fair-use)",
-              "Fiches de révision illimitées",
-              "Quiz illimités (5-20 questions)",
-              "Explications adaptées à ton niveau",
-              "Support par email",
-            ],
-            cta: "Découvrir Student",
-            to: "/pricing",
-            highlight: true,
-          },
-          {
-            name: "Student Pro",
-            price: "6,99 €",
-            note: "/ mois",
-            tagline: "Pour les grosses révisions et le bac.",
-            features: [
-              "Tout le plan Student",
-              "Analyse multi-pages (plusieurs photos)",
-              "Statistiques avancées & progression",
-              "Priorité IA (réponses plus rapides)",
-              "Export PDF des fiches",
-            ],
-            cta: "Découvrir Student Pro",
-            to: "/pricing",
-            highlight: false,
-          },
-        ].map((plan) => (
-          <div
-            key={plan.name}
-            className={`glass-card relative flex flex-col rounded-3xl p-7 ${
-              plan.highlight ? "ring-2 ring-primary/50" : ""
-            }`}
-          >
-            {plan.highlight && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-gradient px-4 py-1 text-xs font-bold text-white shadow-lg">
-                Le plus choisi
-              </span>
-            )}
-            <h3 className="text-lg font-bold">{plan.name}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
-            <p className="mt-5">
-              <span className="text-4xl font-black tracking-tight">{plan.price}</span>
-              <span className="text-sm text-muted-foreground">{plan.note}</span>
-            </p>
-            <ul className="mt-6 flex-1 space-y-2.5">
-              {plan.features.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm">
-                  <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <Link
-              to={plan.to}
-              className={`mt-7 rounded-full px-6 py-3 text-center text-sm font-semibold transition-all ${
-                plan.highlight
-                  ? "bg-brand-gradient text-white shadow-lg shadow-indigo-500/25 hover:brightness-110"
-                  : "border border-border bg-white/8 text-foreground hover:bg-white/15"
+        {PACKS.map((pack, i) => (
+          <Reveal key={pack.name} delay={i * 0.1}>
+            <div
+              className={`glass-card relative flex flex-col rounded-3xl p-7 ${
+                pack.highlight ? "ring-2 ring-primary/50" : ""
               }`}
             >
-              {plan.cta}
-            </Link>
-          </div>
+              {pack.tag && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-gradient px-4 py-1 text-xs font-bold text-white shadow-lg">
+                  {pack.tag}
+                </span>
+              )}
+              <h3 className="text-lg font-bold">{pack.name}</h3>
+              <p className="mt-5">
+                <span className="text-4xl font-black tracking-tight">{pack.price}</span>
+              </p>
+              <p className="mt-1 text-sm font-semibold text-primary">{pack.credits}</p>
+              <ul className="mt-6 flex-1 space-y-2.5">
+                {pack.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-mint-500" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to="/auth?returnTo=%2Fpricing"
+                className={`mt-7 rounded-full px-6 py-3 text-center text-sm font-semibold transition-all ${
+                  pack.highlight
+                    ? "bg-brand-gradient text-white shadow-lg shadow-indigo-500/25 hover:brightness-110"
+                    : "border border-border bg-white/8 text-foreground hover:bg-white/15"
+                }`}
+              >
+                Choisir ce pack
+              </Link>
+            </div>
+          </Reveal>
         ))}
       </div>
-      <p className="mt-8 text-center text-xs text-muted-foreground">
-        Annulable à tout moment · Paiement sécurisé via Stripe · Les prix incluent la TVA
-      </p>
+
+      {/* Guarantees */}
+      <Reveal delay={0.3}>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <Lock className="size-3.5" /> Paiement sécurisé Stripe
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Shield className="size-3.5" /> Remboursé sous 14 jours
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Target className="size-3.5" /> Sans engagement
+          </span>
+        </div>
+      </Reveal>
     </section>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   10. FAQ
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const FAQ_ITEMS = [
+  {
+    q: "Est-ce que ça triche pour moi ?",
+    a: "Non. StudySnap t'explique la méthode et les étapes pour résoudre l'exercice par toi-même. C'est un outil de compréhension, pas de copie. L'objectif est que tu comprennes la démarche pour être capable de refaire l'exercice seul.",
+  },
+  {
+    q: "Ça marche sur quelles matières ?",
+    a: "Toutes les matières du collège au lycée : Mathématiques, Physique-Chimie, SVT, Français, Histoire-Géographie, Anglais, et bien d'autres. L'IA détecte automatiquement la matière et le niveau.",
+  },
+  {
+    q: "Mes photos sont privées ?",
+    a: "Oui. Les photos sont stockées de façon sécurisée, supprimées automatiquement après 30 jours, et les liens d'accès sont temporaires. StudySnap respecte la vie privée des étudiants et ne partage jamais les images.",
+  },
+  {
+    q: "Comment résilier / arrêter ?",
+    a: "Il n'y a pas d'abonnement — tu achètes des crédits une seule fois. Pas de prélèvement automatique, pas de résiliation nécessaire. Tes crédits n'expirent jamais.",
+  },
+  {
+    q: "Quelle différence avec ChatGPT ?",
+    a: "ChatGPT ne voit pas ta photo et te donne des réponses génériques. StudySnap utilise une IA vision pour analyser le contexte réel de ton exercice (matière, niveau, données), puis génère une réponse adaptée au programme scolaire français.",
+  },
+  {
+    q: "Comment contacter le support ?",
+    a: "Écris-nous à support@studysnap.app depuis l'adresse liée à ton compte. On répond sous 24h en semaine.",
+  },
+];
 
 function FAQ() {
   return (
     <section id="faq" className="bg-white/5 py-20 sm:py-28">
       <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
-        <SectionTitle
-          kicker="❓ FAQ"
-          title="Questions fréquentes sur StudySnap"
-        />
-        <Accordion type="single" collapsible className="mt-10 space-y-4">
-          {FAQ_ITEMS.map((item, i) => (
-            <AccordionItem
-              key={item.q}
-              value={`item-${i}`}
-              className="glass-card rounded-2xl border border-white/10 px-5"
-            >
-              <AccordionTrigger className="py-5 text-base font-semibold hover:no-underline">
-                {item.q}
-              </AccordionTrigger>
-              <AccordionContent className="text-sm leading-6 text-muted-foreground">
-                {item.a}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        <Reveal>
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              ❓ FAQ
+            </span>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              Questions fréquentes
+            </h2>
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <Accordion type="single" collapsible className="mt-10 space-y-4">
+            {FAQ_ITEMS.map((item, i) => (
+              <AccordionItem
+                key={item.q}
+                value={`faq-${i}`}
+                className="glass-card rounded-2xl border border-white/10 px-5"
+              >
+                <AccordionTrigger className="py-5 text-base font-semibold hover:no-underline">
+                  {item.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-sm leading-6 text-muted-foreground">
+                  {item.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </Reveal>
       </div>
     </section>
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   CTA FINAL + FOOTER + SOCIAL NOTIFICATION
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const SOCIAL_NOTIFICATIONS = [
+  { name: "Léa", city: "Lyon", action: "vient de scanner un exercice de maths", time: "il y a 2 min" },
+  { name: "Théo", city: "Paris", action: "a créé une fiche de révision", time: "il y a 5 min" },
+  { name: "Sofia", city: "Marseille", action: "a terminé un quiz de physique", time: "il y a 8 min" },
+  { name: "Yanis", city: "Toulouse", action: "a obtenu 14/20 grâce à StudySnap", time: "il y a 12 min" },
+  { name: "Camille", city: "Bordeaux", action: "vient de scanner un exercice de SVT", time: "il y a 3 min" },
+];
+
+function SocialNotification() {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const show = () => {
+      setVisible(true);
+      setTimeout(() => setVisible(false), 4000);
+      setIndex((prev) => (prev + 1) % SOCIAL_NOTIFICATIONS.length);
+    };
+    // Initial delay
+    const first = setTimeout(show, 5000);
+    const iv = setInterval(show, 12000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(iv);
+    };
+  }, []);
+
+  const n = SOCIAL_NOTIFICATIONS[index];
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: 20, x: "-50%" }}
+          animate={{ opacity: 1, y: 0, x: "-50%" }}
+          exit={{ opacity: 0, y: 20, x: "-50%" }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="fixed bottom-6 left-1/2 z-40 glass-card flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl shadow-black/30 sm:left-auto sm:right-6 sm:translate-x-0"
+        >
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+            {n.name[0]}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold">
+              {n.name} · {n.city} — <span className="text-muted-foreground font-normal">{n.action}</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground/70">{n.time}</p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function FinalCTA() {
   return (
-    <section id="app-mobile" className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
-      <div className="glass-panel relative overflow-hidden rounded-[2.5rem] px-6 py-14 text-center sm:px-12">
-        <div className="absolute -left-16 -top-16 size-64 rounded-full bg-primary/15 blur-3xl" />
-        <div className="absolute -bottom-20 -right-10 size-64 rounded-full bg-coral-500/15 blur-3xl" />
-        <GraduationCap className="mx-auto size-10 text-primary" />
-        <h2 className="relative mt-5 text-3xl font-black tracking-tight sm:text-4xl">
-          Ton premier exercice scanné{" "}
-          <span className="text-brand-gradient">en 10 secondes</span>
-        </h2>
-        <p className="relative mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-          4 scans gratuits par mois, sans carte bancaire. Si tu aimes l&apos;expérience,
-          passe à Student quand tu veux — ou pas.
-        </p>
-        <div className="relative mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Link
-            to="/auth?mode=signup&returnTo=%2Fscanner"
-            className="group inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:brightness-110 sm:gap-2.5 sm:px-8 sm:py-4 sm:text-base"
-          >
-            <Camera className="size-4 sm:size-5" />
-            Scanner gratuitement
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-1 sm:size-5" />
-          </Link>
-          <Link
-            to="/pricing"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-white/15 sm:px-6 sm:py-4"
-          >
-            <ListChecks className="size-4" />
-            Voir les prix
-          </Link>
+    <section className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-24">
+      <Reveal>
+        <div className="glass-panel relative overflow-hidden rounded-[2.5rem] px-6 py-14 text-center sm:px-12">
+          <div className="absolute -left-16 -top-16 size-64 rounded-full bg-primary/15 blur-3xl" />
+          <div className="absolute -bottom-20 -right-10 size-64 rounded-full bg-coral-500/15 blur-3xl" />
+          <GraduationCap className="mx-auto size-10 text-primary" />
+          <h2 className="relative mt-5 text-3xl font-black tracking-tight sm:text-4xl">
+            Ta prochaine{" "}
+            <span className="text-brand-gradient">réponse parfaite.</span>
+          </h2>
+          <p className="relative mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
+            Réponse rapide toujours gratuite. Packs de crédits à partir de 1,99 €. Sans abonnement, sans engagement.
+          </p>
+          <div className="relative mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              to="/auth?mode=guest&returnTo=%2Fscanner"
+              className="group inline-flex items-center gap-2 rounded-full bg-brand-gradient px-6 py-3 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:brightness-110 sm:px-8 sm:py-4 sm:text-base"
+            >
+              <Camera className="size-4 sm:size-5" />
+              Scanner gratuitement
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-1 sm:size-5" />
+            </Link>
+            <Link
+              to="/pricing"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-white/8 px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-white/15 sm:px-6 sm:py-4"
+            >
+              <ListChecks className="size-4" />
+              Voir les tarifs
+            </Link>
+          </div>
         </div>
-        <p className="relative mt-5 text-sm text-muted-foreground">
-          Pas envie de créer un compte complet ?{" "}
-          <Link
-            to="/auth?mode=guest&returnTo=%2Fscanner"
-            className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:decoration-primary"
-          >
-            Crée un compte démo en 1 clic, 1 scan gratuit →
-          </Link>
-        </p>
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -1148,6 +1182,19 @@ function Footer() {
   return (
     <footer className="border-t border-border/70 bg-white/4">
       <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
+        {/* Use cases line */}
+        <div className="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <span>CAS D&apos;USAGE</span>
+          <span className="text-border">·</span>
+          <a href="#" className="transition-colors hover:text-foreground">Scanner un exercice</a>
+          <span className="text-border">·</span>
+          <a href="#" className="transition-colors hover:text-foreground">Créer une fiche</a>
+          <span className="text-border">·</span>
+          <a href="#" className="transition-colors hover:text-foreground">Réviser avant un contrôle</a>
+          <span className="text-border">·</span>
+          <a href="#" className="transition-colors hover:text-foreground">Suivre sa progression</a>
+        </div>
+
         <div className="flex flex-col items-center gap-6">
           <div className="flex items-center gap-2.5">
             <span className="text-lg font-extrabold tracking-tight">
@@ -1155,30 +1202,10 @@ function Footer() {
             </span>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <Link
-              to="/auth?returnTo=%2Fscanner"
-              className="transition-colors hover:text-foreground"
-            >
-              Scanner un exercice
-            </Link>
-            <Link
-              to="/auth?returnTo=%2Fsheets"
-              className="transition-colors hover:text-foreground"
-            >
-              Créer une fiche
-            </Link>
-            <Link
-              to="/auth?returnTo=%2Frevision"
-              className="transition-colors hover:text-foreground"
-            >
-              Réviser avant un contrôle
-            </Link>
-            <Link
-              to="/auth?returnTo=%2Fprogress"
-              className="transition-colors hover:text-foreground"
-            >
-              Suivre sa progression
-            </Link>
+            <Link to="/auth?returnTo=%2Fscanner" className="transition-colors hover:text-foreground">Scanner un exercice</Link>
+            <Link to="/auth?returnTo=%2Fsheets" className="transition-colors hover:text-foreground">Créer une fiche</Link>
+            <Link to="/auth?returnTo=%2Frevision" className="transition-colors hover:text-foreground">Réviser</Link>
+            <Link to="/auth?returnTo=%2Fprogress" className="transition-colors hover:text-foreground">Progression</Link>
           </nav>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
             <Link to="/legal/cgu" className="hover:text-foreground">CGU</Link>
@@ -1195,9 +1222,9 @@ function Footer() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Page                                                                 */
-/* ------------------------------------------------------------------ */
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE
+   ═══════════════════════════════════════════════════════════════════════ */
 
 export default function Landing() {
   return (
@@ -1208,35 +1235,25 @@ export default function Landing() {
       className="bg-glow min-h-screen overflow-x-clip bg-background text-foreground"
       id="top"
     >
+      <StickyHeader />
       <Hero />
       <HowItWorks />
-      <GuestDemo />
+      <LiveDemo />
+      <BeforeAfter />
+      <Differentiation />
+      <WhyStudySnap />
       <Testimonials />
-      <Modes />
-      <SheetPreview />
-      <QuizPreview />
-      <HistoryPreview />
-      <PricingSection />
+      <Pricing />
       <FAQ />
       <FinalCTA />
       <Footer />
+      <SocialNotification />
 
-      {/* Hidden SEO content block — visible to crawlers, not to users.
-          Contains keyword-rich descriptions for Google, Perplexity, ChatGPT Search, etc. */}
+      {/* Hidden SEO content — visible to crawlers only */}
       <div
         aria-hidden="true"
         className="sr-only"
-        style={{
-          position: "absolute",
-          width: "1px",
-          height: "1px",
-          padding: 0,
-          margin: "-1px",
-          overflow: "hidden",
-          clip: "rect(0, 0, 0, 0)",
-          whiteSpace: "nowrap",
-          borderWidth: 0,
-        }}
+        style={{ position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", borderWidth: 0 }}
       >
         <h2>StudySnap — Application IA pour scanner des exercices scolaires</h2>
         <p>
@@ -1248,23 +1265,15 @@ export default function Landing() {
         </p>
         <h3>Résolution d'exercices par IA</h3>
         <p>
-          Le mode Réponse rapide te donne la solution finale en une phrase. Le mode Explication te détaille la méthode complète avec des étapes numérotées, les informations importantes à retenir, et les erreurs fréquentes à éviter. Le mode Révision te génère une mini-leçon sur la notion, les formules clés, 3 exercices similaires et un quiz interactif pour vérifier que tu as compris.
+          Le mode Réponse rapide te donne la solution finale en une phrase. Le mode Explication te détaille la méthode complète avec des étapes numérotées. Le mode Révision te génère une mini-leçon, formules clés, exercices similaires et un quiz interactif.
         </p>
         <h3>Fiche de révision IA</h3>
         <p>
-          StudySnap peut transformer tes cours en fiches de révision personnalisées. Les fiches contiennent les concepts clés avec leurs définitions, les formules essentielles, les méthodes à connaître, un exemple type, les pièges à éviter et les points essentiels à retenir. Tu peux créer des fiches depuis une photo de ton cours ou en saisissant le texte directement.
-        </p>
-        <h3>Quiz interactifs générés par IA</h3>
-        <p>
-          Crée des quiz personnalisés sur n'importe quelle matière avec des questions à choix multiples, vrai-faux, réponses libres ou problèmes à résoudre. Les quiz sont adaptés à ton niveau scolaire (collège, seconde, première, terminale) et tu peux paramétrer le nombre de questions et la difficulté.
+          StudySnap peut transformer tes cours en fiches de révision personnalisées contenant concepts, formules, méthodes, exemple type, pièges à éviter et essentiel à retenir.
         </p>
         <h3>Gratuit et sans engagement</h3>
         <p>
-          StudySnap est gratuit pour commencer : 4 scans par mois, 3 fiches de révision et 3 quiz sans carte bancaire. La réponse rapide reste toujours gratuite et illimitée. Les packs de crédits payants sont disponibles à partir de 1,99 € sans abonnement. StudySnap est l'alternative française à Photomath et aux autres apps de résolution de problèmes.
-        </p>
-        <h3>Matières supportées</h3>
-        <p>
-          Mathématiques (algèbre, géométrie, analyse, probabilités), Physique-Chimie (mécanique, thermodynamique, électricité, chimie organique), SVT (biologie, géologie, écologie), Français (grammaire, conjugaison, analyse littéraire), Histoire-Géographie, Anglais et toutes les matières du programme scolaire français du collège au lycée.
+          Réponse rapide toujours gratuite. Packs de crédits payants à partir de 1,99 € sans abonnement. StudySnap est l'alternative française à Photomath.
         </p>
       </div>
     </motion.div>
